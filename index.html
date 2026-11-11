@@ -4,11 +4,40 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#176c44">
-  <meta name="description" content="Stock Inspection LIFF interface demo using sample data only">
-  <title>Stock Inspection · Demo</title>
+  <meta name="description" content="Stock Inspection LIFF demo - sample data only">
+  <title>Stock Inspection · LIFF Demo</title>
   <style>
-    :root{font-family:system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;color:#163528;background:#f4f7f4}*{box-sizing:border-box}body{margin:0}button,input{font:inherit}button{cursor:pointer}.wrap{max-width:520px;margin:auto;min-height:100dvh;padding-bottom:91px}.hero{background:linear-gradient(145deg,#105736,#198357);color:white;padding:32px 23px 30px;border-radius:0 0 30px 30px}.eyebrow{font-size:11px;letter-spacing:.14em;font-weight:750;color:#bdebd4}.hero h1{margin:10px 0 8px;font-size:29px;letter-spacing:-.04em}.hero p{font-size:13px;opacity:.86;margin:0;line-height:1.6}.chip{display:inline-block;border:1px solid #8ed4ad;color:#ddffea;padding:7px 12px;border-radius:99px;font-size:11px;margin-top:18px}.content{padding:18px 17px}.card{border:1px solid #e3ebe3;border-radius:20px;background:#fff;padding:18px;margin-bottom:14px;box-shadow:0 8px 24px #0a3c2110}.headline{display:flex;justify-content:space-between;gap:12px;align-items:center}.headline h2{font-size:17px;margin:0}.muted{font-size:12px;color:#6c8274;line-height:1.5}.tag{font-size:11px;background:#e8f5ec;color:#18734b;border-radius:50px;padding:7px 10px;white-space:nowrap}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:14px 0}.metric{background:#f4f8f5;border-radius:14px;padding:14px 6px;text-align:center}.metric strong{display:block;font-size:25px}.metric span{font-size:11px;color:#6b8071}.progress{height:9px;background:#e9f0eb;border-radius:9px;overflow:hidden;margin:10px 0}.progress div{height:100%;background:#218a5b;width:35%;border-radius:9px}.job{display:flex;gap:12px;align-items:center}.job-icon{border-radius:14px;background:#eaf5ed;padding:12px;font-size:25px}.job h3{font-size:15px;margin:0 0 5px}.job p{font-size:12px;color:#718277;margin:0}.btn{border:0;background:#19804f;color:#fff;padding:14px 16px;border-radius:13px;font-weight:700;width:100%;margin-top:13px}.btn.secondary{background:#eff6f1;color:#176a42}.btn.danger{background:#bc4d49}.tabs{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e2eae4;display:flex;justify-content:center;padding:10px 8px max(10px,env(safe-area-inset-bottom))}.tabinner{width:min(520px,100%);display:flex}.tabs button{flex:1;background:none;border:0;color:#708578;font-size:11px;padding:7px}.tabs button.active{color:#167648;font-weight:800}.tabs b{display:block;font-size:22px;margin-bottom:4px}section.view{display:none}section.view.active{display:block}label{display:block;font-size:12px;font-weight:700;margin:14px 0 6px}input{width:100%;padding:13px;border:1px solid #dce9dd;border-radius:12px;outline:none}input:focus{border-color:#19804f}.disclaimer{color:#849589;font-size:11px;text-align:center;padding:6px 20px}.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}.row{display:flex;justify-content:space-between;gap:12px;border-top:1px solid #edf2ee;padding:12px 0;font-size:13px}.row:first-of-type{border:0}.badge{font-size:11px;padding:4px 9px;background:#e8f6ec;color:#147847;border-radius:99px}.brand{font-weight:800;letter-spacing:.05em}
+    :root{font-family:system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;color:#163528;background:#f4f7f4}
+    *{box-sizing:border-box}body{margin:0}button,input{font:inherit}button{cursor:pointer}
+    .wrap{max-width:520px;margin:auto;min-height:100dvh;padding-bottom:91px}
+    .hero{background:linear-gradient(145deg,#105736,#198357);color:white;padding:32px 23px 30px;border-radius:0 0 30px 30px}
+    .eyebrow{font-size:11px;letter-spacing:.14em;font-weight:750;color:#bdebd4}
+    .hero h1{margin:10px 0 8px;font-size:29px;letter-spacing:-.04em}
+    .hero p{font-size:13px;opacity:.86;margin:0;line-height:1.6}
+    .chip{display:inline-block;border:1px solid #8ed4ad;color:#ddffea;padding:7px 12px;border-radius:99px;font-size:11px;margin-top:18px}
+    .content{padding:18px 17px}.card{border:1px solid #e3ebe3;border-radius:20px;background:#fff;padding:18px;margin-bottom:14px;box-shadow:0 8px 24px #0a3c2110}
+    .headline{display:flex;justify-content:space-between;gap:12px;align-items:center}.headline h2{font-size:17px;margin:0}
+    .muted{font-size:12px;color:#6c8274;line-height:1.5}.tag{font-size:11px;background:#e8f5ec;color:#18734b;border-radius:50px;padding:7px 10px;white-space:nowrap}
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:14px 0}.metric{background:#f4f8f5;border-radius:14px;padding:14px 6px;text-align:center}
+    .metric strong{display:block;font-size:25px}.metric span{font-size:11px;color:#6b8071}
+    .progress{height:9px;background:#e9f0eb;border-radius:9px;overflow:hidden;margin:10px 0}.progress div{height:100%;background:#218a5b;width:35%;border-radius:9px}
+    .job{display:flex;gap:12px;align-items:center}.job-icon{border-radius:14px;background:#eaf5ed;padding:12px;font-size:25px}
+    .job h3{font-size:15px;margin:0 0 5px}.job p{font-size:12px;color:#718277;margin:0}
+    .btn{border:0;background:#19804f;color:#fff;padding:14px 16px;border-radius:13px;font-weight:700;width:100%;margin-top:13px}
+    .btn.secondary{background:#eff6f1;color:#176a42}.btn.danger{background:#bc4d49}.btn:disabled{opacity:.5;cursor:not-allowed}
+    .tabs{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e2eae4;display:flex;justify-content:center;padding:10px 8px max(10px,env(safe-area-inset-bottom));z-index:2}
+    .tabinner{width:min(520px,100%);display:flex}.tabs button{flex:1;background:none;border:0;color:#708578;font-size:11px;padding:7px}
+    .tabs button.active{color:#167648;font-weight:800}.tabs b{display:block;font-size:22px;margin-bottom:4px}
+    section.view{display:none}section.view.active{display:block}label{display:block;font-size:12px;font-weight:700;margin:14px 0 6px}
+    input{width:100%;padding:13px;border:1px solid #dce9dd;border-radius:12px;outline:none}input:focus{border-color:#19804f}
+    .disclaimer{color:#849589;font-size:11px;text-align:center;padding:6px 20px}
+    .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}.row{display:flex;justify-content:space-between;gap:12px;border-top:1px solid #edf2ee;padding:12px 0;font-size:13px}
+    .row:first-of-type{border:0}.badge{font-size:11px;padding:4px 9px;background:#e8f6ec;color:#147847;border-radius:99px}
+    .notice{background:#eef5f2;padding:12px;border-radius:12px;margin:12px 0;font-size:12px;line-height:1.6}
+    .profileline{display:flex;align-items:center;gap:12px;margin:12px 0}.avatar{width:48px;height:48px;border-radius:50%;background:#e9f2eb;object-fit:cover;display:none}
+    .avatar.placeholder{display:grid;place-items:center;font-size:22px}.small{font-size:11px;word-break:break-word}
   </style>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
   <main class="wrap">
@@ -20,22 +49,169 @@
     </header>
     <div class="content">
       <section class="view active" id="home">
-        <div class="card"><div class="headline"><h2>ภาพรวมการตรวจ</h2><span class="tag">ข้อมูลตัวอย่าง</span></div><div class="grid"><div class="metric"><strong id="checked">35</strong><span>ตรวจแล้ว</span></div><div class="metric"><strong id="ok">32</strong><span>OK</span></div><div class="metric"><strong id="ng">3</strong><span>NG</span></div></div><div class="headline"><span class="muted">ความคืบหน้า</span><strong id="pct">35%</strong></div><div class="progress"><div id="bar"></div></div><div class="muted">ตัวอย่างเป้าหมาย 100 คัน</div></div>
-        <div class="card"><div class="headline"><h2>งานที่กำลังตรวจ</h2><span class="tag">In progress</span></div><div class="job" style="margin-top:16px"><div class="job-icon">🚜</div><div><h3>M6040 · Stock Check</h3><p>เช็ก Serial Number และบันทึก OK/NG</p></div></div><button class="btn" onclick="show('inspect')">เริ่มตรวจรถ →</button></div>
-        <div class="disclaimer">หน้าเว็บสาธิตเท่านั้น ข้อมูลที่กรอกยังไม่ถูกส่งไป n8n หรือ Microsoft Lists</div>
+        <div class="card">
+          <div class="headline"><h2>ภาพรวมการตรวจ</h2><span class="tag">ข้อมูลตัวอย่าง</span></div>
+          <div class="grid">
+            <div class="metric"><strong id="checked">35</strong><span>ตรวจแล้ว</span></div>
+            <div class="metric"><strong id="ok">32</strong><span>OK</span></div>
+            <div class="metric"><strong id="ng">3</strong><span>NG</span></div>
+          </div>
+          <div class="headline"><span class="muted">ความคืบหน้า</span><strong id="pct">35%</strong></div>
+          <div class="progress"><div id="bar"></div></div>
+          <div class="muted">ตัวอย่างเป้าหมาย 100 คัน</div>
+        </div>
+        <div class="card">
+          <div class="headline"><h2>งานที่กำลังตรวจ</h2><span class="tag">In progress</span></div>
+          <div class="job" style="margin-top:16px"><div class="job-icon">🚜</div><div><h3>M6040 · Stock Check</h3><p>เช็ก Serial Number และบันทึก OK/NG</p></div></div>
+          <button class="btn" onclick="show('inspect')">เริ่มตรวจรถ →</button>
+        </div>
+        <div class="disclaimer">ข้อมูลเป็นตัวอย่างเท่านั้น ยังไม่ส่งไป n8n หรือ Microsoft Lists</div>
       </section>
-      <section class="view" id="inspect"><div class="card"><div class="headline"><h2>ตรวจรถ M6040</h2><span class="tag">ตัวอย่าง</span></div><p class="muted">กรอก Serial Number แล้วเลือกผลตรวจ (ข้อมูลเก็บเฉพาะในหน้านี้ระหว่างเปิดใช้งาน)</p><label for="serial">Serial Number</label><input id="serial" placeholder="เช่น M6040-DEMO-001" autocomplete="off" maxlength="60"><div class="two"><button class="btn" onclick="record('OK')">✓ บันทึก OK</button><button class="btn danger" onclick="record('NG')">× บันทึก NG</button></div><p class="muted" id="feedback" role="status"></p></div><div class="card"><h2 style="font-size:16px;margin-top:0">รายการตรวจในเครื่องนี้</h2><div id="history" class="muted">ยังไม่มีรายการที่บันทึกในรอบสาธิตนี้</div></div></section>
-      <section class="view" id="profile"><div class="card"><div class="headline"><h2>ลงทะเบียนผู้ตรวจ</h2><span class="tag">Demo</span></div><p class="muted">เวอร์ชันจริงจะผูกกับ LINE Login หลังตรวจสอบตัวตนผ่านระบบหลังบ้าน</p><label for="fullname">ชื่อจริง</label><input id="fullname" placeholder="ชื่อจริงของผู้ตรวจ"><label for="nickname">ชื่อเล่น</label><input id="nickname" placeholder="เช่น ต้น"><button class="btn" onclick="previewProfile()">ดูตัวอย่างโปรไฟล์</button><p class="muted" id="profile-result" role="status"></p></div><div class="card"><h2 style="font-size:16px;margin:0 0 8px">สิทธิ์ผู้ใช้งาน</h2><div class="row"><span>ช่าง</span><span class="badge">รอเชื่อมระบบอนุมัติ</span></div><div class="row"><span>ผู้ดูแล</span><span class="muted">จะจัดการผ่านฐานข้อมูลจริง</span></div></div></section>
+      <section class="view" id="inspect">
+        <div class="card">
+          <div class="headline"><h2>ตรวจรถ M6040</h2><span class="tag">ตัวอย่าง</span></div>
+          <p class="muted">กรอก Serial Number แล้วเลือกผลตรวจ (ข้อมูลเก็บเฉพาะในหน้านี้ระหว่างเปิดใช้งาน)</p>
+          <label for="serial">Serial Number</label>
+          <input id="serial" placeholder="เช่น M6040-DEMO-001" autocomplete="off" maxlength="60">
+          <div class="two"><button class="btn" onclick="record('OK')">✓ บันทึก OK</button><button class="btn danger" onclick="record('NG')">× บันทึก NG</button></div>
+          <p class="muted" id="feedback" role="status"></p>
+        </div>
+        <div class="card"><h2 style="font-size:16px;margin-top:0">รายการตรวจในเครื่องนี้</h2><div id="history" class="muted">ยังไม่มีรายการที่บันทึกในรอบสาธิตนี้</div></div>
+      </section>
+      <section class="view" id="profile">
+        <div class="card">
+          <div class="headline"><h2>บัญชี LINE</h2><span class="tag" id="line-tag">กำลังตรวจสอบ</span></div>
+          <div class="profileline"><img id="line-picture" class="avatar" alt="รูปโปรไฟล์ LINE"><span id="line-name" style="font-weight:700">กำลังเชื่อม LINE...</span></div>
+          <p id="line-status" class="muted" role="status">กำลังเริ่มต้น LIFF</p>
+          <button id="line-login-btn" class="btn secondary" onclick="loginLINE()" hidden>เชื่อมบัญชี LINE</button>
+          <div class="notice">บัญชี LINE ใช้แสดงตัวอย่างผู้ใช้งานเท่านั้น ยังไม่มีการลงทะเบียนหรือให้สิทธิ์เข้าใช้ฐานข้อมูลบริษัท</div>
+        </div>
+        <div class="card">
+          <div class="headline"><h2>ลงทะเบียนผู้ตรวจ</h2><span class="tag">Demo</span></div>
+          <p class="muted">กรอกเพียงชื่อจริงและชื่อเล่น หลังจากนี้ระบบจริงจะส่งข้อมูลไป n8n เพื่อให้ Admin อนุมัติ</p>
+          <label for="fullname">ชื่อจริง</label><input id="fullname" placeholder="ชื่อจริงของผู้ตรวจ" maxlength="80">
+          <label for="nickname">ชื่อเล่น</label><input id="nickname" placeholder="เช่น ต้น" maxlength="40">
+          <button class="btn" onclick="previewProfile()">ดูตัวอย่างโปรไฟล์</button>
+          <p class="muted" id="profile-result" role="status"></p>
+        </div>
+        <div class="card">
+          <h2 style="font-size:16px;margin:0 0 8px">สิทธิ์ผู้ใช้งาน</h2>
+          <div class="row"><span>ช่าง</span><span class="badge">รอเชื่อมระบบอนุมัติ</span></div>
+          <div class="row"><span>ผู้ดูแล</span><span class="muted">จะจัดการผ่านฐานข้อมูลจริง</span></div>
+        </div>
+      </section>
     </div>
   </main>
-  <nav class="tabs" aria-label="เมนูหลัก"><div class="tabinner"><button class="active" data-page="home" onclick="show('home')"><b>⌂</b>ภาพรวม</button><button data-page="inspect" onclick="show('inspect')"><b>☑</b>ตรวจรถ</button><button data-page="profile" onclick="show('profile')"><b>♙</b>โปรไฟล์</button></div></nav>
+  <nav class="tabs" aria-label="เมนูหลัก"><div class="tabinner">
+    <button class="active" data-page="home" onclick="show('home')"><b>⌂</b>ภาพรวม</button>
+    <button data-page="inspect" onclick="show('inspect')"><b>☑</b>ตรวจรถ</button>
+    <button data-page="profile" onclick="show('profile')"><b>♙</b>โปรไฟล์</button>
+  </div></nav>
   <script>
     'use strict';
+    const LIFF_ID = '2012530584-4TCAHUlC';
     const sample = new Map();
-    function show(page){document.querySelectorAll('.view').forEach(el=>el.classList.toggle('active',el.id===page));document.querySelectorAll('[data-page]').forEach(el=>el.classList.toggle('active',el.dataset.page===page));window.scrollTo(0,0)}
-    function record(result){const input=document.getElementById('serial');const key=input.value.trim().toUpperCase();const out=document.getElementById('feedback');if(!/^[A-Z0-9][A-Z0-9_.-]{2,59}$/.test(key)){out.textContent='กรุณากรอก Serial Number อย่างน้อย 3 ตัว (A-Z, 0-9, -, _, .)';return}if(sample.has(key)){out.textContent='หมายเลขนี้ถูกบันทึกแล้วในรอบสาธิตนี้';return}sample.set(key,result);input.value='';out.textContent='บันทึกผล '+result+' ในโหมดสาธิตเรียบร้อย';render()}
-    function render(){const entries=[...sample.entries()];const a=35+entries.length,o=32+entries.filter(e=>e[1]==='OK').length,n=3+entries.filter(e=>e[1]==='NG').length;document.getElementById('checked').textContent=a;document.getElementById('ok').textContent=o;document.getElementById('ng').textContent=n;document.getElementById('pct').textContent=a+'%';document.getElementById('bar').style.width=Math.min(100,a)+'%';const history=document.getElementById('history');history.replaceChildren();if(!entries.length){history.textContent='ยังไม่มีรายการที่บันทึกในรอบสาธิตนี้';return}entries.slice().reverse().forEach(([serial,res])=>{const row=document.createElement('div');row.className='row';const l=document.createElement('span');l.textContent=serial;const r=document.createElement('strong');r.textContent=res;r.style.color=res==='OK'?'#19804f':'#bc4d49';row.append(l,r);history.append(row)})}
-    function previewProfile(){const full=document.getElementById('fullname').value.trim(),nick=document.getElementById('nickname').value.trim();document.getElementById('profile-result').textContent=full&&nick?'ตัวอย่าง: '+full+' ('+nick+') · ยังไม่ได้ลงทะเบียนจริง':'กรอกชื่อจริงและชื่อเล่นก่อนค่ะ'}
+    let liffReady = false;
+
+    function show(page) {
+      document.querySelectorAll('.view').forEach(el => el.classList.toggle('active', el.id === page));
+      document.querySelectorAll('[data-page]').forEach(el => el.classList.toggle('active', el.dataset.page === page));
+      window.scrollTo(0, 0);
+    }
+
+    function record(result) {
+      const input = document.getElementById('serial');
+      const key = input.value.trim().toUpperCase();
+      const out = document.getElementById('feedback');
+      if (!/^[A-Z0-9][A-Z0-9_.-]{2,59}$/.test(key)) {
+        out.textContent = 'กรุณากรอก Serial Number อย่างน้อย 3 ตัว (A-Z, 0-9, -, _, .)';
+        return;
+      }
+      if (sample.has(key)) { out.textContent = 'หมายเลขนี้ถูกบันทึกแล้วในรอบสาธิตนี้'; return; }
+      sample.set(key, result);
+      input.value = '';
+      out.textContent = 'บันทึกผล ' + result + ' ในโหมดสาธิตเรียบร้อย (ไม่ได้ส่งเข้าบริษัท)';
+      render();
+    }
+
+    function render() {
+      const entries = [...sample.entries()];
+      const a = 35 + entries.length;
+      const o = 32 + entries.filter(e => e[1] === 'OK').length;
+      const n = 3 + entries.filter(e => e[1] === 'NG').length;
+      document.getElementById('checked').textContent = a;
+      document.getElementById('ok').textContent = o;
+      document.getElementById('ng').textContent = n;
+      document.getElementById('pct').textContent = Math.min(100, a) + '%';
+      document.getElementById('bar').style.width = Math.min(100, a) + '%';
+      const history = document.getElementById('history');
+      history.replaceChildren();
+      if (!entries.length) { history.textContent = 'ยังไม่มีรายการที่บันทึกในรอบสาธิตนี้'; return; }
+      entries.slice().reverse().forEach(([serial, res]) => {
+        const row = document.createElement('div'); row.className = 'row';
+        const l = document.createElement('span'); l.textContent = serial;
+        const r = document.createElement('strong'); r.textContent = res;
+        r.style.color = res === 'OK' ? '#19804f' : '#bc4d49';
+        row.append(l, r); history.append(row);
+      });
+    }
+
+    function previewProfile() {
+      const full = document.getElementById('fullname').value.trim();
+      const nick = document.getElementById('nickname').value.trim();
+      document.getElementById('profile-result').textContent = full && nick
+        ? 'ตัวอย่าง: ' + full + ' (' + nick + ') · ยังไม่ได้ลงทะเบียนจริง'
+        : 'กรอกชื่อจริงและชื่อเล่นก่อนค่ะ';
+    }
+
+    function setLINEStatus(message, tag) {
+      document.getElementById('line-status').textContent = message;
+      document.getElementById('line-tag').textContent = tag;
+    }
+
+    function loginLINE() {
+      if (!liffReady || !window.liff) return;
+      if (liff.isLoggedIn()) return;
+      // บน browser ภายนอก LINE ให้ผู้ใช้กดปุ่มเองเพื่อเข้าสู่ระบบ
+      liff.login({ redirectUri: window.location.origin + window.location.pathname });
+    }
+
+    async function initLIFF() {
+      if (!window.liff) {
+        setLINEStatus('โหลด LINE LIFF SDK ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', 'เชื่อมไม่สำเร็จ');
+        return;
+      }
+      try {
+        await liff.init({ liffId: LIFF_ID });
+        liffReady = true;
+        if (!liff.isLoggedIn()) {
+          setLINEStatus('ยังไม่ได้ลงชื่อเข้าใช้ LINE กดปุ่มด้านล่างเพื่อเชื่อมบัญชี', 'ยังไม่เชื่อม');
+          document.getElementById('line-name').textContent = 'Guest';
+          document.getElementById('line-login-btn').hidden = false;
+          return;
+        }
+        setLINEStatus('เชื่อม LINE สำเร็จ · ใช้สำหรับทดลองหน้าแอปเท่านั้น', 'LINE Connected');
+        try {
+          const profile = await liff.getProfile();
+          document.getElementById('line-name').textContent = profile.displayName || 'LINE User';
+          if (profile.pictureUrl && /^https:\/\//.test(profile.pictureUrl)) {
+            const img = document.getElementById('line-picture');
+            img.src = profile.pictureUrl;
+            img.style.display = 'block';
+          }
+        } catch (error) {
+          document.getElementById('line-name').textContent = 'เชื่อม LINE แล้ว';
+          setLINEStatus('ลงชื่อเข้าใช้สำเร็จ แต่ยังอ่านโปรไฟล์ไม่ได้ ตรวจสอบ scope profile', 'LINE Connected');
+        }
+        // ห้ามส่ง LINE ID Token ไปใน URL หรือพิมพ์ลง console
+        // การเชื่อม n8n ในอนาคตต้องตรวจสอบ ID Token ฝั่ง backend ก่อนอนุญาตเข้าถึงข้อมูลบริษัท
+      } catch (error) {
+        setLINEStatus('เริ่ม LIFF ไม่สำเร็จ ตรวจสอบ LIFF ID และ Endpoint URL ให้ตรงกับ GitHub Pages', 'เชื่อมไม่สำเร็จ');
+        document.getElementById('line-name').textContent = 'ยังไม่สามารถเชื่อม LINE';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', initLIFF);
   </script>
 </body>
 </html>
