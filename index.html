@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#176c44">
-  <meta name="description" content="Stock Inspection LIFF demo - sample data only">
-  <title>Stock Inspection · LIFF Demo</title>
+  <meta name="description" content="Stock Inspection · LINE member access">
+  <title>Stock Inspection · LINE Access</title>
   <style>
     :root{font-family:system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;color:#163528;background:#f4f7f4}
     *{box-sizing:border-box}body{margin:0}button,input{font:inherit}button{cursor:pointer}
@@ -36,16 +36,87 @@
     .notice{background:#eef5f2;padding:12px;border-radius:12px;margin:12px 0;font-size:12px;line-height:1.6}
     .profileline{display:flex;align-items:center;gap:12px;margin:12px 0}.avatar{width:48px;height:48px;border-radius:50%;background:#e9f2eb;object-fit:cover;display:none}
     .avatar.placeholder{display:grid;place-items:center;font-size:22px}.small{font-size:11px;word-break:break-word}
+  
+    /* Dedicated first-time LINE access screen; no other content before approval */
+    [hidden]{display:none!important}
+    #accessGate{min-height:100dvh;background:#f4f7f4;display:flex;align-items:center;justify-content:center;padding:18px}
+    .access-shell{width:min(460px,100%)}
+    .gate-head{background:linear-gradient(145deg,#0e5a37,#178358);padding:28px 24px;color:white;border-radius:25px 25px 0 0}
+    .gate-head .eyebrow{color:#c1ebd0}.gate-head h1{font-size:30px;line-height:1.25;margin:13px 0 7px}
+    .gate-head p{font-size:13px;opacity:.9;margin:0;line-height:1.7}
+    .gate-card{padding:26px 22px 22px;background:white;border:1px solid #e4ebe5;border-top:0;border-radius:0 0 25px 25px;box-shadow:0 15px 36px #0b44231a}
+    .gate-card h2{font-size:20px;color:#144e32;margin:0 0 10px}
+    .gate-card p{font-size:13px;line-height:1.7;color:#647a6c}
+    .gate-card form{margin-top:12px}.gate-note{border-radius:12px;background:#eef6f0;padding:13px;margin-top:15px;font-size:12px;line-height:1.65;color:#345847}
+    .gate-status{font-size:13px;line-height:1.65;white-space:pre-line;color:#405f4c;margin-top:14px}
+    .gate-status.error{color:#a03232}.gate-status.success{color:#126c44}
+    .gate-profile{display:flex;align-items:center;gap:10px;margin:13px 0}
+    .gate-profile img{width:45px;height:45px;object-fit:cover;border-radius:50%;display:none}
+    .gate-profile strong{font-size:14px;color:#224f36}
+    .gate-small{font-size:11px;color:#82998a;text-align:center;margin:18px 0}
+    .gate-link{display:block;margin-top:12px;background:transparent;border:0;color:#25784d;text-decoration:underline;font-size:12px}
+    button:focus-visible,input:focus-visible{outline:3px solid #acd5b7;outline-offset:2px}
   </style>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
-  <main class="wrap">
+  <section id="accessGate" aria-label="เข้าสู่ระบบ Stock Inspection">
+    <div class="access-shell">
+      <div class="gate-head">
+        <div class="eyebrow">CONFIRM TRACTOR IN STOCK</div>
+        <h1>Stock Inspection ✓</h1>
+        <p>ตรวจสอบรถในสต็อกสำหรับทีมงาน<br>เข้าสู่ระบบด้วย LINE และรอการอนุมัติครั้งแรก</p>
+      </div>
+      <div class="gate-card">
+        <div id="gateLoading"><h2>กำลังตรวจสอบบัญชี LINE</h2><p>ระบบกำลังตรวจสิทธิ์เข้าใช้งาน…</p></div>
+        <div id="gateLogin" hidden>
+          <h2>เข้าสู่ระบบด้วย LINE</h2>
+          <p>เชื่อมบัญชี LINE เพื่อยืนยันตัวตน ก่อนลงทะเบียนขอสิทธิ์ใช้งานครั้งแรก</p>
+          <button id="gateLoginButton" class="btn" type="button">เข้าสู่ระบบด้วย LINE</button>
+          <div class="gate-note">ไม่มีรหัสผ่านเพิ่มเติม ระบบจะให้ผู้ดูแลอนุมัติสิทธิ์ก่อนเข้าเมนูตรวจรถ</div>
+        </div>
+        <div id="gateRegister" hidden>
+          <h2>ลงทะเบียนครั้งแรก</h2>
+          <div class="gate-profile"><img id="gateAvatar" alt="รูปโปรไฟล์ LINE"><strong id="gateDisplayName">เชื่อม LINE แล้ว</strong></div>
+          <p>กรอกชื่อจริงและชื่อเล่นเพื่อให้ผู้ดูแลตรวจสอบรายชื่อในหน่วยงาน</p>
+          <form id="gateRegisterForm">
+            <label for="gateFullName">ชื่อจริงของผู้ตรวจ</label>
+            <input id="gateFullName" maxlength="100" autocomplete="name" required placeholder="เช่น สมชาย ใจดี">
+            <label for="gateNickName">ชื่อเล่น</label>
+            <input id="gateNickName" maxlength="60" required placeholder="เช่น ชาย">
+            <button id="gateRegisterButton" type="submit" class="btn">ส่งคำขอลงทะเบียน</button>
+          </form>
+          <button type="button" id="gateSwitchAccount" class="gate-link">เปลี่ยนบัญชี LINE</button>
+        </div>
+        <div id="gatePending" hidden>
+          <h2>รอผู้ดูแลอนุมัติ</h2>
+          <p>ได้รับคำขอแล้ว เมื่อผู้ดูแลเปลี่ยนสถานะเป็น Approved จะเข้าใช้งานได้</p>
+          <button id="gateRefresh" class="btn" type="button">ตรวจสอบสถานะอีกครั้ง</button>
+          <button id="gatePendingLogout" type="button" class="gate-link">ออกจากบัญชี LINE</button>
+        </div>
+        <div id="gateBlocked" hidden>
+          <h2>บัญชีนี้ยังไม่สามารถเข้าใช้งานได้</h2>
+          <p>โปรดติดต่อผู้ดูแลหน่วยงานเพื่อสอบถามสิทธิ์การเข้าใช้</p>
+          <button id="gateBlockedRefresh" class="btn secondary" type="button">ตรวจสอบสถานะอีกครั้ง</button>
+          <button id="gateBlockedLogout" class="gate-link" type="button">เปลี่ยนบัญชี LINE</button>
+        </div>
+        <div id="gateError" hidden>
+          <h2>ยังเชื่อมระบบไม่สำเร็จ</h2>
+          <p>ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตและ n8n API หรือเข้าสู่ระบบใหม่เมื่อ LINE Token หมดอายุ</p>
+          <button id="gateRetry" type="button" class="btn">ลองอีกครั้ง</button>
+          <button id="gateErrorLogout" class="gate-link" type="button">เข้าสู่ระบบ LINE ใหม่</button>
+        </div>
+        <div id="gateMessage" class="gate-status" role="status" aria-live="polite"></div>
+      </div>
+      <div class="gate-small">Stock Inspection · Inspection Claim</div>
+    </div>
+  </section>
+  <main id="appMain" class="wrap" hidden>
     <header class="hero">
       <div class="eyebrow">CONFIRM TRACTOR IN STOCK</div>
       <h1>Stock Inspection <span aria-hidden="true">✓</span></h1>
       <p>ระบบตรวจสอบรถในสต็อกสำหรับทีมงาน<br>เช็กงานได้ง่าย เห็นความคืบหน้าร่วมกัน</p>
-      <span class="chip">DEMO MODE · ยังไม่เชื่อมข้อมูลบริษัท</span>
+      <span class="chip">สมาชิกผ่านอนุมัติ · ตรวจรถยังเป็นโหมดสาธิต</span>
     </header>
     <div class="content">
       <section class="view active" id="home">
@@ -84,134 +155,189 @@
           <div class="profileline"><img id="line-picture" class="avatar" alt="รูปโปรไฟล์ LINE"><span id="line-name" style="font-weight:700">กำลังเชื่อม LINE...</span></div>
           <p id="line-status" class="muted" role="status">กำลังเริ่มต้น LIFF</p>
           <button id="line-login-btn" class="btn secondary" onclick="loginLINE()" hidden>เชื่อมบัญชี LINE</button>
-          <div class="notice">บัญชี LINE ใช้แสดงตัวอย่างผู้ใช้งานเท่านั้น ยังไม่มีการลงทะเบียนหรือให้สิทธิ์เข้าใช้ฐานข้อมูลบริษัท</div>
+          <div class="notice">ระบบตรวจสอบสมาชิกจริงผ่าน LINE และ STK_Users แล้ว แต่ฟังก์ชันบันทึกผลตรวจรถในหน้านี้ยังเป็นข้อมูลตัวอย่าง</div>
         </div>
         <div class="card">
-          <div class="headline"><h2>ลงทะเบียนผู้ตรวจ</h2><span class="tag">Demo</span></div>
-          <p class="muted">กรอกเพียงชื่อจริงและชื่อเล่น หลังจากนี้ระบบจริงจะส่งข้อมูลไป n8n เพื่อให้ Admin อนุมัติ</p>
-          <label for="fullname">ชื่อจริง</label><input id="fullname" placeholder="ชื่อจริงของผู้ตรวจ" maxlength="80">
-          <label for="nickname">ชื่อเล่น</label><input id="nickname" placeholder="เช่น ต้น" maxlength="40">
-          <button class="btn" onclick="previewProfile()">ดูตัวอย่างโปรไฟล์</button>
-          <p class="muted" id="profile-result" role="status"></p>
+          <div class="headline"><h2>สถานะสมาชิก</h2><span class="tag">เชื่อมข้อมูลจริง</span></div>
+          <div class="row"><span>ชื่อผู้ใช้</span><strong id="member-name">—</strong></div>
+          <div class="row"><span>สถานะ</span><span id="member-access" class="badge">—</span></div>
+          <button class="btn secondary" id="appRefresh" type="button">ตรวจสอบสิทธิ์อีกครั้ง</button>
+          <button class="btn secondary" id="appLogout" type="button">ออกจากบัญชี LINE</button>
         </div>
         <div class="card">
           <h2 style="font-size:16px;margin:0 0 8px">สิทธิ์ผู้ใช้งาน</h2>
-          <div class="row"><span>ช่าง</span><span class="badge">รอเชื่อมระบบอนุมัติ</span></div>
+          <div class="row"><span>ช่าง</span><span class="badge">Approved</span></div>
           <div class="row"><span>ผู้ดูแล</span><span class="muted">จะจัดการผ่านฐานข้อมูลจริง</span></div>
         </div>
       </section>
     </div>
   </main>
-  <nav class="tabs" aria-label="เมนูหลัก"><div class="tabinner">
+  <nav id="bottomNav" class="tabs" aria-label="เมนูหลัก" hidden><div class="tabinner">
     <button class="active" data-page="home" onclick="show('home')"><b>⌂</b>ภาพรวม</button>
     <button data-page="inspect" onclick="show('inspect')"><b>☑</b>ตรวจรถ</button>
     <button data-page="profile" onclick="show('profile')"><b>♙</b>โปรไฟล์</button>
   </div></nav>
   <script>
     'use strict';
+    // Public frontend configuration only. Never put webhook URLs, Graph Tokens or secrets here.
     const LIFF_ID = '2012530584-4TCAHUlC';
-    const sample = new Map();
-    let liffReady = false;
+    const API_URL = 'https://n8n.siamkubota.co.th/webhook/stk-liff-users-v1';
+    const states = ['gateLoading','gateLogin','gateRegister','gatePending','gateBlocked','gateError'];
+    const $ = id => document.getElementById(id);
+    let ready = false;
+    let activeMember = null;
+    const samples = new Map();
+
+    function gate(name, message = '', isError = false) {
+      $('accessGate').hidden = false;
+      $('appMain').hidden = true;
+      $('bottomNav').hidden = true;
+      states.forEach(id => $(id).hidden = id !== name);
+      $('gateMessage').textContent = message;
+      $('gateMessage').className = 'gate-status' + (isError ? ' error' : '');
+    }
+
+    async function api(action, extra = {}) {
+      if (!ready || !window.liff || !liff.isLoggedIn()) throw new Error('กรุณาเข้าสู่ระบบ LINE');
+      const idToken = liff.getIDToken();
+      if (!idToken) throw new Error('ไม่พบ LINE ID Token กรุณาออกแล้วเข้าสู่ระบบใหม่');
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action, idToken, ...extra }),
+        cache: 'no-store',
+      });
+      const result = await response.json().catch(() => null);
+      if (!result) throw new Error('เซิร์ฟเวอร์ตอบกลับไม่ใช่ JSON (HTTP '+ response.status +')');
+      if (!response.ok || ['BAD_REQUEST','BAD_ACTION','INVALID_INPUT','TOKEN_REQUIRED','BRIDGE_SUBMISSION_FAILED','WRITE_BRIDGE_NOT_CONFIGURED'].includes(result.status)) {
+        throw new Error(result.message || result.status || ('HTTP '+response.status));
+      }
+      return result;
+    }
+
+    async function checkAccess() {
+      if (!ready || !liff.isLoggedIn()) return gate('gateLogin');
+      gate('gateLoading','กำลังตรวจสอบสิทธิ์กับ STK_Users…');
+      try {
+        const result = await api('status');
+        if (result.registered === true) {
+          activeMember = result;
+          const status = String(result.accessStatus || '').trim().toLowerCase();
+          if (status === 'approved') return openApp(result);
+          if (status === 'pending') return gate('gatePending');
+          return gate('gateBlocked');
+        }
+        if (result.status === 'NOT_REGISTERED') return gate('gateRegister');
+        throw new Error(result.message || 'ไม่สามารถตรวจสอบสถานะสมาชิก');
+      } catch (error) {
+        gate('gateError', String(error.message || error), true);
+      }
+    }
+
+    function openApp(member) {
+      activeMember = member;
+      $('accessGate').hidden = true;
+      $('appMain').hidden = false;
+      $('bottomNav').hidden = false;
+      $('member-name').textContent = member.displayName || 'สมาชิกหน่วยงาน';
+      $('member-access').textContent = member.accessStatus || 'Approved';
+      const tag = $('line-tag'); if (tag) tag.textContent = 'LINE Connected';
+      const statusText = $('line-status'); if(statusText) statusText.textContent='ยืนยัน LINE และสถานะ Approved จาก STK_Users แล้ว';
+      show('home');
+    }
+
+    async function submitRegistration(event) {
+      event.preventDefault();
+      const fullName = $('gateFullName').value.trim();
+      const nickname = $('gateNickName').value.trim();
+      if (!fullName || !nickname) { $('gateMessage').textContent='กรุณากรอกชื่อจริงและชื่อเล่น'; return; }
+      if (fullName.length > 100 || nickname.length > 60) { $('gateMessage').textContent='ชื่อยาวเกินกำหนด';return; }
+      const btn = $('gateRegisterButton');
+      btn.disabled = true;
+      $('gateMessage').textContent = 'กำลังส่งคำขอลงทะเบียน…';
+      try {
+        const result = await api('register', {fullName,nickname});
+        if (result.status === 'REGISTRATION_SUBMITTED' || result.status === 'REGISTRATION_REQUEST_ACCEPTED') {
+          gate('gatePending','ส่งคำขอลงทะเบียนแล้ว กรุณารอสักครู่แล้วกดตรวจสอบสถานะ');
+        } else if (result.registered) {
+          await checkAccess();
+        } else {
+          throw new Error(result.message || 'ยังไม่ได้รับคำยืนยันการรับคำขอ');
+        }
+      } catch (error) {
+        $('gateMessage').textContent = String(error.message || error);
+        $('gateMessage').className = 'gate-status error';
+      } finally { btn.disabled = false; }
+    }
+
+    function loginLine() {
+      if (!ready || !window.liff) { $('gateMessage').textContent='ยังโหลด LINE LIFF ไม่สำเร็จ'; return; }
+      if (!liff.isLoggedIn()) liff.login({redirectUri:location.origin+location.pathname});
+      else checkAccess();
+    }
+    function logoutLine() {
+      if(window.liff && ready && liff.isLoggedIn()) liff.logout();
+      activeMember = null;
+      gate('gateLogin','ออกจากระบบ LIFF แล้ว สามารถเข้าสู่ระบบอีกครั้งได้');
+    }
 
     function show(page) {
+      if (!activeMember || String(activeMember.accessStatus||'').toLowerCase()!=='approved') return;
       document.querySelectorAll('.view').forEach(el => el.classList.toggle('active', el.id === page));
       document.querySelectorAll('[data-page]').forEach(el => el.classList.toggle('active', el.dataset.page === page));
-      window.scrollTo(0, 0);
+      window.scrollTo(0,0);
     }
 
     function record(result) {
-      const input = document.getElementById('serial');
-      const key = input.value.trim().toUpperCase();
-      const out = document.getElementById('feedback');
-      if (!/^[A-Z0-9][A-Z0-9_.-]{2,59}$/.test(key)) {
-        out.textContent = 'กรุณากรอก Serial Number อย่างน้อย 3 ตัว (A-Z, 0-9, -, _, .)';
-        return;
+      if (!activeMember || String(activeMember.accessStatus||'').toLowerCase()!=='approved') return;
+      const input=$('serial'), key=input.value.trim().toUpperCase(), out=$('feedback');
+      if(!/^[A-Z0-9][A-Z0-9_.-]{2,59}$/.test(key)){out.textContent='กรุณากรอก Serial Number อย่างน้อย 3 ตัว';return;}
+      if(samples.has(key)){out.textContent='หมายเลขนี้ถูกบันทึกแล้วในรอบสาธิตนี้';return;}
+      samples.set(key,result); input.value='';
+      out.textContent='บันทึกเฉพาะบนหน้าจอสาธิต ยังไม่ส่งไปยังฐานข้อมูลบริษัท';
+      renderDemo();
+    }
+    function renderDemo(){
+      const entries=[...samples.entries()], count=35+entries.length;
+      $('checked').textContent=count;
+      $('ok').textContent=32+entries.filter(x=>x[1]==='OK').length;
+      $('ng').textContent=3+entries.filter(x=>x[1]==='NG').length;
+      $('pct').textContent=Math.min(100,count)+'%';
+      $('bar').style.width=Math.min(100,count)+'%';
+      $('history').replaceChildren();
+      if(!entries.length){$('history').textContent='ยังไม่มีรายการบันทึกในรอบสาธิตนี้';return;}
+      for(const [serial,result] of entries.slice().reverse()){
+        const line=document.createElement('div');line.className='row';
+        const a=document.createElement('span');a.textContent=serial;
+        const b=document.createElement('strong');b.textContent=result;
+        b.style.color=result==='OK'?'#19804f':'#bc4d49';
+        line.append(a,b);$('history').append(line);
       }
-      if (sample.has(key)) { out.textContent = 'หมายเลขนี้ถูกบันทึกแล้วในรอบสาธิตนี้'; return; }
-      sample.set(key, result);
-      input.value = '';
-      out.textContent = 'บันทึกผล ' + result + ' ในโหมดสาธิตเรียบร้อย (ไม่ได้ส่งเข้าบริษัท)';
-      render();
     }
 
-    function render() {
-      const entries = [...sample.entries()];
-      const a = 35 + entries.length;
-      const o = 32 + entries.filter(e => e[1] === 'OK').length;
-      const n = 3 + entries.filter(e => e[1] === 'NG').length;
-      document.getElementById('checked').textContent = a;
-      document.getElementById('ok').textContent = o;
-      document.getElementById('ng').textContent = n;
-      document.getElementById('pct').textContent = Math.min(100, a) + '%';
-      document.getElementById('bar').style.width = Math.min(100, a) + '%';
-      const history = document.getElementById('history');
-      history.replaceChildren();
-      if (!entries.length) { history.textContent = 'ยังไม่มีรายการที่บันทึกในรอบสาธิตนี้'; return; }
-      entries.slice().reverse().forEach(([serial, res]) => {
-        const row = document.createElement('div'); row.className = 'row';
-        const l = document.createElement('span'); l.textContent = serial;
-        const r = document.createElement('strong'); r.textContent = res;
-        r.style.color = res === 'OK' ? '#19804f' : '#bc4d49';
-        row.append(l, r); history.append(row);
-      });
-    }
-
-    function previewProfile() {
-      const full = document.getElementById('fullname').value.trim();
-      const nick = document.getElementById('nickname').value.trim();
-      document.getElementById('profile-result').textContent = full && nick
-        ? 'ตัวอย่าง: ' + full + ' (' + nick + ') · ยังไม่ได้ลงทะเบียนจริง'
-        : 'กรอกชื่อจริงและชื่อเล่นก่อนค่ะ';
-    }
-
-    function setLINEStatus(message, tag) {
-      document.getElementById('line-status').textContent = message;
-      document.getElementById('line-tag').textContent = tag;
-    }
-
-    function loginLINE() {
-      if (!liffReady || !window.liff) return;
-      if (liff.isLoggedIn()) return;
-      // บน browser ภายนอก LINE ให้ผู้ใช้กดปุ่มเองเพื่อเข้าสู่ระบบ
-      liff.login({ redirectUri: window.location.origin + window.location.pathname });
-    }
-
-    async function initLIFF() {
-      if (!window.liff) {
-        setLINEStatus('โหลด LINE LIFF SDK ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', 'เชื่อมไม่สำเร็จ');
-        return;
-      }
-      try {
-        await liff.init({ liffId: LIFF_ID });
-        liffReady = true;
-        if (!liff.isLoggedIn()) {
-          setLINEStatus('ยังไม่ได้ลงชื่อเข้าใช้ LINE กดปุ่มด้านล่างเพื่อเชื่อมบัญชี', 'ยังไม่เชื่อม');
-          document.getElementById('line-name').textContent = 'Guest';
-          document.getElementById('line-login-btn').hidden = false;
-          return;
-        }
-        setLINEStatus('เชื่อม LINE สำเร็จ · ใช้สำหรับทดลองหน้าแอปเท่านั้น', 'LINE Connected');
-        try {
-          const profile = await liff.getProfile();
-          document.getElementById('line-name').textContent = profile.displayName || 'LINE User';
-          if (profile.pictureUrl && /^https:\/\//.test(profile.pictureUrl)) {
-            const img = document.getElementById('line-picture');
-            img.src = profile.pictureUrl;
-            img.style.display = 'block';
+    async function init(){
+      gate('gateLoading');
+      if(!window.liff)return gate('gateError','โหลด LINE LIFF SDK ไม่สำเร็จ',true);
+      try{
+        await liff.init({liffId:LIFF_ID});ready=true;
+        if(!liff.isLoggedIn())return gate('gateLogin');
+        try{
+          const profile=await liff.getProfile();
+          $('gateDisplayName').textContent=profile.displayName||'เชื่อม LINE แล้ว';
+          $('line-name').textContent=profile.displayName||'LINE User';
+          if(profile.pictureUrl && profile.pictureUrl.startsWith('https://')){
+            $('gateAvatar').src=profile.pictureUrl;$('gateAvatar').style.display='block';
+            $('line-picture').src=profile.pictureUrl;$('line-picture').style.display='block';
           }
-        } catch (error) {
-          document.getElementById('line-name').textContent = 'เชื่อม LINE แล้ว';
-          setLINEStatus('ลงชื่อเข้าใช้สำเร็จ แต่ยังอ่านโปรไฟล์ไม่ได้ ตรวจสอบ scope profile', 'LINE Connected');
-        }
-        // ห้ามส่ง LINE ID Token ไปใน URL หรือพิมพ์ลง console
-        // การเชื่อม n8n ในอนาคตต้องตรวจสอบ ID Token ฝั่ง backend ก่อนอนุญาตเข้าถึงข้อมูลบริษัท
-      } catch (error) {
-        setLINEStatus('เริ่ม LIFF ไม่สำเร็จ ตรวจสอบ LIFF ID และ Endpoint URL ให้ตรงกับ GitHub Pages', 'เชื่อมไม่สำเร็จ');
-        document.getElementById('line-name').textContent = 'ยังไม่สามารถเชื่อม LINE';
-      }
+        }catch{/* profile scope is optional */}
+        await checkAccess();
+      }catch(error){gate('gateError','เริ่มต้น LIFF ไม่สำเร็จ ตรวจ LIFF ID / Endpoint',true);}
     }
-
-    document.addEventListener('DOMContentLoaded', initLIFF);
+    $('gateLoginButton').addEventListener('click',loginLine);
+    $('gateRegisterForm').addEventListener('submit',submitRegistration);
+    for(const id of ['gateRefresh','gateBlockedRefresh','gateRetry','appRefresh']) $(id).addEventListener('click',checkAccess);
+    for(const id of ['gateSwitchAccount','gatePendingLogout','gateBlockedLogout','gateErrorLogout','appLogout']) $(id).addEventListener('click',logoutLine);
+    document.addEventListener('DOMContentLoaded',init);
   </script>
 </body>
 </html>
