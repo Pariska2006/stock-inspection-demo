@@ -576,7 +576,7 @@ body { background: var(--canvas) }
 .criterion-count { display: flex; gap: 4px; flex: none }
 .report-record { border-top: 1px solid var(--line) }
 .report-record summary { padding: 10px 0; cursor: pointer }
-.report-record summary span { display: block; color: var(--muted); font-size: 13px }
+.report-vehicle-meta { display: block; color: var(--muted); font-size: 13px }
 .report-evidence { padding: 0 0 12px 12px }
 .evidence-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 130px), 1fr)); gap: 8px }
 .evidence-photo { display: grid; gap: 5px; background: #f0f4f9; border-radius: 8px; padding: 8px; text-align: center }
@@ -668,6 +668,22 @@ body { background: var(--canvas) }
   .top-brand .kubota-logo { width: 65px; height: 23px }
   .brand-claim { font-size: 11px }
 }
+
+/* Vehicle inspection */
+.start-inspection { margin: 14px 0; }
+.start-inspection .primary { min-height: 48px; }
+.job-criteria { margin-top: 10px; color: var(--muted); }
+.job-criteria summary { font-size: 14px; }
+.job-criteria ul { padding-inline-start: 20px; margin: 6px 0 12px; }
+.vehicle-identity { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.vehicle-identity :is(h1, h3, strong) { overflow-wrap: anywhere; }
+.vehicle-identity > .result-tag { flex: none; min-width: 36px; font-size: 12px; font-weight: 750; }
+.report-record .vehicle-identity { display: inline-flex; max-width: calc(100% - 1.25em); vertical-align: middle; }
+.vehicle-filters .filter-chip { display: inline-flex; align-items: center; gap: 6px; }
+.vehicle-filters .filter-chip span { font-size: 12px; font-variant-numeric: tabular-nums; }
+.vehicle-filters [data-record-filter="OK"].active { color: var(--ok); background: var(--teal); border-color: currentColor; }
+.vehicle-filters [data-record-filter="NG"].active { color: var(--red-ink); background: var(--red); border-color: currentColor; }
+.check-description { overflow-wrap: anywhere; font-weight: 650; }
 </style>
 <script defer src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
@@ -849,10 +865,10 @@ body { background: var(--canvas) }
           <div class="guide-grid">
             <details class="guide-step"><summary><span class="guide-icon blue"><svg class="ico sm" aria-hidden="true"><use href="#ic-list"></use></svg></span><span><strong>เลือกหรือสร้างงาน</strong><small>Claim Type · Product · Model</small></span></summary>
               <ol><li>ไปที่หน้าหลักแล้วแตะ <b>เลือกงานตรวจ</b> เพื่อเปิดงาน NEW</li><li>กรองด้วย Claim Type และ Product หรือค้นชื่อปัญหา</li><li>ถ้าไม่มีงานในรายการ ให้แตะ <b>สร้างงานตรวจ</b> แล้วกรอกชื่อปัญหาและ Model</li></ol></details>
-            <details class="guide-step"><summary><span class="guide-icon violet"><svg class="ico sm" aria-hidden="true"><use href="#ic-edit"></use></svg></span><span><strong>ตั้งค่าเกณฑ์</strong><small>Checking Method · Result 1–4</small></span></summary>
+            <details class="guide-step"><summary><span class="guide-icon violet"><svg class="ico sm" aria-hidden="true"><use href="#ic-edit"></use></svg></span><span><strong>ตั้งค่าเกณฑ์งานใหม่</strong><small>วิธีตรวจและชื่อเกณฑ์</small></span></summary>
               <ol><li>กรอกวิธีตรวจและเกณฑ์อย่างน้อย 1 ข้อ</li><li>แนบรูปตัวอย่าง OK/NG จากกล้องหรืออัลบั้มได้เมื่อเปิดใช้ที่เก็บรูป</li><li>กด <b>บันทึกและเริ่มตรวจ</b> แล้วแตะดาวเพื่อปักงานไว้หน้าแรก</li></ol></details>
             <details class="guide-step"><summary><span class="guide-icon amber"><svg class="ico sm" aria-hidden="true"><use href="#ic-clipboard"></use></svg></span><span><strong>บันทึกผลรายคัน</strong><small>Serial · Model · OK/NG</small></span></summary>
-              <ol><li>เปิดงานแล้วกด <b>เพิ่มผลตรวจรายคัน</b></li><li>กรอก Serial และเลือก OK หรือ NG ให้ครบทุกเกณฑ์</li><li>เพิ่มหมายเหตุหรือรูปประกอบได้ตามต้องการ แล้วกด <b>บันทึกและตรวจคันถัดไป</b></li></ol></details>
+              <ol><li>เปิดงานที่กำลังดำเนินการแล้วกด <b>เพิ่มการตรวจ</b></li><li>กรอกเลขตัวรถและเลือก OK หรือ NG ตามชื่อเกณฑ์</li><li>กด <b>บันทึกผลตรวจ</b> แล้วดูผลรถในรายการ <b>ทั้งหมด / OK / NG</b></li></ol></details>
             <details class="guide-step"><summary><span class="guide-icon green"><svg class="ico sm" aria-hidden="true"><use href="#ic-file"></use></svg></span><span><strong>จบงานและเปิดรายงาน</strong><small>Reports · PDF</small></span></summary>
               <ol><li>ตรวจทานผลแล้วกด <b>จบการตรวจ</b> ที่ท้ายหน้างาน</li><li>ไปที่ Reports แล้วกด <b>ดูรายงาน</b> เพื่อเปิดผลทุกคัน</li><li>กด <b>ดาวน์โหลด PDF</b> เมื่อไฟล์พร้อม</li></ol></details>
           </div>
@@ -1094,7 +1110,7 @@ function openApp(member) {
 
 function normalStatus(value) {
   const status = text(value).toLowerCase().replace(/[\s_]+/g, '-');
-  if (['in-progress', 'selected', 'รอดำเนินการ', 'กำลังดำเนินการ'].includes(status)) return 'progress';
+  if (['in-progress', 'selected', 'รอดำเนินการ', 'กำลังดำเนินการ', 'กำลังตรวจ'].includes(status)) return 'progress';
   if (status === 'รอเริ่มตรวจ') return 'new';
   return Object.hasOwn(STATUS, status) ? status : 'new';
 }
@@ -1125,7 +1141,8 @@ function normalizeJob(job) {
       deleted: record.deleted === true || /^(true|1|yes|deleted)$/i.test(text(record.deleted)),
       photoSlots: photoSlots(record)
     }));
-  const status = normalStatus(job.status);
+  const mappedStatus = normalStatus(job.status);
+  const status = mappedStatus === 'new' && normalStatus(job.jobStatusRaw) === 'progress' ? 'progress' : mappedStatus;
   const url = safeLink(job.reportUrl);
   const reportState = url && isWaiting(status) ? 'report-ready' :
     !url && status === 'report-ready' ? 'waiting-report' : status;
@@ -1225,7 +1242,8 @@ const finished = job => isWaiting(job.status) || isDone(job.status);
 const resultCode = value => text(value).toUpperCase();
 
 function effectiveResult(record) {
-  const results = [...SLOTS.map(slot => resultCode(record['result' + slot])), resultCode(record.result || record.overallResult)];
+  const results = [...SLOTS.map(slot => resultCode(record['result' + slot])),
+    resultCode(record.result), resultCode(record.overallResult)];
   if (results.includes('NG')) return 'NG';
   return results.includes('OK') ? 'OK' : '';
 }
@@ -1497,12 +1515,20 @@ function recordPictures(record) {
   return images ? `<div class="evidence-grid">${images}</div>` : '';
 }
 
-function criterionLabel(job, slot) {
-  return text(job['result' + slot + 'Criteria']) || 'Result ' + slot;
+function legacyNgCriteria(record) {
+  const lines = text(record?.ngDetail).split(/\r?\n/);
+  const entries = lines.map(line => line.match(/^Result ([1-4]) · (.+)$/));
+  return entries.every(match => match && resultCode(record['result' + match[1]]) === 'NG')
+    ? new Map(entries.map(match => [Number(match[1]), match[2]])) : new Map();
+}
+
+function criterionLabel(job, slot, oldNames) {
+  const name = text(job['result' + slot + 'Criteria']) || oldNames?.get(slot);
+  return name && name !== 'Result ' + slot ? name : 'เกณฑ์ข้อ ' + slot + ' (ไม่ระบุชื่อ)';
 }
 
 function recordCriteria(job, record) {
-  return SLOTS.filter(slot => criteriaSlots(job).includes(slot) ||
+  return SLOTS.filter(slot => text(job['result' + slot + 'Criteria']) ||
     ['OK', 'NG'].includes(resultCode(record?.['result' + slot])));
 }
 
@@ -1510,7 +1536,7 @@ function recordLine(job, record, editable) {
   const meta = [record.product || job.product, record.model || job.model, niceDate(record.checkedAt),
     record.inspector || record.checkedBy].filter(Boolean).join(' · ');
   return `<article class="record">
-    <div class="record-main"><h3>${html(record.serial)}</h3><p>${html(meta)}</p></div>
+    <div class="record-main"><div class="vehicle-identity">${resultBadge(effectiveResult(record))}<h3>${html(record.serial)}</h3></div><p>${html(meta)}</p></div>
     <div class="record-tail">
       <button class="small-action" type="button" data-view-record="${html(record.id)}">ดูรายละเอียด</button>
       ${editable ? `<button class="small-action" type="button" data-edit-record="${html(record.id)}">แก้ไข</button>
@@ -1537,7 +1563,8 @@ function renderRecordDetail() {
     return;
   }
   root.innerHTML = `<section class="panel">
-    <div class="page-head"><div><h1 tabindex="-1">${html(record.serial)}</h1><p>${html(job.title)}</p></div></div>
+    <div class="page-head"><div><div class="vehicle-identity">${resultBadge(effectiveResult(record))}<h1 tabindex="-1">${html(record.serial)}</h1></div>
+    <p>${html(job.title)}</p></div></div>
     <div class="detail-info">
       <div class="info"><small>Product</small><span>${html(record.product || job.product || '—')}</span></div>
       <div class="info"><small>Model</small><span>${html(record.model || job.model || '—')}</span></div>
@@ -1555,10 +1582,12 @@ function renderRecordDetail() {
 function recordEvidence(job, record) {
   const criteria = recordCriteria(job, record);
   const pictures = recordPictures(record);
-  const results = criteria.map(slot => `<div class="criterion-result"><span>${html(criterionLabel(job, slot))}</span>
+  const oldNames = legacyNgCriteria(record);
+  const results = criteria.map(slot => `<div class="criterion-result"><span>${html(criterionLabel(job, slot, oldNames))}</span>
     ${resultBadge(resultCode(record['result' + slot]))}</div>`).join('');
   const failed = criteria.filter(slot => resultCode(record['result' + slot]) === 'NG');
-  const showNgDetail = record.ngDetail && record.ngDetail !== record.note && record.ngDetail !== ngCriteriaText(job, failed);
+  const showNgDetail = record.ngDetail && record.ngDetail !== record.note &&
+    !oldNames.size && record.ngDetail !== ngCriteriaText(job, failed);
   return `${results || '<p class="hint">ไม่มีข้อมูลผลแยกตามเกณฑ์</p>'}
     ${record.note ? `<div class="record-extra"><h3>หมายเหตุ</h3><p class="record-note">${html(record.note)}</p></div>` : ''}
     ${showNgDetail ? `<div class="record-extra"><h3>รายละเอียด NG</h3><p class="record-note">${html(record.ngDetail)}</p></div>` : ''}
@@ -1569,7 +1598,7 @@ function reportRecord(job, record) {
   const meta = [record.product || job.product, record.model || job.model, record.lotNo && 'Lot ' + record.lotNo,
     niceDate(record.checkedAt), record.inspector || record.checkedBy].filter(Boolean).join(' · ');
   return `<details class="report-record">
-    <summary><strong>${html(record.serial)}</strong><span>${html(meta)}</span></summary>
+    <summary><span class="vehicle-identity">${resultBadge(effectiveResult(record))}<strong>${html(record.serial)}</strong></span><span class="report-vehicle-meta">${html(meta)}</span></summary>
     <div class="report-evidence">${recordEvidence(job, record)}</div>
   </details>`;
 }
@@ -1608,23 +1637,26 @@ function renderDetail() {
   const active = job.status === 'progress';
   const completed = finished(job);
   const criteria = criteriaSlots(job);
-  const filtered = records.filter(record => {
-    if (app.recordFilter === 'all') return true;
-    const results = recordCriteria(job, record).map(slot => resultCode(record['result' + slot]));
-    return app.recordFilter === 'NG' ? results.includes('NG') : results.length > 0 && results.every(result => result === 'OK');
-  });
+  const counts = { all: records.length, OK: 0, NG: 0 };
+  for (const record of records) {
+    const result = effectiveResult(record);
+    if (result) counts[result]++;
+  }
+  const filtered = records
+    .filter(record => app.recordFilter === 'all' || effectiveResult(record) === app.recordFilter)
+    .sort((a, b) => text(b.checkedAt).localeCompare(text(a.checkedAt)) ||
+      (Number(b.sharePointItemId) || 0) - (Number(a.sharePointItemId) || 0));
   const url = reportLink(job);
   const target = Number(job.targetUnits);
   const isNew = job.status === 'new';
   const action = isNew ? `<button class="btn primary" type="button" data-action="select-job">${icon('check')} ตั้งค่าก่อนเริ่มตรวจ</button>` :
-    active ? `<button class="btn primary" type="button" data-action="${criteria.length ? 'inspect-job' : 'edit-job'}">${icon('plus')}
-      ${criteria.length ? 'เพิ่มผลตรวจรายคัน' : 'ตั้งค่าเกณฑ์ตรวจ'}</button>
-      ${criteria.length ? `<button class="btn secondary" type="button" data-action="edit-job">${icon('edit')} แก้รายละเอียดงาน</button>` : ''}` :
+    active ? `<button class="btn primary" type="button" data-action="inspect-job">${icon('plus')} เพิ่มการตรวจ</button>` :
     url ? `<a class="btn primary" href="${html(url)}" target="_blank" rel="noopener noreferrer">${icon('download')} ดาวน์โหลด PDF</a>` : '';
   root.innerHTML = `<section class="panel job-detail-head">
     ${completed ? '<p class="report-caption">Report Preview</p>' : ''}
     <div class="detail-kicker"><span>${html(claimNumber(job))}</span>${statusBadge(job.status)}${active ? starButton(job) : ''}</div>
     <h1 tabindex="-1">${html(job.title)}</h1>
+    ${active ? `<div class="detail-actions start-inspection">${action}</div>` : ''}
     ${job.detail && text(job.detail) !== job.title ? `<p class="detail-desc">${html(job.detail)}</p>` : ''}
     <div class="detail-info">
       <div class="info"><small>Claim Type</small><span>${html(job.claimCategory || '—')}</span></div>
@@ -1634,11 +1666,15 @@ function renderDetail() {
       ${completed && dateValue(job.closedAt) ? `<div class="info"><small>Completion Date</small><span>${niceDate(job.closedAt)}</span></div>` : ''}
     </div>
     ${referencePictures(job)}
-    ${job.checkingMethod ? `<div class="method-box"><h3>วิธีตรวจ</h3><p>${html(job.checkingMethod)}</p></div>` : ''}
-    ${criteria.length ? `<div class="method-box"><h3>เกณฑ์ตรวจ</h3><ul>${criteria.map(slot =>
-      `<li>${html(criterionLabel(job, slot))}</li>`).join('')}</ul></div>` : ''}
+    ${job.checkingMethod || criteria.length || active ? `<details class="details-toggle job-criteria">
+      <summary>วิธีและเกณฑ์ตรวจ</summary>
+      ${job.checkingMethod ? `<p class="inspection-intro">${html(job.checkingMethod)}</p>` : ''}
+      ${criteria.length ? `<ul>${criteria.map(slot => `<li>${html(criterionLabel(job, slot))}</li>`).join('')}</ul>` :
+        '<p class="hint">ยังไม่มีเกณฑ์ตรวจ</p>'}
+      ${active ? `<button class="btn ghost sm" type="button" data-action="edit-job">${icon('edit')} แก้รายละเอียดงานและเกณฑ์</button>` : ''}
+    </details>` : ''}
     ${job.notes ? `<details class="details-toggle"><summary>หมายเหตุงาน</summary><p class="detail-desc">${html(job.notes)}</p></details>` : ''}
-    ${action ? `<div class="detail-actions">${action}</div>` : ''}
+    ${action && !active ? `<div class="detail-actions">${action}</div>` : ''}
   </section>
   ${detailNotice(job)}
   ${completed && !url ? '<div class="notice warning">รอไฟล์ PDF · เปิดดูผลในแอปได้</div>' : ''}
@@ -1646,10 +1682,11 @@ function renderDetail() {
   ${isNew ? '' : `<section class="panel">
     <div class="panel-head"><h2>รถที่ตรวจแล้ว</h2><span class="muted">${records.length} คัน${target > 0 ? ' จาก ' + target : ''}</span></div>
     ${!app.recordRead ? '<p class="hint">ยังไม่มีข้อมูลรายการตรวจรายคันจากฐานข้อมูล</p>' : ''}
-    ${records.length ? `<div class="filters">
-      ${[['all', 'ทั้งหมด'], ['OK', 'ผ่านทุกเกณฑ์'], ['NG', 'พบเกณฑ์ NG']].map(([value, label]) =>
-        `<button class="filter-chip ${app.recordFilter === value ? 'active' : ''}" type="button" data-record-filter="${value}" aria-pressed="${app.recordFilter === value}">${label}</button>`).join('')}
-    </div>` : ''}
+    <div class="filters vehicle-filters" role="group" aria-label="กรองผลตรวจรถ">
+      ${[['all', 'ทั้งหมด'], ['OK', 'OK'], ['NG', 'NG']].map(([value, label]) =>
+        `<button class="filter-chip ${app.recordFilter === value ? 'active' : ''}" type="button" data-record-filter="${value}" aria-pressed="${app.recordFilter === value}">
+          ${label} <span>${counts[value]}</span></button>`).join('')}
+    </div>
     ${filtered.length ? filtered.map(record => completed ? reportRecord(job, record) : recordLine(job, record, active)).join('') :
       `<p class="empty">${records.length ? 'ไม่มีรถในผลตรวจที่เลือก' : 'ยังไม่มีรถที่บันทึกผลตรวจ'}</p>`}
   </section>`}
@@ -1690,6 +1727,17 @@ function formFoot(label, scope) {
   </div>`;
 }
 
+function criteriaEditor(job) {
+  const shown = slot => slot === 1 || !!text(job?.['result' + slot + 'Criteria']);
+  return `<div class="section-title"><h2>เกณฑ์ตรวจ</h2><small class="hint">อย่างน้อย 1 เกณฑ์ สูงสุด 4</small></div>
+    <div class="criteria-editor" id="criteriaEditor">${SLOTS.map(slot => `<div data-criteria-row ${shown(slot) ? '' : 'hidden'}>
+      ${field('jfCriteria' + slot, 'เกณฑ์ข้อ ' + slot, job?.['result' + slot + 'Criteria'], {
+        placeholder: 'เช่น ไม่มีน้ำมันรั่วบริเวณจุดต่อ'
+      })}</div>`).join('')}</div>
+    <div><button class="btn secondary sm" type="button" data-action="add-criteria" ${SLOTS.every(shown) ? 'hidden' : ''}>
+      ${icon('plus')} เพิ่มเกณฑ์</button></div>`;
+}
+
 function renderJobForm() {
   const job = app.editJob ? findJob() : null;
   if (app.editJob && !job) {
@@ -1699,7 +1747,6 @@ function renderJobForm() {
   const manual = !job, starting = manual || job.status === 'new';
   const products = [...new Set([...app.products, job?.product].filter(Boolean))];
   const categories = [...new Set([...app.claimTypes, job?.claimCategory].filter(Boolean))];
-  const shown = slot => slot === 1 || !!text(job?.['result' + slot + 'Criteria']);
   const scope = manual ? manualScope : jobScope(job);
   $('jobFormContent').innerHTML = `<div class="page-head"><div><h1 tabindex="-1">${manual ? 'สร้างงานตรวจ' : starting ? 'ตั้งค่าก่อนเริ่มตรวจ' : 'แก้รายละเอียดงาน'}</h1>
     ${job ? `<p>${html(claimNumber(job))}</p>` : ''}</div></div>
@@ -1724,10 +1771,7 @@ function renderJobForm() {
         ${photoConnectionHint()}
         ${field('jfLocation', 'จุดตรวจ', job?.inspectionLocation)}
         ${area('jfMethod', 'Checking Method *', job?.checkingMethod, { required: true, max: 700, rows: 4 })}
-        <div class="section-title"><h2>เกณฑ์ตรวจ *</h2><small class="hint">อย่างน้อย 1 เกณฑ์ สูงสุด 4</small></div>
-        <div class="criteria-editor" id="criteriaEditor">${SLOTS.map(slot => `<div data-criteria-row ${shown(slot) ? '' : 'hidden'}>
-          ${field('jfCriteria' + slot, 'Result ' + slot, job?.['result' + slot + 'Criteria'], { placeholder: 'เช่น ไม่มีน้ำมันรั่วบริเวณจุดต่อ' })}</div>`).join('')}</div>
-        <div><button class="btn secondary sm" type="button" data-action="add-criteria" id="addCriteriaButton" ${SLOTS.every(shown) ? 'hidden' : ''}>${icon('plus')} เพิ่มเกณฑ์</button></div>
+        ${criteriaEditor(job)}
         ${area('jfNotes', 'หมายเหตุงาน', job?.notes, { max: 700 })}
       </fieldset>
       ${formFoot(manual ? 'สร้างงานและเริ่มตรวจ' : starting ? 'บันทึกและเริ่มตรวจ' : 'บันทึกรายละเอียดงาน', scope)}
@@ -1757,6 +1801,19 @@ function photoConnectionHint() {
   return PHOTO_UPLOAD_API_URL ? '' : '<p class="hint">เลือกรูปเพื่อดูตัวอย่างได้ การบันทึกรูปจะเปิดเมื่อเชื่อมที่เก็บรูปแล้ว</p>';
 }
 
+function renderInspectionSetup(job) {
+  $('inspectionContent').innerHTML = `<div class="page-head"><div><h1 tabindex="-1">เพิ่มการตรวจ</h1>
+    <p>${html(job.title)}</p></div></div>
+    <form class="panel wide-form" id="inspectionSetupForm">
+      <fieldset class="form-layout" id="formFields">
+        <p class="hint">งานนี้ยังไม่มีเกณฑ์ตรวจ กรอกชื่อเกณฑ์ครั้งเดียวเพื่อใช้ตรวจรถทุกคันในงานนี้</p>
+        ${criteriaEditor(job)}
+      </fieldset>
+      ${formFoot('บันทึกเกณฑ์และไปตรวจรถ', jobScope(job))}
+    </form>`;
+  syncFormControls();
+}
+
 function renderInspection() {
   const job = findJob();
   const record = job && liveRecords(job).find(item => item.id === app.editRecord);
@@ -1765,39 +1822,46 @@ function renderInspection() {
     return;
   }
   const criteria = record ? recordCriteria(job, record) : criteriaSlots(job);
+  if (!criteriaSlots(job).length && !record) return renderInspectionSetup(job);
   if (!criteria.length) {
-    app.editJob = true;
-    navigate('jobform', true);
+    navigate('jobdetail');
+    showFeedback('ผลตรวจนี้ไม่มีเกณฑ์รายข้อ เปิดวิธีและเกณฑ์ตรวจเพื่อเพิ่มเกณฑ์ของงาน', 'warning');
     return;
   }
   const urls = record?.photoSlots || ['', '', ''];
+  const oldNames = legacyNgCriteria(record);
+  const model = record?.model || app.nextModel || job.model;
+  const lot = record ? record.lotNo : app.nextLot;
   const checks = criteria.map(slot => {
-    const label = criterionLabel(job, slot);
+    const label = criterionLabel(job, slot, oldNames);
     const chosen = resultCode(record?.['result' + slot]);
     const choice = result => `<button class="pick-result ${chosen === result ? 'selected ' + result.toLowerCase() : ''}"
       type="button" data-result-slot="${slot}" data-result-value="${result}" aria-pressed="${chosen === result}">${result}</button>`;
     return `<div class="check-row">
-      <div class="check-description" id="checkLabel${slot}"><span class="check-number">Result ${slot}</span>${label !== 'Result ' + slot ? `<span>${html(label)}</span>` : ''}</div>
+      <div class="check-description" id="checkLabel${slot}">${html(label)}</div>
       <div class="check-choices" role="group" aria-labelledby="checkLabel${slot}">${choice('OK')}${choice('NG')}</div>
       <input id="insR${slot}" type="hidden" value="${html(chosen)}">
     </div>`;
   }).join('');
-  $('inspectionContent').innerHTML = `<div class="page-head"><div><h1 tabindex="-1">${record ? 'แก้ผลตรวจรายคัน' : 'บันทึกผลตรวจรายคัน'}</h1>
+  $('inspectionContent').innerHTML = `<div class="page-head"><div><h1 tabindex="-1">${record ? 'แก้ผลตรวจรายคัน' : 'เพิ่มการตรวจ'}</h1>
     <p>${html(job.title)}</p></div></div>
     <form class="panel wide-form" id="inspectionForm" data-record-slots="${criteria.join(' ')}">
       <fieldset class="form-layout" id="formFields">
-        <div class="two-col">
-          ${field('insSerial', 'Serial / เลขตัวรถ', record?.serial, { required: true, readOnly: !!record, serial: true, max: 65, placeholder: 'กรอกเลขตัวรถ' })}
-          ${field('insModel', 'Model', record?.model || app.nextModel || job.model, { required: true, max: 70 })}
-        </div>
-        <div class="two-col">
-          ${field('insLot', 'Lot No.', record ? record.lotNo : app.nextLot, { max: 100 })}
-          ${field('insDate', 'วันที่ตรวจ', dateValue(record?.checkedAt) || dateValue(new Date()), { type: 'date', required: true })}
-        </div>
+        ${field('insSerial', 'เลขตัวรถ / Serial No.', record?.serial, { required: true, readOnly: !!record, serial: true, max: 65, placeholder: 'กรอกเลขตัวรถ' })}
+        ${!validModel.test(model) ? field('insModel', 'Model', '', { required: true, max: 70, placeholder: 'กรอกรุ่นรถ' }) : ''}
         <div class="inspection-title"><h2>รายการตรวจ</h2><small class="hint">${criteria.length} รายการ</small></div>
-        ${job.checkingMethod ? `<p class="inspection-intro">${html(job.checkingMethod)}</p>` : ''}
         <div class="check-table">${checks}</div>
         <div class="live-result" id="liveOverallResult" aria-live="polite"></div>
+        ${job.checkingMethod ? `<details class="optional-detail"><summary>ดูวิธีตรวจ</summary>
+          <p class="inspection-intro optional-body">${html(job.checkingMethod)}</p></details>` : ''}
+        <details class="optional-detail">
+          <summary>ข้อมูลรถและวันที่ตรวจ${validModel.test(model) ? ` <span>${html(model)}${lot ? ' · Lot ' + html(lot) : ''}</span>` : ''}</summary>
+          <div class="optional-body two-col">
+            ${validModel.test(model) ? field('insModel', 'Model', model, { required: true, max: 70 }) : ''}
+            ${field('insLot', 'Lot No.', lot, { max: 100 })}
+            ${field('insDate', 'วันที่ตรวจ', dateValue(record?.checkedAt) || dateValue(new Date()), { type: 'date', required: true })}
+          </div>
+        </details>
         <details class="optional-detail" id="inspectionNotes" ${record?.note ? 'open' : ''}>
           <summary id="inspectionNotesLabel">เพิ่มหมายเหตุ <span>ไม่บังคับ</span></summary>
           <div class="optional-body">${area('insRemarks', 'หมายเหตุการตรวจ', record?.note)}</div>
@@ -1811,7 +1875,7 @@ function renderInspection() {
         </details>
         <p class="hint">ผู้ตรวจ ${html(app.member?.displayName || app.member?.fullName || app.nickname)}</p>
       </fieldset>
-      ${formFoot(record ? 'บันทึกการแก้ไข' : 'บันทึกและตรวจคันถัดไป', jobScope(job))}
+      ${formFoot(record ? 'บันทึกการแก้ไข' : 'บันทึกผลตรวจ', jobScope(job))}
     </form>`;
   updateQuickResult();
   syncFormControls();
@@ -1969,9 +2033,6 @@ async function withWrite(operation) {
 function releaseWrite() {
   setBusy(false);
   if (app.page === 'jobdetail') renderDetail();
-  if (app.page === 'inspection' && $('formMessage')?.classList.contains('success') && !val('insSerial')) {
-    $('insSerial').focus({ preventScroll: true });
-  }
 }
 
 const delay = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
@@ -2042,6 +2103,12 @@ const jobFields = {
   result1Criteria: 'jfCriteria1', result2Criteria: 'jfCriteria2', result3Criteria: 'jfCriteria3',
   result4Criteria: 'jfCriteria4', okPictureUrl: 'photoValueok', ngPictureUrl: 'photoValueng', notes: 'jfNotes'
 };
+
+function jobDetailsMatch(job, fields) {
+  const normalize = value => text(value).replace(/\r\n/g, '\n');
+  return Object.entries(fields).every(([key, value]) =>
+    normalize(job[key === 'notes' ? 'storedNotes' : key]) === normalize(value));
+}
 
 function validationError(message, inputId) {
   showFeedback(message, 'error');
@@ -2131,8 +2198,7 @@ async function submitJob(event) {
   });
   if (values.notes.length > 700) return validationError('หมายเหตุยาวเกินพื้นที่จัดเก็บ กรุณาย่อข้อความ', 'jfNotes');
   const payload = { ...jobData(job), ...values, model, problem, claimType: product };
-  const matchDetails = current => Object.keys(values).every(key =>
-    text(key === 'notes' ? current.storedNotes : current[key]).replace(/\r\n/g, '\n') === values[key]);
+  const matchDetails = current => jobDetailsMatch(current, values);
   if (job && !app.photos.size && matchDetails(job)) {
     if (starting) await withWrite(() => startSavedJob(job));
     else showFeedback('ยังไม่มีรายละเอียดที่เปลี่ยนแปลง');
@@ -2160,12 +2226,29 @@ async function submitJob(event) {
   });
 }
 
+async function submitInspectionSetup(event) {
+  event.preventDefault();
+  const job = findJob();
+  if (!job || job.status !== 'progress' || app.busy || app.pending.has(jobScope(job))) return;
+  if (criteriaSlots(job).length) return navigate('inspection', true);
+  const criteria = Object.fromEntries(SLOTS.map(slot => ['result' + slot + 'Criteria', val('jfCriteria' + slot)]));
+  if (!Object.values(criteria).some(Boolean)) return validationError('กรุณากรอกชื่อเกณฑ์ตรวจอย่างน้อย 1 ข้อ', 'jfCriteria1');
+  const fields = Object.fromEntries(Object.keys(jobFields).map(key => [key, text(job[key])]));
+  const details = { ...fields, ...criteria, notes: text(job.storedNotes) };
+  await withWrite(() => trackWrite(jobScope(job), 'updateJob', { ...jobData(job), ...details },
+    () => current => current.id === job.id && jobDetailsMatch(current, details),
+    current => {
+      if (app.page === 'inspection' && app.selected === job.id) navigate('inspection', true);
+      showFeedback(current.status === 'progress' ? 'บันทึกเกณฑ์แล้ว' : 'บันทึกเกณฑ์แล้ว สถานะงานมีการเปลี่ยนแปลง', 'success');
+    }));
+}
+
 function formCriteria() {
   return text($('inspectionForm')?.dataset.recordSlots).split(' ').map(Number).filter(slot => SLOTS.includes(slot));
 }
 
 function ngCriteriaText(job, slots) {
-  return slots.map(slot => 'Result ' + slot + ' · ' + criterionLabel(job, slot).slice(0, 260)).join('\n');
+  return slots.map(slot => criterionLabel(job, slot).slice(0, 260)).join('\n');
 }
 
 function inspectionNgDetail(job, results, existing) {
@@ -2227,15 +2310,10 @@ async function submitInspection(event) {
           showFeedback('บันทึกผลตรวจ ' + serial + ' แล้ว', 'success');
           return;
         }
-        app.editRecord = '';
-        if (existing) {
-          navigate('jobdetail', true);
-          showFeedback('แก้ผลตรวจ ' + serial + ' แล้ว', 'success');
-        } else {
-          Object.assign(app, { nextModel: model, nextLot: payload.lotNo });
-          navigate('inspection');
-          showFeedback('บันทึก ' + serial + ' แล้ว · พร้อมตรวจคันถัดไป', 'success');
-        }
+        Object.assign(app, { editRecord: '', recordFilter: 'all' });
+        if (!existing) Object.assign(app, { nextModel: model, nextLot: payload.lotNo });
+        navigate('jobdetail', true);
+        showFeedback('บันทึกผลตรวจ ' + serial + ' แล้ว · ' + overall, 'success');
       });
   });
 }
@@ -2427,8 +2505,13 @@ document.addEventListener('error', event => {
 }, true);
 document.addEventListener('submit', event => {
   if (event.target.id === 'jobForm') submitJob(event);
+  if (event.target.id === 'inspectionSetupForm') submitInspectionSetup(event);
   if (event.target.id === 'inspectionForm') submitInspection(event);
 });
+document.addEventListener('invalid', event => {
+  const details = event.target.closest('#inspectionForm details');
+  if (details) details.open = true;
+}, true);
 document.addEventListener('input', event => {
   if (event.target.closest('#formFields')) app.dirty = true;
 });
