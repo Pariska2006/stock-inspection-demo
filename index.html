@@ -61,6 +61,23 @@
 .wide-form{max-width:860px}.form-foot .btn{min-height:44px}.gate-state.success{color:#109671}.notice{white-space:normal}.panel .empty{padding:26px 8px}
 @media(max-width:800px){.side{display:flex!important;position:fixed;z-index:80;left:0;top:0;height:100dvh;width:min(280px,82vw);max-height:100dvh;transform:translateX(-103%);transition:transform .2s ease;box-shadow:12px 0 30px #28345716}.app.drawer-open .side{transform:translateX(0)}.app.nav-collapsed .app-layout{display:block}.nav-toggle{display:grid;place-items:center;width:37px;height:37px}.brand .kubota-logo{width:155px}.nav-collapsed .side .nav-btn{font-size:13px;justify-content:flex-start;padding:13px 14px}.nav-collapsed .side .nav-label,.nav-collapsed .side .nav-bottom{display:block}.nav-collapsed .side .brand .logo-subtitle{display:block}.nav-collapsed .side .brand .kubota-logo{width:155px}}
 @media(max-width:520px){.top-right .user-top strong{max-width:90px}.title-left{gap:8px}.workspace{padding:15px 13px 102px}.welcome{padding:18px 18px}.welcome h1{font-size:22px}.quickcard small{line-height:1.4}.detail-info{grid-template-columns:1fr 1fr}.job-aside{max-width:115px}.job-card{gap:7px}.status{font-size:9px;padding:6px 8px}.two-col{grid-template-columns:1fr}.record{flex-wrap:wrap}.record .result-ico{height:32px;width:32px}.form-foot{grid-template-columns:1fr}.form-foot .btn{width:100%}}
+
+    /* V6.2: Mobile photo selection and local preview. Actual upload requires an approved SharePoint backend. */
+    .camera-panel{border:1px solid #e6eaf5;border-radius:16px;padding:17px;background:linear-gradient(145deg,#fbfcff,#f5f8ff);margin:18px 0}
+    .camera-panel h3{font-size:14px;margin:0 0 7px;color:#263251}.camera-panel p{font-size:11px;color:#77849a;line-height:1.7;margin:0 0 12px}
+    .camera-slots{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+    .camera-slot{border:1px solid #dce3f2;background:white;border-radius:13px;padding:9px;min-width:0}
+    .camera-slot .slot-title{font-size:11px;font-weight:750;margin-bottom:7px;color:#4e5d79}
+    .camera-preview{position:relative;display:grid;place-items:center;aspect-ratio:4/3;background:#f0f3fa;border-radius:10px;overflow:hidden;color:#9aa6bf;font-size:10px;text-align:center}
+    .camera-preview img{width:100%;height:100%;object-fit:contain;background:#eef1f8}
+    .camera-preview .slot-placeholder{padding:8px;line-height:1.5}
+    .camera-controls{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+    .camera-controls label,.camera-controls button{border:1px solid #d9e1f2;background:#fff;color:#5066c5;padding:8px 9px;border-radius:9px;cursor:pointer;font-weight:700;font-size:11px;flex:1;text-align:center;min-width:60px}
+    .camera-controls button[data-photo-remove]{color:#bc5666;border-color:#f0d5dd}
+    .camera-controls input{position:absolute;left:-10000px;width:1px;height:1px}
+    .camera-state{font-size:10px;margin-top:7px;min-height:1.4em;color:#697890;overflow-wrap:anywhere}
+    .camera-warning{margin-top:12px;padding:12px;border-radius:11px;background:#fff7e9;border:1px solid #f3dfb3;color:#8a621f;font-size:11px;line-height:1.75}
+    @media(max-width:580px){.camera-slots{grid-template-columns:1fr}.camera-slot{display:grid;grid-template-columns:100px 1fr;gap:9px;align-items:start}.camera-slot .slot-title{grid-column:1/-1;margin-bottom:0}.camera-preview{width:100px}.camera-controls{align-self:center}}
 </style>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
@@ -143,7 +160,7 @@
 
         <section class="view" id="reports"><div class="page-head"><div><h1>รายงานการตรวจ</h1><p>ดูผลสรุปตามงาน และจัดเตรียมเอกสารรายงาน</p></div><span class="pill demo">สถานะรายงานจริง</span></div><div class="stats" id="reportStats"></div><div class="panel"><div class="panel-head"><h2>รายการรายงาน</h2><small>ดาวน์โหลดเมื่อมีไฟล์รายงานใน SharePoint</small></div><div id="reportList"></div></div><div class="notice warn">แสดงเฉพาะไฟล์ที่มี ReportURL จาก SharePoint · งานตรวจเสร็จจะรอการจัดทำรายงาน</div></section>
 
-        <section class="view" id="profile"><div class="page-head"><div><h1>โปรไฟล์ของฉัน</h1><p>บัญชีผู้ใช้งานและช่องทางติดต่อผู้ดูแล</p></div><span class="pill good">LINE Verified</span></div><div class="split"><div><section class="panel"><div class="profilehero"><img id="profileAvatar" class="photo" alt="รูปโปรไฟล์ LINE" hidden><div id="profileFallback" class="avatar-fallback" style="height:61px;width:61px;border-radius:18px;font-size:24px">P</div><div><h2 id="profileName">สมาชิกหน่วยงาน</h2><p>Stock Inspection · Inspection Claim</p></div></div><div class="list-row"><span>ชื่อในระบบ</span><b id="memberFullName">—</b></div><div class="list-row"><span>สถานะบัญชี</span><b class="status report-ready" id="memberStatus">Approved</b></div><div class="list-row"><span>สิทธิ์ผู้ใช้งาน</span><b id="memberRole">Inspector</b></div><div class="list-row"><span>ยืนยันตัวตนด้วย</span><b>LINE Login</b></div><div class="section-actions" style="margin-top:15px"><button class="btn secondary" id="appRefresh"><svg class="ico sm"><use href="#ic-refresh"/></svg> ตรวจสอบสถานะ</button><button class="btn ghost" id="appLogout"><svg class="ico sm"><use href="#ic-logout"/></svg> ออกจาก LINE</button></div></section></div><div><section class="panel"><div class="panel-head"><h2>ความช่วยเหลือ & แจ้งปัญหา</h2></div><p class="hint">พบปัญหาในการใช้งาน หรือมีข้อเสนอแนะ สามารถติดต่อผู้ดูแลได้โดยตรง</p><div class="contact"><div class="contact-icon"><svg class="ico"><use href="#ic-heart"/></svg></div><div><b>น้องปารีส</b><p>LINE ID: <strong>King12348</strong></p></div></div><div class="section-actions" style="margin-top:13px"><button class="btn secondary" id="copyLineID"><svg class="ico sm"><use href="#ic-copy"/></svg> คัดลอก LINE ID</button><a class="btn ghost" target="_blank" rel="noopener noreferrer" href="https://line.me/ti/p/~King12348">เปิด LINE</a></div></section><section class="panel"><div class="panel-head"><h2>เกี่ยวกับระบบ</h2></div><div class="list-row"><span>ระบบ</span><b>Stock Inspection</b></div><div class="list-row"><span>หน่วยงาน</span><b>Inspection Claim</b></div><div class="list-row"><span>เวอร์ชันหน้าเว็บ</span><b>Stock UI 6.1</b></div><div class="list-row"><span>ข้อมูลสมาชิก</span><b style="color:#169474">เชื่อมจริง</b></div><div class="list-row"><span>ข้อมูลงานตรวจ</span><b style="color:#c58a32">เชื่อมจริงหลังตั้งค่าครบ</b></div></section></div></div></section>
+        <section class="view" id="profile"><div class="page-head"><div><h1>โปรไฟล์ของฉัน</h1><p>บัญชีผู้ใช้งานและช่องทางติดต่อผู้ดูแล</p></div><span class="pill good">LINE Verified</span></div><div class="split"><div><section class="panel"><div class="profilehero"><img id="profileAvatar" class="photo" alt="รูปโปรไฟล์ LINE" hidden><div id="profileFallback" class="avatar-fallback" style="height:61px;width:61px;border-radius:18px;font-size:24px">P</div><div><h2 id="profileName">สมาชิกหน่วยงาน</h2><p>Stock Inspection · Inspection Claim</p></div></div><div class="list-row"><span>ชื่อในระบบ</span><b id="memberFullName">—</b></div><div class="list-row"><span>สถานะบัญชี</span><b class="status report-ready" id="memberStatus">Approved</b></div><div class="list-row"><span>สิทธิ์ผู้ใช้งาน</span><b id="memberRole">Inspector</b></div><div class="list-row"><span>ยืนยันตัวตนด้วย</span><b>LINE Login</b></div><div class="section-actions" style="margin-top:15px"><button class="btn secondary" id="appRefresh"><svg class="ico sm"><use href="#ic-refresh"/></svg> ตรวจสอบสถานะ</button><button class="btn ghost" id="appLogout"><svg class="ico sm"><use href="#ic-logout"/></svg> ออกจาก LINE</button></div></section></div><div><section class="panel"><div class="panel-head"><h2>ความช่วยเหลือ & แจ้งปัญหา</h2></div><p class="hint">พบปัญหาในการใช้งาน หรือมีข้อเสนอแนะ สามารถติดต่อผู้ดูแลได้โดยตรง</p><div class="contact"><div class="contact-icon"><svg class="ico"><use href="#ic-heart"/></svg></div><div><b>น้องปารีส</b><p>LINE ID: <strong>King12348</strong></p></div></div><div class="section-actions" style="margin-top:13px"><button class="btn secondary" id="copyLineID"><svg class="ico sm"><use href="#ic-copy"/></svg> คัดลอก LINE ID</button><a class="btn ghost" target="_blank" rel="noopener noreferrer" href="https://line.me/ti/p/~King12348">เปิด LINE</a></div></section><section class="panel"><div class="panel-head"><h2>เกี่ยวกับระบบ</h2></div><div class="list-row"><span>ระบบ</span><b>Stock Inspection</b></div><div class="list-row"><span>หน่วยงาน</span><b>Inspection Claim</b></div><div class="list-row"><span>เวอร์ชันหน้าเว็บ</span><b>Stock UI 6.2 · Photo Preview</b></div><div class="list-row"><span>ข้อมูลสมาชิก</span><b style="color:#169474">เชื่อมจริง</b></div><div class="list-row"><span>ข้อมูลงานตรวจ</span><b style="color:#c58a32">เชื่อมจริงหลังตั้งค่าครบ</b></div></section></div></div></section>
         <p class="footer">KUBOTA · STOCK INSPECTION SYSTEM <span style="color:#d1d7e2">|</span> สถานะจริงจาก Microsoft Lists · บันทึกผ่าน Power Automate</p>
       </main>
     </div>
@@ -158,6 +175,8 @@ const LIFF_ID='2012530584-4TCAHUlC';
 const API_URL='https://n8n-hook.siamkubota.co.th/webhook/stk-liff-users-v1';
 const JOBS_API_URL='https://n8n-hook.siamkubota.co.th/webhook/stk-liff-jobs-v1';
 const WRITE_API_URL='https://n8n-hook.siamkubota.co.th/webhook/stk-liff-write-v1';
+// Set only after the approved photo-upload API is deployed and verified; never put secrets here.
+const PHOTO_UPLOAD_API_URL='';
 const $=id=>document.getElementById(id);
 const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const val=id=>String($(id)?.value??'').trim();
@@ -199,7 +218,7 @@ function renderDetail(){const j=findJob(app.selected),root=$('detailContent');if
 const field=(id,label,value='',placeholder='',required=false)=>`<div class="field"><label for="${id}">${h(label)}${required?' *':''}</label><input class="control" id="${id}" ${required?'required':''} maxlength="700" value="${h(value)}" placeholder="${h(placeholder)}"></div>`;
 function renderJobForm(){const j=app.editJob?findJob(app.selected):null,root=$('jobFormContent');const manual=!j;root.innerHTML=`<div class="page-head"><div><h1>${manual?'สร้างงานตรวจใหม่':'รายละเอียดงานตรวจ'}</h1><p>${manual?'สร้างงานใหม่ใน STK_Jobs':'ข้อมูล Claim ต้นเรื่องไม่เปลี่ยน สามารถเพิ่มรายละเอียดการตรวจ'}</p></div></div><form id="jobForm" class="panel wide-form"><div class="notice">${manual?'ระบบจะสร้างงานสถานะ New จากนั้นเลือกเข้าตรวจให้อัตโนมัติหลังตรวจพบรายการจริงใน STK_Jobs':'งานนี้เป็น Claim ที่นำเข้าแล้ว สามารถแก้เฉพาะรายละเอียดการตรวจ ไม่แก้ต้นเรื่อง'}</div><div class="two-col">${manual?field('jfModel','Model หลัก','', 'เช่น M6040',true):field('jfModel','Model ต้นเรื่อง',j.model)}<div class="field"><label for="jfClaimType">กลุ่มงาน</label><select class="control" id="jfClaimType" ${manual?'':'disabled'}>${GROUPS.map(t=>`<option ${((j?.claimType||'FGL')===t)?'selected':''} value="${t}">${t}</option>`).join('')}</select></div></div>${field('jfProblem','ชื่อปัญหา / หัวข้องาน',j?.title||'','ระบุชื่อปัญหาที่จะตรวจ',manual)}<div class="field"><label for="jfDetail">รายละเอียดปัญหา</label><textarea class="control" id="jfDetail" ${manual?'':'readonly'}>${h(j?.detail||'')}</textarea></div><div class="two-col">${field('jfLocation','Inspection Location',j?.inspectionLocation||'','เช่น FGL')}${field('jfMethod','Checking Method',j?.checkingMethod||'','เช่น ตรวจสายไฟ / รอยรั่ว')}</div><div class="two-col">${[1,2,3,4].map(i=>field('jfCriteria'+i,'เกณฑ์ Result '+i,j?.['result'+i+'Criteria']||'','เกณฑ์ผ่าน')).join('')}</div><div class="two-col">${field('jfOKPic','ลิงก์รูปอ้างอิง OK',j?.okPictureUrl||'','https://...')}${field('jfNGPic','ลิงก์รูปอ้างอิง NG',j?.ngPictureUrl||'','https://...')}</div><div class="field"><label for="jfNotes">หมายเหตุงาน</label><textarea id="jfNotes" class="control">${h(j?.notes||'')}</textarea></div><div class="form-foot"><button type="button" class="btn ghost" data-action="cancel-form">ยกเลิก</button><button type="submit" class="btn primary">ส่งคำขอบันทึกข้อมูล</button></div><div id="formMessage" class="gate-state" role="status"></div></form>`;if(j){$('jfModel').readOnly=true;$('jfProblem').readOnly=true;}enhancePhotoFields();}
 const rs=(name,value)=>`<option value="${name}" ${value===name?'selected':''}>${name==='NA'?'— ไม่ใช้':name}</option>`;
-function renderInspection(){const j=findJob(app.selected),r=(j?.records||[]).find(x=>x.id===app.editRecord);if(!j)return;const result=(i)=>r?.['result'+i]|| (i===1?'OK':'NA');const option=i=>`<div class="field"><label>Result ${i} <span class="muted">${h(j['result'+i+'Criteria']||'')}</span></label><select class="control" id="insR${i}">${['NA','OK','NG'].map(x=>rs(x,result(i))).join('')}</select></div>`;$('inspectionContent').innerHTML=`<div class="page-head"><div><h1>${r?'แก้ไขผลตรวจ':'บันทึกผลตรวจรถ'}</h1><p>${h(j.id)} · ${h(j.title)}</p></div></div><form id="inspectionForm" class="panel wide-form"><div class="notice">นับจำนวนรถจาก Serial ที่บันทึกจริงเท่านั้น Model เริ่มจากงานหลักและเปลี่ยนรายคันได้</div><div class="two-col">${field('insSerial','Serial / Chassis Number',r?.serial||'','เลขตัวรถ',true)}${field('insModel','Model ที่ตรวจ',r?.model||j.model,'เปลี่ยนโมเดลได้',true)}</div><div class="two-col">${field('insLot','Lot No.',r?.lotNo||'','ระบุถ้ามี')}${field('insDate','Checking Date',r?.checkedAt||nowISO(),'YYYY-MM-DD')}</div><div class="two-col">${[1,2,3,4].map(option).join('')}</div><div class="field"><label>ผู้ตรวจ</label><input class="control" readonly id="insInspector" value="${h(app.member?.displayName||app.nickname)}"><small class="hint">บันทึกชื่อจากสมาชิกที่เข้าสู่ระบบจริง</small></div><div class="field"><label for="insRemarks">หมายเหตุเพิ่มเติม</label><textarea class="control" id="insRemarks">${h(r?.note||'')}</textarea></div><div class="field"><label for="insNGDetail">รายละเอียด NG (กรณีมีผล NG)</label><textarea class="control" id="insNGDetail" placeholder="จุดที่พบ อาการ ปัญหา">${h(r?.ngDetail||'')}</textarea></div><div class="notice warn">รูปประกอบ: เปิดรูปใน SharePoint กดคัดลอกลิงก์ แล้วใช้ปุ่ม “วางลิงก์” ด้านล่างได้เลย รูปต้องอยู่ใน SharePoint และทีมมีสิทธิ์เปิดก่อน (ยังไม่รองรับเลือกภาพจากเครื่องแล้วอัปโหลดอัตโนมัติ)</div><div class="two-col">${[1,2,3].map(i=>field('insPhoto'+i,'ลิงก์รูป '+i,(r?.photos||[])[i-1]?.url||'','https://...')).join('')}</div><div id="formMessage" class="gate-state" role="status"></div><div class="form-foot"><button type="button" class="btn ghost" data-action="cancel-form">ยกเลิก</button><button type="submit" class="btn primary">ส่งคำขอบันทึกผลตรวจ</button></div></form>`;if(r)$('insSerial').readOnly=true;enhancePhotoFields();}
+function renderInspection(){clearPhotoDraft();const j=findJob(app.selected),r=(j?.records||[]).find(x=>x.id===app.editRecord);if(!j)return;const result=(i)=>r?.['result'+i]|| (i===1?'OK':'NA');const option=i=>`<div class="field"><label>Result ${i} <span class="muted">${h(j['result'+i+'Criteria']||'')}</span></label><select class="control" id="insR${i}">${['NA','OK','NG'].map(x=>rs(x,result(i))).join('')}</select></div>`;$('inspectionContent').innerHTML=`<div class="page-head"><div><h1>${r?'แก้ไขผลตรวจ':'บันทึกผลตรวจรถ'}</h1><p>${h(j.id)} · ${h(j.title)}</p></div></div><form id="inspectionForm" class="panel wide-form"><div class="notice">นับจำนวนรถจาก Serial ที่บันทึกจริงเท่านั้น Model เริ่มจากงานหลักและเปลี่ยนรายคันได้</div><div class="two-col">${field('insSerial','Serial / Chassis Number',r?.serial||'','เลขตัวรถ',true)}${field('insModel','Model ที่ตรวจ',r?.model||j.model,'เปลี่ยนโมเดลได้',true)}</div><div class="two-col">${field('insLot','Lot No.',r?.lotNo||'','ระบุถ้ามี')}${field('insDate','Checking Date',r?.checkedAt||nowISO(),'YYYY-MM-DD')}</div><div class="two-col">${[1,2,3,4].map(option).join('')}</div><div class="field"><label>ผู้ตรวจ</label><input class="control" readonly id="insInspector" value="${h(app.member?.displayName||app.nickname)}"><small class="hint">บันทึกชื่อจากสมาชิกที่เข้าสู่ระบบจริง</small></div><div class="field"><label for="insRemarks">หมายเหตุเพิ่มเติม</label><textarea class="control" id="insRemarks">${h(r?.note||'')}</textarea></div><div class="field"><label for="insNGDetail">รายละเอียด NG (กรณีมีผล NG)</label><textarea class="control" id="insNGDetail" placeholder="จุดที่พบ อาการ ปัญหา">${h(r?.ngDetail||'')}</textarea></div><div class="camera-panel"><h3>📷 รูปประกอบผลตรวจ</h3><p>เลือกรูปจากอัลบั้มหรือถ่ายภาพได้ทันที เห็นภาพตัวอย่างก่อนใช้งาน รองรับสูงสุด 3 รูปต่อรถหนึ่งคัน</p><div class="camera-slots">${[1,2,3].map(i=>`<div class="camera-slot"><div class="slot-title">รูปที่ ${i}</div><div class="camera-preview" id="cameraPreview${i}"><span class="slot-placeholder">ยังไม่ได้เลือกรูป</span></div><div><div class="camera-controls"><label>📸 ถ่ายรูป<input type="file" accept="image/*" capture="environment" data-photo-slot="${i}"></label><label>🖼️ อัลบั้ม<input type="file" accept="image/*" data-photo-slot="${i}"></label><button type="button" data-photo-remove="${i}" hidden>ลบรูป</button></div><div class="camera-state" id="cameraState${i}">ยังไม่ได้เลือกไฟล์</div></div></div>`).join('')}</div><div class="camera-warning" id="cameraUploadNotice">⚠️ ภาพที่เลือกจะแสดงตัวอย่างในเครื่องเท่านั้น จนกว่าจะเชื่อมระบบอัปโหลด SharePoint จริง หากบันทึกผลตรวจตอนนี้ รูปที่เลือกจะยังไม่ถูกส่งขึ้นระบบ</div></div><details class="photo-link-details"><summary style="font-size:11px;color:#6577b4;cursor:pointer;padding:8px 0">มีรูปใน SharePoint อยู่แล้ว? ใช้ลิงก์รูปแทน</summary><div class="two-col">${[1,2,3].map(i=>field('insPhoto'+i,'ลิงก์รูป '+i,(r?.photos||[])[i-1]?.url||'','https://...')).join('')}</div></details><div id="formMessage" class="gate-state" role="status"></div><div class="form-foot"><button type="button" class="btn ghost" data-action="cancel-form">ยกเลิก</button><button type="submit" class="btn primary">ส่งคำขอบันทึกผลตรวจ</button></div></form>`;if(r)$('insSerial').readOnly=true;enhancePhotoFields();}
 function renderReports(){const out=app.jobs.filter(j=>['completed','waiting-report','report-ready','closed'].includes(j.status));$('reportStats').innerHTML=stat('ตรวจเสร็จ',out.length,'check','teal','รวมงานที่ปิดการตรวจ')+stat('รอรายงาน',out.filter(x=>!safeLink(x.reportUrl)).length,'clock','orange','ยังไม่มีลิงก์ไฟล์')+stat('พร้อมดาวน์โหลด',out.filter(x=>safeLink(x.reportUrl)).length,'file','violet','ไฟล์จริงจาก SharePoint')+stat('NG ทั้งหมด',summary().ng,'list','','จำนวนรถที่ NG');$('reportList').innerHTML=out.length?out.map(j=>{const c=counts(j);return `<div class="report-row"><div class="report-icon">${ico('file')}</div><div style="flex:1"><b>${h(j.title)}</b><p>${h(j.id)} · ${h(j.model)} · ตรวจแล้ว ${c.checked} คัน</p></div>${badge(j.status)}${safeLink(j.reportUrl)?`<a class="btn secondary sm" target="_blank" rel="noopener" href="${h(j.reportUrl)}">ดาวน์โหลด</a>`:'<span class="pill">รอไฟล์รายงาน</span>'}</div>`;}).join(''):'<div class="empty">ยังไม่มีงานตรวจเสร็จ</div>';}
 function renderAll(){renderHome();renderOverview();renderJobs();renderReports();showBanner();if(app.page==='jobdetail')renderDetail();}
 const titles={home:'เริ่มงาน',overview:'ภาพรวม',jobs:'งานทั้งหมด',jobdetail:'รายละเอียดงาน',jobform:'จัดการงาน',inspection:'ผลตรวจรถ',reports:'รายงาน',profile:'โปรไฟล์'};
@@ -279,9 +298,23 @@ async function submitInspection(e){
   const results=[1,2,3,4].map(i=>val('insR'+i));
   if(results.includes('NG')&&!val('insNGDetail')){showSaveMessage('กรุณาระบุรายละเอียด NG',true);return;}
   const r=j.records.find(x=>x.id===app.editRecord);
+  // Prevent silent photo loss: local previews are NOT server uploads.
+  const selectedImages=Object.values(stockPhotoDraft).filter(Boolean);
+  if(selectedImages.length && !PHOTO_UPLOAD_API_URL){
+    showSaveMessage('เลือกรูปแล้ว '+selectedImages.length+' รูป แต่ยังไม่ได้ตั้งค่า Photo Upload API ที่เขียน SharePoint ได้ กรุณาอัปโหลดรูปใน SharePoint แล้วใส่ลิงก์ หรือกดลบรูปที่เลือกเพื่อบันทึกเฉพาะผลตรวจ',true);
+    return;
+  }
   const o={...jobData(j),recordItemId:Number(r?.sharePointItemId||0),serial:val('insSerial'),model:val('insModel'),lotNo:val('insLot'),inspectionDate:val('insDate'),result1:results[0],result2:results[1],result3:results[2],result4:results[3],remarks:val('insRemarks'),ngDetail:val('insNGDetail'),photoUrl1:val('insPhoto1'),photoUrl2:val('insPhoto2'),photoUrl3:val('insPhoto3')};
   app.busyWrite=true;
   try{
+    if(selectedImages.length){
+      showSaveMessage('กำลังอัปโหลดรูปภาพไป SharePoint…');
+      for(const [slot,item] of Object.entries(stockPhotoDraft)){
+        if(!item)continue;
+        const uploaded=await stockUploadPhoto(item.file,j,o.serial,slot);
+        o['photoUrl'+slot]=uploaded;
+      }
+    }
     showSaveMessage('กำลังส่งผลตรวจไป STK_06…');
     await write('saveInspection',o);
     showSaveMessage('รับคำขอแล้ว กำลังรอผลตรวจปรากฏใน STK_Inspections…');
@@ -291,6 +324,61 @@ async function submitInspection(e){
   }catch(err){showSaveMessage('ยังไม่บันทึกสำเร็จ: '+String(err.message),true);}
   finally{app.busyWrite=false;}
 }
+// Upload API contract (not implemented by this static HTML): POST multipart image + LINE ID token;
+// backend verifies LINE identity and Approved membership, checks job access, uploads to SharePoint,
+// and returns {url: "https://..."} only after successful storage. Never trust client actor IDs.
+async function stockUploadPhoto(file, job, serial, slot){
+  if(!PHOTO_UPLOAD_API_URL)throw Error('Photo Upload API ยังไม่พร้อม');
+  if(!liff.isLoggedIn()||!liff.getIDToken())throw Error('กรุณาเข้าสู่ระบบ LINE ใหม่');
+  const form=new FormData();
+  form.append('idToken',liff.getIDToken());
+  form.append('stockCheckID',job.id);
+  form.append('serialNumber',serial);
+  form.append('slot',String(slot));
+  form.append('image',file,file.name||('inspection-'+slot+'.jpg'));
+  const res=await fetch(PHOTO_UPLOAD_API_URL,{method:'POST',body:form,cache:'no-store'});
+  if(!res.ok)throw Error('อัปโหลดรูปที่ '+slot+' ไม่สำเร็จ (HTTP '+res.status+')');
+  const x=await res.json();
+  const url=String(x.url||'').trim();
+  if(!/^https:\/\//i.test(url))throw Error('เซิร์ฟเวอร์รูปภาพยังไม่ส่งลิงก์ไฟล์ที่จัดเก็บจริง');
+  return url;
+}
+// Local preview UI. No image data is sent to public pages or legacy Teams card flows.
+const stockPhotoDraft = {};
+function clearPhotoDraft(){
+  for(const x of Object.values(stockPhotoDraft))if(x?.url)URL.revokeObjectURL(x.url);
+  for(const key of Object.keys(stockPhotoDraft))delete stockPhotoDraft[key];
+}
+document.addEventListener('change', e => {
+  const input=e.target.closest('input[data-photo-slot]');
+  if(!input)return;
+  const slot=input.dataset.photoSlot;
+  const file=input.files?.[0];
+  if(!file)return;
+  if(!file.type.startsWith('image/')){alert('กรุณาเลือกไฟล์รูปภาพเท่านั้น');input.value='';return;}
+  if(file.size>15*1024*1024){alert('รูปใหญ่เกิน 15 MB กรุณาลดขนาดรูป');input.value='';return;}
+  if(stockPhotoDraft[slot]?.url)URL.revokeObjectURL(stockPhotoDraft[slot].url);
+  const url=URL.createObjectURL(file);
+  stockPhotoDraft[slot]={file,url};
+  const frame=document.getElementById('cameraPreview'+slot);
+  if(frame){frame.textContent='';const img=document.createElement('img');img.src=url;img.alt='รูปตัวอย่าง '+slot;frame.appendChild(img);}
+  const st=document.getElementById('cameraState'+slot);
+  if(st)st.textContent=file.name+' • '+(file.size/1024/1024).toFixed(2)+' MB • ยังไม่ได้อัปโหลด';
+  const btn=document.querySelector(`[data-photo-remove="${slot}"]`);
+  if(btn)btn.hidden=false;
+  input.value='';
+});
+document.addEventListener('click',e=>{
+  const btn=e.target.closest('[data-photo-remove]');if(!btn)return;
+  const slot=btn.dataset.photoRemove;
+  if(stockPhotoDraft[slot]?.url)URL.revokeObjectURL(stockPhotoDraft[slot].url);
+  delete stockPhotoDraft[slot];
+  const frame=document.getElementById('cameraPreview'+slot);
+  if(frame)frame.innerHTML='<span class="slot-placeholder">ยังไม่ได้เลือกรูป</span>';
+  const st=document.getElementById('cameraState'+slot);if(st)st.textContent='ยังไม่ได้เลือกไฟล์';
+  btn.hidden=true;
+});
+
 // Paste SharePoint photo URLs with one tap; links are verified only after save in Lists.
 document.addEventListener('click',async e=>{
   const btn=e.target.closest('[data-paste-photo]');if(!btn)return;
