@@ -929,7 +929,7 @@ const icon = name => `<svg class="ico sm" aria-hidden="true"><use href="#ic-${na
 const KNOWN_CLAIM_TYPES = ['Quick Report', 'Hotline'];
 const GROUPS = ['FGL', 'MU', 'M', 'L', 'B', 'RX', 'CH', 'SH'];
 const SLOTS = [1, 2, 3, 4];
-const PHOTOS = [1, 2, 3];
+const PHOTOS = [1]; // One serial-number evidence photo per inspected vehicle
 // Enable only when both write and read flows support inspection deletion.
 const ENABLE_DELETE_INSPECTION = false;
 const MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
@@ -1531,9 +1531,9 @@ const pendingControls = scope => app.pending.has(scope) ? `<div class="section-a
   <button class="btn ghost" type="button" data-action="allow-retry">ส่งคำขอใหม่</button></div>` : '';
 
 function recordPictures(record) {
-  const images = record.photoSlots.map((url, index) => url ? `<a class="evidence-photo" href="${html(url)}" target="_blank" rel="noopener noreferrer">
-    <img src="${html(url)}" alt="รูปประกอบที่ ${index + 1}" data-reference-photo loading="lazy">
-    <small>เปิดรูปที่ ${index + 1}</small></a>` : '').join('');
+  const images = record.photoSlots.slice(0, 1).map(url => url ? `<a class="evidence-photo" href="${html(url)}" target="_blank" rel="noopener noreferrer">
+    <img src="${html(url)}" alt="รูป Serial Number" data-reference-photo loading="lazy">
+    <small>เปิดรูป Serial Number</small></a>` : '').join('');
   return images ? `<div class="evidence-grid">${images}</div>` : '';
 }
 
@@ -1637,7 +1637,7 @@ function recordEvidence(job, record) {
   return `${results || '<p class="hint">ไม่มีข้อมูลผลแยกตามเกณฑ์</p>'}
     ${record.note ? `<div class="record-extra"><h3>หมายเหตุ</h3><p class="record-note">${html(record.note)}</p></div>` : ''}
     ${showNgDetail ? `<div class="record-extra"><h3>รายละเอียด NG</h3><p class="record-note">${html(record.ngDetail)}</p></div>` : ''}
-    ${pictures ? `<div class="record-extra"><h3>รูปประกอบ</h3>${pictures}</div>` : ''}`;
+    ${pictures ? `<div class="record-extra"><h3>รูป Serial Number</h3>${pictures}</div>` : ''}`;
 }
 
 function reportRecord(job, record) {
@@ -1814,7 +1814,7 @@ function renderJobForm() {
               ${products.map(product => `<option value="${html(product)}" ${job?.product === product ? 'selected' : ''}>${html(product)}</option>`).join('')}</select></div>
         </div>
         ${field('jfModel', manual ? 'Model' : 'Model เริ่มต้นสำหรับตรวจ', job ? inspectionModel(job) : '', { placeholder: 'เช่น L228', required: manual, max: 70 })}
-        ${job ? `<p class="hint">Model ตามงานเคลม: ${html(job.model || '—')} · เปลี่ยนรุ่นรถแต่ละคันได้ในหน้าตรวจ</p>` : ''}
+        ${job ? `<p class="hint">Model ตามงานเคลม: ${html(job.model || '—')} · รายคันจะใช้ Model เดียวกับงานปัญหา</p>` : ''}
         ${job?.detail && text(job.detail) !== job.title ? `<div class="method-box"><h3>รายละเอียดปัญหา</h3><p>${html(job.detail)}</p></div>` : ''}
         <div class="section-title"><h2>รูปตัวอย่าง</h2><span class="hint">ไม่บังคับ</span></div>
         <div class="two-col">
@@ -1851,7 +1851,7 @@ function photoInput(slot, value, label) {
 }
 
 function photoConnectionHint() {
-  return PHOTO_UPLOAD_API_URL ? '' : '<p class="hint">เลือกรูปเพื่อดูตัวอย่างได้ การบันทึกรูปจะเปิดเมื่อเชื่อมที่เก็บรูปแล้ว</p>';
+  return PHOTO_UPLOAD_API_URL ? '' : '<p class="hint">ยังไม่เชื่อมบริการอัปโหลด SharePoint: เลือกรูปดูตัวอย่างได้ แต่ไม่สามารถบันทึกรูปจริงได้จนกว่าจะตั้งค่า PHOTO_UPLOAD_API_URL</p>';
 }
 
 function renderInspectionSetup(job) {
@@ -1883,7 +1883,7 @@ function renderInspection() {
   }
   const urls = record?.photoSlots || ['', '', ''];
   const oldNames = legacyNgCriteria(record);
-  const model = record?.model || inspectionModel(job);
+  const model = inspectionModel(job);
   app.inspectionBaseline = record ? inspectionSnapshot(job, record) : '';
   const checks = criteria.map(slot => {
     const label = criterionLabel(job, slot, oldNames);
@@ -1904,7 +1904,7 @@ function renderInspection() {
         <div class="inspection-data"><h2>ข้อมูลรถและวันที่ตรวจ</h2>
           <div class="two-col">
             ${field('insSerial', 'เลขตัวรถ / Serial No.', record?.serial, { required: true, readOnly: !!record, serial: true, max: 65, placeholder: 'กรอกเลขตัวรถ' })}
-            ${field('insModel', 'Model', validModel.test(model) ? model : '', { required: true, max: 70, placeholder: 'กรอกรุ่นรถ' })}
+            ${field('insModel', 'Model ตามงานปัญหา', validModel.test(inspectionModel(job)) ? inspectionModel(job) : '', { required: true, readOnly: true, max: 70, placeholder: 'Model ของงาน' })}
             ${field('insLot', 'Lot No.', record?.lotNo, { max: 100, placeholder: 'กรอกถ้ามี' })}
             ${field('insDate', 'วันที่ตรวจ', dateValue(record?.checkedAt) || dateValue(new Date()), { type: 'date', required: true })}
           </div>
@@ -1921,10 +1921,10 @@ function renderInspection() {
           <div class="optional-body">${area('insRemarks', 'หมายเหตุการตรวจ', record?.note)}</div>
         </details>
         <details class="optional-detail" id="optionalPhotos" ${urls.some(Boolean) ? 'open' : ''}>
-          <summary>รูปประกอบ <span>ไม่บังคับ</span></summary>
+          <summary>รูป Serial Number <span>ไม่บังคับ</span></summary>
           <div class="optional-body">
             ${photoConnectionHint()}
-            <div class="camera-slots">${PHOTOS.map(slot => photoInput(slot, urls[slot - 1], 'รูปที่ ' + slot)).join('')}</div>
+            <div class="camera-slots">${PHOTOS.map(slot => photoInput(slot, urls[slot - 1], 'รูป Serial Number')).join('')}</div>
           </div>
         </details>
         <p class="hint">ผู้ตรวจ ${html(app.member?.displayName || app.member?.fullName || app.nickname)}</p>
@@ -2379,7 +2379,7 @@ async function submitInspection(event) {
     return;
   }
   const overall = results.includes('NG') ? 'NG' : 'OK';
-  const serial = val('insSerial').toUpperCase(), model = val('insModel');
+  const serial = val('insSerial').toUpperCase(), model = inspectionModel(job);
   const existing = liveRecords(job).find(item => item.id === app.editRecord);
   if (app.editRecord && !existing) return showFeedback('ไม่พบผลตรวจเดิม กรุณาย้อนกลับแล้วเปิดรายการอีกครั้ง', 'error');
   const recordItemId = Number(existing?.sharePointItemId || 0);
@@ -2387,7 +2387,7 @@ async function submitInspection(event) {
     return showFeedback('ไม่พบรหัสรายการเดิม กรุณาโหลดงานอีกครั้งก่อนตรวจต่อ', 'error');
   }
   if (!serialPattern.test(serial)) return validationError('Serial ใช้ตัวอักษร A–Z ตัวเลข จุด ขีด และขีดล่าง 3–65 ตัว', 'insSerial');
-  if (!validModel.test(model)) return validationError('กรุณาตรวจรูปแบบรุ่นรถ (สูงสุด 70 ตัวอักษร)', 'insModel');
+  if (!validModel.test(model) || model.toUpperCase() !== inspectionModel(job).toUpperCase()) return validationError('Model ต้องตรงกับรุ่นที่ระบุในงานปัญหา', 'insModel');
   if (!existing && liveRecords(job).some(record => record.serial.toUpperCase() === serial)) {
     return validationError('มีเลขตัวรถนี้ในงานแล้ว กดตรวจต่อหรือแก้ไขที่รายการเดิม', 'insSerial');
   }
@@ -2451,6 +2451,7 @@ async function uploadPhoto(file, job, serial, slot) {
   form.append('stockCheckID', job?.id || '');
   form.append('serialNumber', serial);
   form.append('slot', String(slot));
+  if (slot === 1) form.append('kind', 'serial-number');
   if (slot === 'ok' || slot === 'ng') {
     form.append('kind', 'reference');
     if (!job) form.append('draftKey', app.uploadDraft ||= crypto.randomUUID());
