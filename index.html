@@ -917,7 +917,7 @@ const LIFF_ID='2012530584-4TCAHUlC';
 const API_URL='https://n8n-hook.siamkubota.co.th/webhook/stk-liff-users-v1';
 const JOBS_API_URL='https://n8n-hook.siamkubota.co.th/webhook/stk-liff-jobs-v1';
 const WRITE_API_URL='https://n8n-hook.siamkubota.co.th/webhook/stk-liff-write-v1';
-const PHOTO_UPLOAD_API_URL='';
+const PHOTO_UPLOAD_API_URL='https://n8n-hook.siamkubota.co.th/webhook/stk-liff-photo-upload-v1';
 
 const $ = id => document.getElementById(id);
 const text = value => String(value ?? '').trim();
@@ -1851,7 +1851,7 @@ function photoInput(slot, value, label) {
 }
 
 function photoConnectionHint() {
-  return PHOTO_UPLOAD_API_URL ? '' : '<p class="hint">ยังไม่เชื่อมบริการอัปโหลด SharePoint: เลือกรูปดูตัวอย่างได้ แต่ไม่สามารถบันทึกรูปจริงได้จนกว่าจะตั้งค่า PHOTO_UPLOAD_API_URL</p>';
+  return PHOTO_UPLOAD_API_URL ? '<p class="hint">รูปจะส่งหลังบันทึกรายการสำเร็จ และอาจต้องรีเฟรชเมื่อ Power Automate จัดเก็บไฟล์เสร็จ</p>' : '<p class="hint">ยังไม่เชื่อมระบบอัปโหลดรูปภาพ</p>';
 }
 
 function renderInspectionSetup(job) {
@@ -2281,16 +2281,17 @@ async function submitJob(event) {
     return;
   }
   if (!job && !await confirmAction('สร้างงานตรวจ', problem + '\nรุ่น ' + model, 'สร้างและเริ่มตรวจ')) return;
+  const photoFiles = selectedPhotoFiles();
   await withWrite(async () => {
-    await attachPhotos(values, job, '', [['ok', 'okPictureUrl'], ['ng', 'ngPictureUrl']]);
     Object.assign(payload, values);
     if (job) {
       await trackWrite(scope, 'updateJob', payload,
         () => current => current.id === job.id && matchDetails(current),
         async current => {
           if (app.page === 'jobform') navigate('jobdetail', true);
-          if (starting) await startSavedJob(current);
+          if (photoFiles.length) await uploadSavedPhotos(photoFiles, current, '', current.sharePointItemId);
           else showFeedback('บันทึกรายละเอียดงานแล้ว', 'success');
+          if (starting) await startSavedJob(current);
         });
       return;
     }
@@ -2298,7 +2299,10 @@ async function submitJob(event) {
     await trackWrite(scope, 'createJob', payload, response => current => {
       const request = text(response.requestId);
       return !!request && [current.id, current.importKey].some(key => text(key).endsWith(request)) && matchDetails(current);
-    }, startSavedJob);
+    }, async current => {
+      if (photoFiles.length) await uploadSavedPhotos(photoFiles, current, '', current.sharePointItemId);
+      await startSavedJob(current);
+    });
   });
 }
 
@@ -2413,20 +2417,23 @@ async function submitInspection(event) {
         return showFeedback('รายการนี้มีการเปลี่ยนแปลง กรุณากลับไปเปิดผลตรวจล่าสุดก่อนบันทึก', 'error');
       }
     }
-    await attachPhotos(payload, job, serial, PHOTOS.map(slot => [slot, 'photoUrl' + slot]));
+    const photoFiles = selectedPhotoFiles();
     await trackWrite(jobScope(job), 'saveInspection', payload,
       () => current => current.id === job.id && liveRecords(current).some(record => recordMatches(record, payload, overall)),
-      () => {
+      async current => {
         const message = checked < slots.length
           ? 'บันทึกผล ' + serial + ' แล้ว · ตรวจ ' + checked + '/' + slots.length + ' ข้อ'
           : 'บันทึกผล ' + serial + ' แล้ว · ตรวจครบ · ' + overall;
-        if (app.page !== 'inspection') {
-          showFeedback(message, 'success');
-          return;
+        const savedRecord = liveRecords(current).find(r =>
+          r.serial.toUpperCase() === serial && (!recordItemId || Number(r.sharePointItemId) === recordItemId));
+        if (app.page === 'inspection') {
+          Object.assign(app, { editRecord: '', recordFilter: 'all' });
+          navigate('jobdetail', true);
         }
-        Object.assign(app, { editRecord: '', recordFilter: 'all' });
-        navigate('jobdetail', true);
-        showFeedback(message, 'success');
+        if (photoFiles.length) {
+          if (!savedRecord?.sharePointItemId) throw Error('บันทึกผลตรวจแล้ว แต่ยังหา Item ID เพื่อส่งรูปไม่ได้');
+          await uploadSavedPhotos(photoFiles, current, serial, savedRecord.sharePointItemId);
+        } else showFeedback(message, 'success');
       });
   });
 }
@@ -2443,39 +2450,74 @@ async function deleteRecord(id) {
     () => showFeedback('ลบผลตรวจ ' + record.serial + ' แล้ว', 'success')));
 }
 
-// The authenticated upload service returns an HTTPS SharePoint URL.
-// Reference uploads use kind=reference and slot=ok/ng. For a new job, draftKey groups the files before creation.
-async function uploadPhoto(file, job, serial, slot) {
-  const form = new FormData();
-  form.append('idToken', idToken());
-  form.append('stockCheckID', job?.id || '');
-  form.append('serialNumber', serial);
-  form.append('slot', String(slot));
-  if (slot === 1) form.append('kind', 'serial-number');
-  if (slot === 'ok' || slot === 'ng') {
-    form.append('kind', 'reference');
-    if (!job) form.append('draftKey', app.uploadDraft ||= crypto.randomUUID());
+// STK_10 accepts authenticated JSON/JPEG Base64 and responds when the file reaches Incoming.
+// STK_09 updates the Lists asynchronously. Never treat upload acceptance as a persisted photo URL.
+async function jpegBase64(file) {
+  if (!file || !file.type.startsWith('image/')) throw Error('กรุณาเลือกรูปภาพ');
+  if (file.size > 15 * 1024 * 1024) throw Error('รูปภาพต้องไม่เกิน 15 MB');
+  const image = await new Promise((resolve, reject) => {
+    const img = new Image();
+    const blobUrl = URL.createObjectURL(file);
+    img.onload = () => { URL.revokeObjectURL(blobUrl); resolve(img); };
+    img.onerror = () => { URL.revokeObjectURL(blobUrl); reject(Error('ไม่สามารถเปิดไฟล์ภาพได้')); };
+    img.src = blobUrl;
+  });
+  let maxEdge = 1400;
+  for (let pass = 0; pass < 5; pass++) {
+    const scale = Math.min(1, maxEdge / Math.max(image.naturalWidth, image.naturalHeight));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw Error('ไม่สามารถแปลงภาพได้');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', Math.max(.46, .78 - pass * .07));
+    const base64 = dataUrl.split(',')[1];
+    if (base64 && base64.length <= 2350000) return base64;
+    maxEdge = Math.round(maxEdge * .72);
   }
-  form.append('image', file, file.name || 'inspection-' + slot + '.jpg');
-  const response = await fetchJson(PHOTO_UPLOAD_API_URL, { method: 'POST', body: form }, 30000);
-  const url = safeLink(response.url);
-  if (!url || url.length > 700) throw Error('อัปโหลดรูปแล้ว แต่ยังไม่ได้ที่อยู่รูปสำหรับบันทึก');
-  return url;
+  throw Error('รูปภาพมีขนาดใหญ่เกินไปหลังบีบอัด กรุณาเลือกรูปใหม่');
 }
 
-async function attachPhotos(target, job, serial, fields) {
-  if (!app.photos.size) return;
-  showFeedback('กำลังอัปโหลดรูป…');
-  const scope = (job?.id || 'draft') + ':' + serial;
-  for (const [slot, key] of fields) {
-    const draft = app.photos.get(String(slot));
-    if (!draft) continue;
-    if (draft.scope !== scope) {
-      draft.uploaded = await uploadPhoto(draft.file, job, serial, slot);
-      draft.scope = scope;
-    }
-    target[key] = draft.uploaded;
+function selectedPhotoFiles() {
+  return [...app.photos.entries()].map(([slot, draft]) => ({ slot, file: draft.file }));
+}
+
+async function uploadPhoto(file, job, serial, slot, itemId) {
+  const isSerial = String(slot) === '1';
+  const photoType = isSerial ? 'SERIAL' : slot === 'ok' ? 'JOB_OK' : slot === 'ng' ? 'JOB_NG' : '';
+  const item = Number(itemId);
+  if (!photoType || !Number.isSafeInteger(item) || item <= 0 || !job?.id) {
+    throw Error('ยังไม่มี Item ID สำหรับผูกรูปภาพ กรุณาตรวจสอบการบันทึกข้อมูลก่อน');
   }
+  const response = await fetchJson(PHOTO_UPLOAD_API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({
+      photoType, itemId: item, jobKey: job.id,
+      serialNumber: isSerial ? text(serial).toUpperCase() : '',
+      mimeType: 'image/jpeg', fileBase64: await jpegBase64(file),
+      requestId: crypto.randomUUID().replace(/-/g, ''), idToken: idToken()
+    })
+  }, 75000);
+  if (response.success !== true || response.status !== 'PHOTO_UPLOADED_TO_INCOMING') {
+    throw Error(response.message || response.status || 'ระบบไม่รับไฟล์ภาพ');
+  }
+  return response;
+}
+
+async function uploadSavedPhotos(files, job, serial, itemId) {
+  if (!files.length) return;
+  if (!PHOTO_UPLOAD_API_URL) throw Error('ยังไม่ได้ตั้งค่าบริการอัปโหลดรูป');
+  showFeedback('บันทึกข้อมูลแล้ว กำลังส่งรูปภาพไป OneDrive…');
+  let count = 0;
+  for (const {slot, file} of files) {
+    await uploadPhoto(file, job, serial, slot, itemId);
+    count++;
+  }
+  showFeedback('ส่งรูป ' + count + ' รูปเข้า OneDrive แล้ว · รอ STK_09 บันทึก URL ลง Lists ก่อนจะแสดงรูปในแอป', 'warning');
 }
 
 function photosCanSave() {
