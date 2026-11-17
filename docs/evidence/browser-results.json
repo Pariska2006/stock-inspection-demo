@@ -1,0 +1,98 @@
+[
+  {
+    "name": "dashboard, independent filters, pinning, NG counts",
+    "status": "PASS"
+  },
+  {
+    "name": "partial NG save, double submit, continue, totals and latest-first",
+    "status": "PASS"
+  },
+  {
+    "name": "duplicate serial and zero checked criteria blocked",
+    "status": "PASS"
+  },
+  {
+    "name": "one criterion save and no-criteria setup",
+    "status": "PASS"
+  },
+  {
+    "name": "create job, edit job, target and finish workflow",
+    "status": "PASS"
+  },
+  {
+    "name": "draft survives reload; NA reset; no tokens stored",
+    "status": "PASS"
+  },
+  {
+    "name": "unknown save result locks repeat submissions across reload",
+    "status": "PASS"
+  },
+  {
+    "name": "network error, timeout and partial data block writes without erasing form",
+    "status": "PASS"
+  },
+  {
+    "name": "concurrent inspection edit is rejected",
+    "status": "PASS"
+  },
+  {
+    "name": "camera permission denial, invalid QR, confirm-before-use, stopped tracks",
+    "status": "PASS"
+  },
+  {
+    "name": "photo missing, authenticated-link failure and upload remains unconfirmed",
+    "status": "PASS"
+  },
+  {
+    "name": "monthly report totals, preview escaping and A4 PDF",
+    "status": "PASS"
+  },
+  {
+    "name": "responsive screens at 320, 375, 390, 428, 768, 1440; focus and tap size",
+    "status": "PASS"
+  },
+  {
+    "name": "lost acknowledgement reconciles using client request ID without resending",
+    "status": "PASS"
+  },
+  {
+    "name": "missing Serial and invalid date remain visible; incomplete NG included in summary",
+    "status": "PASS"
+  },
+  {
+    "name": "draft is not applied to changed inspection criteria",
+    "status": "PASS"
+  },
+  {
+    "name": "camera cancellation stops late-arriving media stream",
+    "status": "PASS"
+  },
+  {
+    "name": "draft survives closing and reopening the tab",
+    "status": "PASS"
+  },
+  {
+    "name": "registration double submit sends one request and stays pending",
+    "status": "PASS"
+  },
+  {
+    "name": "authentication approved using isolated LIFF/API fixtures",
+    "status": "PASS"
+  },
+  {
+    "name": "authentication pending using isolated LIFF/API fixtures",
+    "status": "PASS"
+  },
+  {
+    "name": "authentication blocked using isolated LIFF/API fixtures",
+    "status": "PASS"
+  },
+  {
+    "name": "authentication unregistered using isolated LIFF/API fixtures",
+    "status": "PASS"
+  },
+  {
+    "name": "authentication expired using isolated LIFF/API fixtures",
+    "status": "PASS"
+  }
+]

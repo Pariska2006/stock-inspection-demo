@@ -1,0 +1,60 @@
+{
+  "screens": [
+    {
+      "screen": "home",
+      "status": "PASS",
+      "violations": []
+    },
+    {
+      "screen": "jobs",
+      "status": "PASS",
+      "violations": []
+    },
+    {
+      "screen": "choose",
+      "status": "PASS",
+      "violations": []
+    },
+    {
+      "screen": "overview",
+      "status": "PASS",
+      "violations": []
+    },
+    {
+      "screen": "jobdetail",
+      "status": "PASS",
+      "violations": []
+    },
+    {
+      "screen": "inspection",
+      "status": "PASS",
+      "violations": []
+    },
+    {
+      "screen": "jobform",
+      "status": "PASS",
+      "violations": []
+    },
+    {
+      "screen": "recorddetail",
+      "status": "PASS",
+      "violations": []
+    },
+    {
+      "screen": "reports",
+      "status": "PASS",
+      "violations": []
+    },
+    {
+      "screen": "reportpreview",
+      "status": "PASS",
+      "violations": []
+    },
+    {
+      "screen": "profile",
+      "status": "PASS",
+      "violations": []
+    }
+  ],
+  "qrFallback": "PASS"
+}

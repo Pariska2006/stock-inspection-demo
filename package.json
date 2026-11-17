@@ -1,0 +1,20 @@
+{
+  "name": "stock-inspection",
+  "version": "2.0.0",
+  "private": true,
+  "scripts": {
+    "start": "python3 -m http.server 4173 --bind 127.0.0.1",
+    "test": "node --test tests/domain.test.cjs tests/mock.test.cjs",
+    "test:browser": "node tests/browser.cjs",
+    "check": "node --check assets/app.js && node --check assets/scanner.js && node --check assets/mock.js",
+    "test:a11y": "node tests/accessibility.cjs"
+  },
+  "devDependencies": {
+    "axe-core": "4.11.0",
+    "playwright": "1.62.1",
+    "qrcode": "1.5.4"
+  },
+  "dependencies": {
+    "jsqr": "1.4.0"
+  }
+}
