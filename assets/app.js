@@ -538,8 +538,10 @@ function renderHome() {
 function renderJobs() {
   syncSearch('jobs');
   $('jobsState').value = app.jobState;
-  const selected = selectedJobs(), jobs = filterJobs(selected);
-  $('jobResultCount').textContent = app.loaded ? `${jobs.length} จาก ${selected.length} งานที่เลือกตรวจแล้ว` : '';
+  // Job directory: all jobs from STK_Jobs, including New and started jobs.
+  // Home and Reports deliberately remain scoped to selectedJobs().
+  const jobs = filterJobs(app.jobs);
+  $('jobResultCount').textContent = app.loaded ? `${jobs.length} จาก ${app.jobs.length} งานทั้งหมดในระบบ` : '';
   $('jobGrid').innerHTML = jobs.length ? jobs.map(jobCard).join('') : blank('ไม่พบงานที่ตรงกับตัวกรอง');
 }
 
