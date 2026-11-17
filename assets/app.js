@@ -418,7 +418,7 @@ function effectiveResult(record) {
 }
 
 const statusBadge = status => `<span class="status ${html(status)}">${html(STATUS[status])}</span>`;
-const resultBadge = result => ['OK', 'NG', 'NA'].includes(result)
+const resultBadge = result => ['OK', 'NG'].includes(result)
   ? `<span class="result-tag ${result.toLowerCase()}">${result}</span>` : '<span class="result-tag">ยังไม่มีผล</span>';
 const numberText = value => app.loaded ? value : '—';
 const blank = message => !app.loaded && !app.loadError ? '<div class="skeleton" role="status" aria-label="กำลังโหลดข้อมูล"></div>' : `<p class="empty">${html(app.loaded ? message :
@@ -436,8 +436,12 @@ function setPressed(container, field, value) {
   }
 }
 
+function selectedJobs() {
+  // The jobs workspace and reports include only jobs explicitly started by inspection staff.
+  return app.jobs.filter(job => job.status !== 'new' && job.status !== 'unknown');
+}
 function activeJobs() {
-  return app.jobs.filter(job => job.status === 'progress');
+  return selectedJobs().filter(job => job.status === 'progress');
 }
 
 function memberName() {
@@ -486,7 +490,7 @@ function jobCard(job) {
       <span class="tile-title">${html(job.title)}</span>
       <span class="tile-desc">${html([job.claimCategory, claimNumber(job)].filter(Boolean).join(' · '))}</span>
       ${active ? `<span class="tile-meta"><span>ตรวจแล้ว <strong>${progress}</strong> คัน</span>
-        ${pending ? `<span class="pending-count">รอตรวจต่อ ${pending} คัน</span>` : ''}</span>` : ''}
+        ${pending ? `<span class="pending-count">กำลังดำเนินการ ${pending} คัน</span>` : ''}</span>` : ''}
     </button>${active ? starButton(job) : ''}</article>`;
 }
 
@@ -511,21 +515,21 @@ function syncSearch(prefix) {
 }
 function unitStats(jobs, includeJobs = false) {
   const counts = DOMAIN.summary(jobs);
-  return (includeJobs ? stat('งานทั้งหมด', jobs.length, 'list') : '') + stat('รถในรายการ', counts.total, 'truck') +
-    stat('OK', counts.OK, 'check', 'teal') + stat('NG', counts.NG, 'alert', 'negative') +
-    stat('Pending', counts.pending, 'clock', 'orange') + stat('NA', counts.NA, 'minus', 'neutral');
+  return `<div class="vehicle-total-line">${includeJobs ? stat('งานที่เลือกตรวจ',jobs.length,'list') : ''}${stat('รถในรายการ',counts.total,'truck')}</div>` +
+    `<div class="vehicle-status-line">${stat('OK',counts.OK,'check','teal')}${stat('NG',counts.NG,'alert','negative')}${stat('กำลังดำเนินการ',counts.incomplete,'clock','orange')}</div>`;
 }
 
 function renderHome() {
   const jobs = orderedActiveJobs();
   const pinned = jobs.filter(job => app.stars.has(job.id));
-  const units = DOMAIN.summary(app.jobs), done = app.jobs.filter(finished).length;
-  $('homeJobStats').innerHTML = stat('งานทั้งหมด', app.jobs.length, 'list') + stat('เสร็จแล้ว', done, 'check') + stat('งานค้าง', app.jobs.length - done, 'clock');
+  const selected = selectedJobs(), done = selected.filter(finished).length;
+  $('homeJobStats').innerHTML = stat('งานที่เลือกตรวจ', selected.length, 'list') + stat('เสร็จแล้ว', done, 'check') + stat('กำลังดำเนินการ', selected.length - done, 'clock');
+  $('homeVehicleStats').innerHTML = unitStats(selected);
   $('pendingBanner').hidden = !app.pending.size;
-  $('openJobsLabel').textContent = 'ดูงานทั้งหมด' + (app.loaded ? ' (' + app.jobs.length + ')' : '');
+  $('openJobsLabel').textContent = 'ดูงานที่เลือกตรวจแล้ว' + (app.loaded ? ' (' + selected.length + ')' : '');
   $('recentJobs').innerHTML = pinned.length ? pinned.map(jobCard).join('') : blank('แตะดาวที่งานกำลังตรวจเพื่อปักไว้ตรงนี้');
   syncSearch('home');
-  const shown = filterJobs(app.jobs).sort((a,b) => Number(b.status === 'progress') - Number(a.status === 'progress') || text(b.updated).localeCompare(text(a.updated))).slice(0, 6);
+  const shown = filterJobs(selected).sort((a,b) => Number(b.status === 'progress') - Number(a.status === 'progress') || text(b.updated).localeCompare(text(a.updated))).slice(0, 6);
   $('homeJobs').innerHTML = shown.length ? shown.map(jobCard).join('') : blank('ไม่พบงานที่ตรงกับตัวกรอง');
   const key = dateValue(new Date()).slice(0, 7), buckets = jobsByMonth();
   $('homeMonth').innerHTML = monthCard(key, buckets.get(key) || [], true);
@@ -533,8 +537,8 @@ function renderHome() {
 function renderJobs() {
   syncSearch('jobs');
   $('jobsState').value = app.jobState;
-  const jobs = filterJobs(app.jobs);
-  $('jobResultCount').textContent = app.loaded ? `${jobs.length} จาก ${app.jobs.length} งาน` : '';
+  const selected = selectedJobs(), jobs = filterJobs(selected);
+  $('jobResultCount').textContent = app.loaded ? `${jobs.length} จาก ${selected.length} งานที่เลือกตรวจแล้ว` : '';
   $('jobGrid').innerHTML = jobs.length ? jobs.map(jobCard).join('') : blank('ไม่พบงานที่ตรงกับตัวกรอง');
 }
 
@@ -603,17 +607,16 @@ function monthProgress(metrics) {
 }
 
 function renderSystemOverview() {
-  const total = app.jobs.length;
-  const done = app.jobs.filter(finished).length;
+  const selected = selectedJobs(), total = selected.length;
+  const done = selected.filter(finished).length;
   const active = activeJobs().length;
-  const waiting = app.jobs.filter(job => job.status === 'new').length;
+  const waiting = selected.filter(job => job.status === 'progress').length;
   const percent = total ? Math.round(done / total * 100) : 0;
   const updated = app.jobsLoadedAt ? new Intl.DateTimeFormat('th-TH', {
     timeZone: TIME_ZONE, day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
   }).format(new Date(app.jobsLoadedAt)) : '';
   const stats = [
-    ['งานทั้งหมด', total, 'clipboard', 'blue'],
-    ['รอเริ่มตรวจ', waiting, 'clock', 'amber'],
+    ['งานที่เลือกตรวจ', total, 'clipboard', 'blue'],
     ['กำลังดำเนินการ', active, 'list', 'violet'],
     ['สำเร็จ', done, 'check', 'green']
   ];
@@ -683,23 +686,25 @@ function renderMonthDetail() {
 }
 
 function reportJobs() {
-  return app.jobs.filter(job => (!app.reportJob || job.id === app.reportJob));
+  return selectedJobs().filter(job => (!app.reportJob || job.id === app.reportJob));
 }
 function scopedReportJobs() {
- return app.jobs.filter(job => job.id === app.reportJob).map(job => ({...job,records:liveRecords(job)}));
+ return selectedJobs().filter(job => job.id === app.reportJob).map(job => ({...job,records:liveRecords(job)}));
 }
 function reportOption(job) {
   return [job.title, claimNumber(job), job.id].filter(Boolean).join(' · ');
 }
 function renderReports() {
-  $('reportJobOptions').innerHTML = app.jobs.map(job => `<option value="${html(reportOption(job))}"></option>`).join('');
+  const selected = selectedJobs();
+  if (app.reportJob && !selected.some(job => job.id === app.reportJob)) { app.reportJob = ''; app.reportQuery = ''; }
+  $('reportJobOptions').innerHTML = selected.map(job => `<option value="${html(reportOption(job))}"></option>`).join('');
   if (app.reportJob) {
-    const selected = app.jobs.find(job => job.id === app.reportJob);
-    if (selected) app.reportQuery = reportOption(selected);
+    const selectedJob = selected.find(job => job.id === app.reportJob);
+    if (selectedJob) app.reportQuery = reportOption(selectedJob);
     else app.reportJob = '';
   }
   if ($('reportJob').value !== app.reportQuery) $('reportJob').value = app.reportQuery;
-  $('previewProblem').disabled = !app.jobs.some(job => job.id === app.reportJob);
+  $('previewProblem').disabled = !selected.some(job => job.id === app.reportJob);
   const query = app.reportQuery.toLocaleLowerCase().trim();
   const jobs = reportJobs().filter(job => app.reportJob || !query ||
     [job.title, claimNumber(job), job.id, ...selectedModels(job)].join(' ').toLocaleLowerCase().includes(query))
@@ -710,7 +715,7 @@ function renderReports() {
   $('reportList').innerHTML = filtered.length ? filtered.map(job => {
     const url = reportLink(job), counts = StockDomain.summary([job]);
     return `<article class="report-row"><span class="report-icon">${icon('file')}</span><div><h3>${html(job.title)}</h3>
-      <p>${html(groupLabel(job))} · ${html(claimNumber(job))}</p><p>${counts.total} คัน · OK ${counts.OK} · NG ${counts.NG} · Pending ${counts.pending} · NA ${counts.NA}</p></div>
+      <p>${html(groupLabel(job))} · ${html(claimNumber(job))}</p><p>${counts.total} คัน · OK ${counts.OK} · NG ${counts.NG} · กำลังดำเนินการ ${counts.incomplete}</p></div>
       <div class="report-actions"><button class="btn secondary sm" type="button" data-preview-job="${html(job.id)}">Preview</button>
       ${url ? `<a class="btn ghost sm" href="${html(url)}" target="_blank" rel="noopener noreferrer">${icon('download')} PDF จากระบบ (ทั้งงาน)</a>` : ''}</div></article>`;
   }).join('') : blank('ไม่มีข้อมูลตามตัวกรอง');
@@ -775,14 +780,14 @@ function vehicleInspection(job, record) {
 }
 
 function vehicleBadge(inspection) {
-  return inspection.status === 'pending' ? `<span class="result-tag pending">${icon('clock')} รอตรวจต่อ</span>` :
+  return inspection.status === 'pending' ? `<span class="result-tag pending">${icon('clock')} กำลังดำเนินการ</span>` :
     resultBadge(inspection.status);
 }
 
 function vehicleProgress(inspection) {
   const { checked, total, complete } = inspection;
   return complete ? `<span class="record-progress complete">${icon('check')} ตรวจครบ ${checked}/${total} ข้อ</span>` :
-    `<span class="record-progress pending-count">${icon('clock')} ตรวจแล้ว ${checked}/${total} ข้อ · รอตรวจต่อ</span>`;
+    `<span class="record-progress pending-count">${icon('clock')} ตรวจแล้ว ${checked}/${total} ข้อ · กำลังดำเนินการ</span>`;
 }
 
 function recordLine(job, record, editable) {
@@ -840,18 +845,18 @@ function renderRecordDetail() {
 function recordEvidence(job,record){
  const results=DOMAIN.criteria(job,record).map(c=>{
   const detail=DOMAIN.criterionValue(record,c);
-  return `<article class="criterion-evidence"><div class="criterion-result"><span>${html(c.label)}</span>${detail.result?resultBadge(detail.result):'<span class="result-tag pending">Pending</span>'}</div>
+  return `<article class="criterion-evidence"><div class="criterion-result"><span>${html(c.label)}</span>${detail.result?resultBadge(detail.result):'<span class="result-tag pending">กำลังดำเนินการ</span>'}</div>
    ${detail.note?`<p class="record-note">${html(detail.note)}</p>`:''}${detail.ngDetail?`<p class="record-note ng-note">NG: ${html(detail.ngDetail)}</p>`:''}
    <small class="hint">แก้ล่าสุด ${niceDate(detail.updatedAt)} · ผู้ตรวจ ${html(detail.inspector||'—')}</small></article>`;
  }).join('');
- return `${Number(record.schemaVersion)!==2?'<p class="notice warning">ข้อมูลรุ่นเดิม: NA อาจหมายถึงยังไม่ตรวจ จึงแสดงเป็น Pending จนกว่าจะตรวจยืนยัน</p>':''}${results||'<p class="hint">ไม่มีผลรายเกณฑ์</p>'}
+ return `${Number(record.schemaVersion)!==2?'<p class="notice warning">ข้อมูลรุ่นเดิม: NA ของข้อมูลรุ่นเก่าจะแสดงเป็นกำลังดำเนินการจนกว่าจะตรวจยืนยัน</p>':''}${results||'<p class="hint">ไม่มีผลรายเกณฑ์</p>'}
  ${record.note?`<div class="record-extra"><h3>หมายเหตุรวม</h3><p class="record-note">${html(record.note)}</p></div>`:''}
  ${record.ngDetail?`<div class="record-extra"><h3>สรุป NG</h3><p class="record-note">${html(record.ngDetail)}</p></div>`:''}
  <div class="record-extra"><h3>รูป Label / PIN</h3>${recordPictures(record)}</div>`;
 }
 function auditHistoryMarkup(job,record){
  const history=Array.isArray(record.auditHistory)?record.auditHistory:[];
- return `<details class="panel audit-history"><summary>ประวัติการแก้ไข (${history.length})</summary>${MOCK?'<p class="hint">ประวัติจำลอง ไม่ใช่ audit ของบริษัท</p>':''}${history.length?[...history].reverse().map(entry=>`<article class="audit-entry"><h3>${html(entry.actor||'—')} · ${niceDate(entry.at)}</h3><small class="hint">Version ${html(entry.version)} · Request ${html(entry.requestId)}</small>${(entry.changes||[]).map(change=>`<p>${html(DOMAIN.criteria(job,record).find(c=>c.id===change.criterionId)?.label||change.criterionId)}: ${html(change.result||'Pending')}${change.note?' · '+html(change.note):''}${change.ngDetail?' · NG: '+html(change.ngDetail):''}</p>`).join('')}</article>`).join(''):'<p class="hint">ยังไม่มีประวัติจากบริการอ่านข้อมูล</p>'}</details>`;
+ return `<details class="panel audit-history"><summary>ประวัติการแก้ไข (${history.length})</summary>${MOCK?'<p class="hint">ประวัติจำลอง ไม่ใช่ audit ของบริษัท</p>':''}${history.length?[...history].reverse().map(entry=>`<article class="audit-entry"><h3>${html(entry.actor||'—')} · ${niceDate(entry.at)}</h3><small class="hint">Version ${html(entry.version)} · Request ${html(entry.requestId)}</small>${(entry.changes||[]).map(change=>`<p>${html(DOMAIN.criteria(job,record).find(c=>c.id===change.criterionId)?.label||change.criterionId)}: ${html(change.result||'กำลังดำเนินการ')}${change.note?' · '+html(change.note):''}${change.ngDetail?' · NG: '+html(change.ngDetail):''}</p>`).join('')}</article>`).join(''):'<p class="hint">ยังไม่มีประวัติจากบริการอ่านข้อมูล</p>'}</details>`;
 }
 function groupedVehicles(job,records,active,completed){
  const groups=new Map();for(const record of records){const key=[record.product||'—',record.model||'—'].join(' · ');if(!groups.has(key))groups.set(key,[]);groups.get(key).push(record)}
@@ -910,8 +915,9 @@ function renderDetail() {
     return app.recordFilter === 'all' || status === app.recordFilter;
   }).sort((a, b) => text(b.checkedAt).localeCompare(text(a.checkedAt)) ||
     (Number(b.sharePointItemId) || 0) - (Number(a.sharePointItemId) || 0));
-  const filters = [['all', 'ทั้งหมด'], ['OK', 'OK'], ['NG', 'NG'], ['NA', 'NA']];
-  if (active || counts.pending || app.recordFilter === 'pending') filters.push(['pending', 'รอตรวจต่อ']);
+  if (app.recordFilter === 'NA') app.recordFilter = 'pending';
+  const filters = [['all', 'รถในรายการทั้งหมด'], ['OK', 'OK'], ['NG', 'NG']];
+  if (active || counts.pending || app.recordFilter === 'pending') filters.push(['pending', 'กำลังดำเนินการ']);
   const url = reportLink(job);
   const target = Number(job.targetUnits);
   const incomplete = records.filter(record => !vehicleInspection(job, record).complete).length;
@@ -926,7 +932,7 @@ function renderDetail() {
       ${active ? `<button class="btn ghost sm edit-job-button" type="button" data-action="edit-job">${icon('edit')} แก้รายละเอียดงาน</button>` : ''}
     </div>
     ${active ? `<div class="detail-actions start-inspection">${action}</div>` : ''}
-    <div class="stats four">${unitStats([job])}</div><p class="hint">ตรวจครบ ${records.length - incomplete}${target > 0 ? ' / ' + target : ''} คัน · รอตรวจต่อ ${incomplete} คัน</p>
+    <div class="vehicle-stats-section">${unitStats([job])}</div><p class="hint">ตรวจครบ ${records.length - incomplete}${target > 0 ? ' / ' + target : ''} คัน · กำลังดำเนินการ ${incomplete} คัน</p>
     ${job.detail && text(job.detail) !== job.title ? `<p class="detail-desc">${html(job.detail)}</p>` : ''}
     <div class="detail-info">
       <div class="info"><small>ClaimType</small><span>${html(job.claimCategory || '—')}</span></div>
@@ -1116,11 +1122,11 @@ function renderInspection() {
     <details class="optional-detail"><summary>สถานที่ / Lot</summary><div class="two-col optional-body">${field('insLocation','สถานที่ตรวจ',record?.location||job.inspectionLocation||'',{max:160})}${field('insLot','Lot No.',record?.lotNo,{max:100})}</div></details>
     <details class="inspection-method" open><summary>${icon('clipboard')} วิธีการตรวจ</summary><p>${html(job.checkingMethod||'ยังไม่ระบุวิธีตรวจ')}</p><details><summary>รูปอ้างอิงร่วมของงาน</summary>${referencePictures(job)}</details></details>
     <div class="inspection-title"><h2>ผลรายเกณฑ์</h2><small class="hint">${criteria.length} ข้อ</small></div>
-    <p class="hint">ช่องว่าง = Pending · NA = ไม่เกี่ยวข้อง (ต้องเลือกเอง) · บันทึกแล้วกลับมาตรวจต่อได้</p>
+    <p class="hint">ไม่ต้องเลือก OK/NG ทุกข้อก็สามารถบันทึกได้ · ช่องที่ยังไม่เลือกเป็นกำลังดำเนินการ · กดผลที่เลือกซ้ำเพื่อยกเลิก</p>
     <div class="check-table">${criteria.map(c=>{
       const detail=DOMAIN.criterionValue(record||{},c),chosen=detail.result;
       return `<article class="check-row" data-state="${chosen.toLowerCase()||'pending'}"><div class="check-description" id="checkLabel${c.slot}">${html(c.label)}</div>
-        <div class="check-choices" role="group" aria-labelledby="checkLabel${c.slot}">${['OK','NG','NA','Pending'].map(value=>`<button class="pick-result ${chosen===value||!chosen&&value==='Pending'?'selected '+value.toLowerCase():''}" type="button" data-result-slot="${c.slot}" data-result-value="${value}" aria-pressed="${chosen===value||!chosen&&value==='Pending'}">${value==='Pending'?'รอตรวจ':value}</button>`).join('')}</div>
+        <div class="check-choices" role="group" aria-labelledby="checkLabel${c.slot}">${['OK','NG'].map(value=>`<button class="pick-result ${chosen===value?'selected '+value.toLowerCase():''}" type="button" data-result-slot="${c.slot}" data-result-value="${value}" aria-pressed="${chosen===value}">${value}</button>`).join('')}</div>
         <input id="insR${c.slot}" type="hidden" value="${html(chosen)}">
         <details class="criterion-notes" ${detail.note||detail.ngDetail?'open':''}><summary>หมายเหตุ / รายละเอียด NG</summary><div class="optional-body">${area('insNote'+c.slot,'หมายเหตุเกณฑ์นี้',detail.note,{max:500})}${area('insNG'+c.slot,'รายละเอียด NG',detail.ngDetail,{max:500})}</div></details>
         ${detail.updatedAt?`<small class="hint">แก้ล่าสุด ${html(niceDate(detail.updatedAt))} · ${html(detail.inspector||'—')}</small>`:''}</article>`;
@@ -1138,7 +1144,7 @@ function formRecord() {
 }
 function refreshCriterionColors(){
  for(const row of document.querySelectorAll('.check-row')){
-  const first=row.querySelector('[data-result-slot]');if(!first)continue;const value=val('insR'+first.dataset.resultSlot)||'Pending';row.dataset.state=value.toLowerCase();
+  const first=row.querySelector('[data-result-slot]');if(!first)continue;const value=val('insR'+first.dataset.resultSlot);row.dataset.state=value.toLowerCase()||'pending';
   for(const button of row.querySelectorAll('[data-result-slot]')){const selected=button.dataset.resultValue===value;button.className='pick-result'+(selected?' selected '+value.toLowerCase():'');button.setAttribute('aria-pressed',String(selected))}
  }
 }
@@ -1823,13 +1829,14 @@ async function handleClick(event) {
     renderDetail();
     document.querySelector(`[data-record-filter="${recordFilter}"]`)?.focus({ preventScroll: true });
   } else if (resultSlot) {
-    $('insR' + resultSlot).value = resultValue === 'Pending' ? '' : resultValue;
+    const previous = val('insR' + resultSlot);
+    $('insR' + resultSlot).value = previous === resultValue ? '' : resultValue;
+    const selectedResult = val('insR' + resultSlot);
     for (const choice of document.querySelectorAll(`[data-result-slot="${resultSlot}"]`)) {
-      const selected = choice.dataset.resultValue === resultValue;
+      const selected = choice.dataset.resultValue === selectedResult;
       choice.classList.toggle('selected', selected);
-      choice.classList.toggle('ok', selected && resultValue === 'OK');
-      choice.classList.toggle('ng', selected && resultValue === 'NG');
-      choice.classList.toggle('na', selected && resultValue === 'NA');
+      choice.classList.toggle('ok', selected && selectedResult === 'OK');
+      choice.classList.toggle('ng', selected && selectedResult === 'NG');
       choice.setAttribute('aria-pressed', String(selected));
     }
     button.closest('.check-row')?.setAttribute('data-state', resultValue.toLowerCase());

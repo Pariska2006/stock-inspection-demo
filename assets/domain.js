@@ -4,7 +4,7 @@
  const slots=Array.from({length:20},(_,i)=>i+1);
  const text=v=>String(v??'').trim(), code=v=>text(v).toUpperCase();
  const serialPattern=/^[A-Z0-9_.-]{3,65}$/;
- const decided=v=>['OK','NG','NA'].includes(code(v));
+ const decided=v=>['OK','NG'].includes(code(v));
  const json=(v,fallback)=>{if(typeof v!=='string')return v??fallback;try{return JSON.parse(v)}catch{return fallback}};
  const list=v=>[...new Set((Array.isArray(v)?v:typeof v==='string'?v.split(/[,;\n]/):[]).map(text).filter(Boolean))];
  function criteria(job,record={}){
@@ -15,13 +15,14 @@
   const item=(record.criterionResults||[]).find(r=>r.criterionId===criterion.id);
   const raw=code(item?.result??record['result'+criterion.slot]);
   // Old NA meant unchecked. Never silently migrate it to explicit not-applicable.
-  return raw==='NA'&&Number(record.schemaVersion)!==2?'':decided(raw)?raw:'';
+  // Old and new NA are shown as unfinished until rechecked.
+  return decided(raw)?raw:'';
  }
  function inspection(job,record){
   const cs=criteria(job,record), values=cs.map(c=>result(record,c));
   const checked=values.filter(decided).length, complete=cs.length>0&&checked===cs.length;
   const ng=values.includes('NG')||(!checked&&code(record.overallResult||record.result)==='NG');
-  const status=ng?'NG':!complete?'pending':values.includes('OK')?'OK':'NA';
+  const status=ng?'NG':!complete?'pending':'OK';
   return {status,overallResult:status==='pending'?'Pending':status,isComplete:complete,complete,checked,total:cs.length};
  }
  function summary(jobs){

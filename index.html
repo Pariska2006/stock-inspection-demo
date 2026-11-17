@@ -7,12 +7,12 @@
   <meta name="description" content="Stock Inspection — Confirm Tractor in Stock">
   <title>Stock Inspection | KUBOTA — White Minimal Search Update</title>
 <link rel="stylesheet" href="assets/fonts.css?v=20261117-search2">
-<link rel="stylesheet" href="assets/styles.css?v=20261117-search2">
+<link rel="stylesheet" href="assets/styles.css?v=20261117-selected-progress-1">
 
 </head>
 <body>
 <a class="skip-link" href="#workspace">ข้ามไปเนื้อหา</a>
-<div id="environmentBanner" class="environment-banner" role="status"></div>
+<div id="environmentBanner" class="environment-banner" role="status"></div><div id="writeProgressOverlay" class="write-progress-overlay" role="status" aria-live="polite" aria-atomic="true" hidden><div class="write-progress-dialog"><div class="write-progress-spinner" aria-hidden="true"></div><strong>กำลังส่งและบันทึกข้อมูล</strong><p id="writeProgressMessage">ระบบกำลังบันทึกผ่าน n8n และ Power Automate</p><small>อย่าปิดหน้านี้หรือกดส่งซ้ำ</small></div></div>
   <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden">
     <symbol id="ic-qr" viewBox="0 0 24 24">
   <path d="M17 12v4a1 1 0 0 1-1 1h-4" />
@@ -235,7 +235,7 @@
           </button>
         </section>
         <div id="pendingBanner" class="notice warning" role="status" hidden>มีคำขอบันทึกที่ยังไม่ยืนยัน เปิดงานเดิมเพื่อตรวจสอบผล หรือแจ้งผู้ดูแลก่อนส่งคำขอใหม่</div>
-<div id="homeJobStats" class="stats"></div>
+<div id="homeJobStats" class="stats"></div><section class="home-vehicle-summary" aria-label="สรุปรถที่ตรวจ"><h3>รถในรายการตรวจ</h3><div id="homeVehicleStats"></div></section>
 <div class="home-actions">
           <button class="home-action choose" type="button" data-action="choose-job"><svg class="ico sm" aria-hidden="true"><use href="#ic-list"></use></svg> <span>เลือกงานตรวจ</span> <svg class="ico sm" aria-hidden="true"><use href="#ic-arrow"></use></svg></button>
           <button class="home-action create" type="button" data-action="create-job"><svg class="ico sm" aria-hidden="true"><use href="#ic-plus"></use></svg> <span>สร้างงานตรวจ</span> <svg class="ico sm" aria-hidden="true"><use href="#ic-arrow"></use></svg></button>
@@ -252,7 +252,7 @@
           <div id="recentJobs"></div>
           <button class="btn ghost open-jobs-link" type="button" data-nav="jobs"><span id="openJobsLabel">ดูงานที่เปิดอยู่ทั้งหมด</span><svg class="ico sm" aria-hidden="true"><use href="#ic-arrow"></use></svg></button>
         </section>
-        <div class="section-title"><h2>รายการงาน</h2><button type="button" class="btn ghost" data-nav="jobs">ดูทั้งหมด</button></div><div id="homeJobs" class="job-grid"></div>
+        <div class="section-title"><h2>งานที่เลือกตรวจแล้ว</h2><button type="button" class="btn ghost" data-nav="jobs">ดูทั้งหมด</button></div><div id="homeJobs" class="job-grid"></div>
         <section class="panel monthly-panel"><div><p class="eyebrow">MONTHLY OVERVIEW</p><h2>ความคืบหน้าประจำเดือน</h2><p class="hint">ตามเดือนที่เริ่มงานตรวจ</p><button class="btn ghost" data-nav="overview" type="button">ดูภาพรวมทั้งหมด</button></div><div id="homeMonth"></div></section>
       </section>
 
@@ -264,15 +264,15 @@
  <div class="filter-row"><div class="field"><label for="jobsClaim">ClaimType</label><select class="control" id="jobsClaim"></select></div>
  <div class="field"><label for="jobsProduct">Product</label><select class="control" id="jobsProduct"></select></div>
  </div>
- </section><div class="field state-filter"><label for="jobsState">สถานะงาน</label><select class="control" id="jobsState"><option value="">ทั้งหมด</option value="new">รอเริ่มตรวจ</option><option value="progress">กำลังตรวจ</option><option value="completed">รอรายงาน</option><option value="report-ready">รายงานพร้อม</option><option value="closed">ปิดงาน</option></select></div><div class="list-info"><span id="jobResultCount" role="status"></span><button id="refreshJobs" type="button" class="btn ghost sm" data-action="refresh-jobs"><svg class="ico sm" aria-hidden="true"><use href="#ic-refresh"></use></svg> รีเฟรช</button></div>
+ </section><div class="field state-filter"><label for="jobsState">สถานะงานที่เลือกตรวจ</label><select class="control" id="jobsState"><option value="">ทั้งหมด</option><option value="progress">กำลังตรวจ</option><option value="completed">รอรายงาน</option><option value="report-ready">รายงานพร้อม</option><option value="closed">ปิดงาน</option></select></div><div class="list-info"><span id="jobResultCount" role="status"></span><button id="refreshJobs" type="button" class="btn ghost sm" data-action="refresh-jobs"><svg class="ico sm" aria-hidden="true"><use href="#ic-refresh"></use></svg> รีเฟรช</button></div>
         <div class="job-grid" id="jobGrid"></div>
       </section>
 
       <section class="view" id="choose">
-        <div class="page-head"><h1 tabindex="-1">เลือกงานตรวจ</h1></div>
+        <div class="page-head"><h1 tabindex="-1">งานทั้งหมด · เลือกงานตรวจ</h1></div>
         <div id="chooseLiveBanner" class="notice" role="status" hidden><span></span><button class="btn secondary sm" type="button" data-action="refresh-jobs" hidden>ลองอีกครั้ง</button></div>
         <div class="panel filter-fields chooser-fields">
-          <div class="field"><label for="jobSearch">ค้นหางานที่รอเริ่มตรวจ</label><div class="searchfield"><svg class="ico sm" aria-hidden="true"><use href="#ic-search"></use></svg><input id="jobSearch" type="search" autocomplete="off" placeholder="ชื่อปัญหา เลขเคลม หรือรุ่น"></div></div>
+          <div class="field"><label for="jobSearch">ค้นหางานทั้งหมดเพื่อเลือกตรวจ</label><div class="searchfield"><svg class="ico sm" aria-hidden="true"><use href="#ic-search"></use></svg><input id="jobSearch" type="search" autocomplete="off" placeholder="ชื่อปัญหา เลขเคลม หรือรุ่น"></div></div>
           <div class="field"><label for="claimFilter">ClaimType</label><select class="select" id="claimFilter"></select></div>
           <div class="field"><label for="modelFilter">Product</label><select class="select" id="modelFilter"></select></div>
         </div>
@@ -357,12 +357,12 @@
 </dialog>
 
 <script defer src="config.js?v=live-write-20261117-2"></script>
-<script defer src="assets/domain.js?v=20261117-search2"></script>
+<script defer src="assets/domain.js?v=20261117-selected-progress-1"></script>
 <script defer src="assets/adapter.js?v=20261117-search2"></script>
 <script defer src="assets/mock.js?v=20261117-search2"></script>
 <script defer src="assets/vendor/jsQR.js?v=20261117-search2"></script>
 <script defer src="assets/scanner.js?v=20261117-search2"></script>
-<script defer src="assets/app.js?v=20261117-readback-v2"></script>
+<script defer src="assets/app.js?v=20261117-selected-progress-1"></script>
 </body>
 </html>
 

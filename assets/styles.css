@@ -110,3 +110,20 @@ html { scroll-padding-bottom:100px }
 /* Searchable report picker and simplified two-filter jobs view */
 .search-panel .filter-row { grid-template-columns: repeat(2,minmax(0,1fr)); }
 #reportJob { width:100%; }
+
+/* Selected-work dashboard and independent vehicle summary lines */
+.home-vehicle-summary {margin:18px 0 24px; padding:18px; border:1px solid var(--border,#e2e8e8); border-radius:14px; background:#fff}
+.home-vehicle-summary h3 {margin:0 0 12px; font-size:15px; font-weight:600}
+.vehicle-stats-section {display:grid;gap:12px}
+.vehicle-total-line {display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:0 0 12px}
+.vehicle-status-line {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.vehicle-total-line .stat,.vehicle-status-line .stat {min-width:0}
+.write-progress-overlay:not([hidden]) {position:fixed;inset:0;z-index:9999;background:rgba(24,39,45,.42);display:flex;align-items:center;justify-content:center;padding:24px}
+.write-progress-dialog {width:min(100%,390px);background:#fff;border-radius:18px;padding:32px 24px;text-align:center;box-shadow:0 20px 64px rgba(17,35,27,.18);display:grid;justify-items:center;gap:10px}
+.write-progress-dialog strong {font-size:18px;color:#193d2c}
+.write-progress-dialog p {margin:0;color:#43565b}
+.write-progress-dialog small {color:#64748b}
+.write-progress-spinner {width:48px;height:48px;border:5px solid #e4eee8;border-top-color:#15803d;border-radius:50%;animation:stock-write-spin .9s linear infinite;margin-bottom:8px}
+@keyframes stock-write-spin {to{transform:rotate(360deg)}}
+@media(max-width:560px){.vehicle-status-line{grid-template-columns:1fr 1fr}.write-progress-dialog{padding:24px 18px}}
+@media(prefers-reduced-motion:reduce){.write-progress-spinner{animation-duration:2.5s}}
