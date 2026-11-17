@@ -33,6 +33,7 @@ const icon = name => `<svg class="ico sm" aria-hidden="true"><use href="#ic-${na
 const KNOWN_CLAIM_TYPES = ['Quick Report', 'Hotline', 'Yard claim'];
 const GROUPS = ['M', 'MU', 'L', 'B', 'RX', 'FGL'];
 const SLOTS = StockDomain.slots;
+const SUPPORTED_CRITERIA = SLOTS.slice(0, 4); // Microsoft Lists V2 bridge currently supports exactly four slots
 const PHOTOS = [1]; // One serial-number evidence photo per inspected vehicle
 // Enable only when both write and read flows support inspection deletion.
 const ENABLE_DELETE_INSPECTION = false;
@@ -419,7 +420,7 @@ function effectiveResult(record) {
 
 const statusBadge = status => `<span class="status ${html(status)}">${html(STATUS[status])}</span>`;
 const resultBadge = result => ['OK', 'NG'].includes(result)
-  ? `<span class="result-tag ${result.toLowerCase()}">${result}</span>` : '<span class="result-tag">ยังไม่มีผล</span>';
+  ? `<span class="result-tag ${result.toLowerCase()}">${result}</span>` : '<span class="result-tag">กำลังดำเนินการ</span>';
 const numberText = value => app.loaded ? value : '—';
 const blank = message => !app.loaded && !app.loadError ? '<div class="skeleton" role="status" aria-label="กำลังโหลดข้อมูล"></div>' : `<p class="empty">${html(app.loaded ? message :
   app.loadError ? 'แตะลองอีกครั้งเพื่อโหลดข้อมูล' : 'กำลังโหลดข้อมูล…')}</p>`;
@@ -610,7 +611,6 @@ function renderSystemOverview() {
   const selected = selectedJobs(), total = selected.length;
   const done = selected.filter(finished).length;
   const active = activeJobs().length;
-  const waiting = selected.filter(job => job.status === 'progress').length;
   const percent = total ? Math.round(done / total * 100) : 0;
   const updated = app.jobsLoadedAt ? new Intl.DateTimeFormat('th-TH', {
     timeZone: TIME_ZONE, day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
@@ -879,8 +879,8 @@ function reportSummary(job, records) {
     const { status } = vehicleInspection(job, record);
     if (status) total[status]++;
     return total;
-  }, { OK: 0, NG: 0, pending: 0, NA: 0 });
-  const unknown = records.length - counts.OK - counts.NG - counts.pending - counts.NA;
+  }, { OK: 0, NG: 0, pending: 0 };
+  const unknown = records.length - counts.OK - counts.NG - counts.pending;
   const incomplete = StockDomain.summary([{ ...job, records }]).incomplete;
   const criteria = [...new Set(records.flatMap(record => recordCriteria(job, record)))].sort();
   return `<section class="panel report-summary">
@@ -908,7 +908,7 @@ function renderDetail() {
   const active = job.status === 'progress';
   const completed = finished(job);
   const criteria = criteriaSlots(job);
-  const counts = { all: records.length, OK: 0, NG: 0, pending: 0, NA: 0 };
+  const counts = { all: records.length, OK: 0, NG: 0, pending: 0 };
   const filtered = records.filter(record => {
     const { status } = vehicleInspection(job, record);
     if (status) counts[status]++;
@@ -1012,7 +1012,7 @@ function criteriaEditor(job) {
       ${field('jfCriteria' + slot, 'เกณฑ์ข้อ ' + slot, job?.['result' + slot + 'Criteria'], {
         placeholder: 'เช่น ไม่มีน้ำมันรั่วบริเวณจุดต่อ'
       })}</div>`).join('')}</div>
-    <div><button class="btn secondary sm" type="button" data-action="add-criteria" ${SLOTS.every(shown) ? 'hidden' : ''}>
+    <div><button class="btn secondary sm" type="button" data-action="add-criteria" ${SUPPORTED_CRITERIA.every(shown) ? 'hidden' : ''}>
       ${icon('plus')} เพิ่มเกณฑ์</button></div>`;
 }
 
