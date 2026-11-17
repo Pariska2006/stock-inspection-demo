@@ -573,8 +573,7 @@ function renderHome() {
   <div class="home-progress-cell finished"><span class="home-progress-label">${icon('check')} เสร็จแล้ว</span><strong>${done}</strong><small>งานที่ปิดการตรวจแล้ว</small></div>`;
 
   $('pendingBanner').hidden = !app.pending.size;
-  $('openJobsLabel').textContent = 'ดูงานที่เลือกตรวจแล้ว' + (app.loaded ? ' (' + selected.length + ')' : '');
-  $('recentJobs').innerHTML = ''; // Pinned jobs are sorted into the same selected-jobs list to avoid duplicate cards.
+  // Pinned work is prioritized in homeJobs; no duplicate pinned container.
   syncSearch('home');
   const shown = filterJobs(selected).sort((a,b) =>
     Number(b.status === 'progress') - Number(a.status === 'progress') ||
