@@ -344,7 +344,7 @@ function normalizeJob(job) {
       serial: text(record.serial), checkedAt: record.checkedAt || record.inspectionDate,
       note: record.note ?? record.remarks ?? '',
       deleted: record.deleted === true || /^(true|1|yes|deleted)$/i.test(text(record.deleted)),
-      photoSlots: photoSlots(record)
+      photoSlots: photoSlots(record), legacyPhotoUrl1: safeLink(record.photoUrl1)
     }));
   const mappedStatus = normalStatus(job.status);
   const status = mappedStatus === 'new' && normalStatus(job.jobStatusRaw) === 'progress' ? 'progress' : mappedStatus;
@@ -352,7 +352,7 @@ function normalizeJob(job) {
   const reportState = url && isWaiting(status) ? 'report-ready' :
     !url && status === 'report-ready' ? 'waiting-report' : status;
   const normalized = {
-    ...job, id: text(job.id), sharePointItemId: text(job.sharePointItemId),
+    ...job, legacyPhotoUrls: {okPictureUrl:safeLink(job.okPictureUrl),ngPictureUrl:safeLink(job.ngPictureUrl),methodPictureUrl:safeLink(job.methodPictureUrl)}, id: text(job.id), sharePointItemId: text(job.sharePointItemId),
     title: text(job.title || job.problem) || 'งานตรวจสต็อก',
     ...metadata,
     startedBy: text(job.startedBy || job.selectedBy) || metadata.startedBy,
@@ -1486,7 +1486,7 @@ function jobDetailsMatch(job, fields) {
   const stable = value => Array.isArray(value) ? value.map(stable) : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().map(key => [key,stable(value[key])])) : value;
   const normalize = value => Array.isArray(value) || value && typeof value === 'object' ? JSON.stringify(stable(value)) : text(value).replace(/\r\n/g, '\n');
   return Object.entries(fields).every(([key, value]) =>
-    normalize(job[key === 'notes' ? 'storedNotes' : key]) === normalize(value));
+    normalize(key === 'notes' ? job.storedNotes : (job.legacyPhotoUrls&&key in job.legacyPhotoUrls ? job.legacyPhotoUrls[key] : job[key])) === normalize(value));
 }
 
 function validationError(message, inputId) {
@@ -1586,6 +1586,8 @@ async function submitJob(event) {
   const targetUnits = targetRaw === '' ? null : Number(targetRaw);
   if (targetUnits !== null && (!Number.isSafeInteger(targetUnits) || targetUnits < 0 || targetUnits > 9999999)) return validationError('เป้าหมายต้องเป็นจำนวนเต็มตั้งแต่ 0 ถึง 9999999', 'jfTarget');
   const values = Object.fromEntries(Object.entries(jobFields).map(([key, id]) => [key, val(id)]));
+  // Supabase signed URLs are display-only; never persist them into Microsoft Lists.
+  for(const key of ['okPictureUrl','ngPictureUrl','methodPictureUrl'])values[key]=job?.legacyPhotoUrls?.[key]||'';
   const notes = val('jfNotes');
   values.notes = encodeJobNotes({
     notes, claimCategory: category, startedBy: job?.startedBy || (starting ? memberName() : ''),
@@ -1678,7 +1680,7 @@ function recordMatches(record,payload){
  return (!payload.recordItemId||Number(record.sharePointItemId)===payload.recordItemId)&&record.serial.toUpperCase()===payload.serial&&
   record.product===payload.product&&text(record.model)===payload.model&&values&&
   text(record.location)===payload.location&&text(record.lotNo)===payload.lotNo&&dateValue(record.checkedAt)===payload.inspectionDate&&text(record.note)===payload.remarks&&
-  text(record.ngDetail)===payload.ngDetail&&text(record.photoSlots?.[0])===payload.photoUrl1&&Number(record.schemaVersion)===2&&
+  text(record.ngDetail)===payload.ngDetail&&text(record.legacyPhotoUrl1)===payload.photoUrl1&&Number(record.schemaVersion)===2&&
   DOMAIN.inspection(job,record).overallResult===payload.overallResult&&DOMAIN.inspection(job,record).isComplete===payload.isComplete;
 }
 function inspectionSnapshot(job,record){return JSON.stringify([record.version,DOMAIN.criteria(job,record).map(c=>[c.label,DOMAIN.criterionValue(record,c)]),record.product,record.model,record.location,record.lotNo,record.checkedAt,record.note,record.ngDetail,record.photoSlots])}
@@ -1702,7 +1704,7 @@ async function submitInspection(event){
  const aggregate=DOMAIN.inspection(job,record),changes=DOMAIN.changes(job,existing,record);
  const payload={...jobData(job),schemaVersion:2,recordItemId,serial,product,model,location:val('insLocation'),expectedVersion:existing?.version??null,
   criteria:cs,criterionResults:record.criterionResults,changes,overallResult:aggregate.overallResult,isComplete:aggregate.isComplete,
-  lotNo:val('insLot'),inspectionDate:val('insDate'),remarks:val('insRemarks'),photoUrl1:val('photoValue1'),
+  lotNo:val('insLot'),inspectionDate:val('insDate'),remarks:val('insRemarks'),photoUrl1:existing?.legacyPhotoUrl1||'',
   ngDetail:ng.map(r=>[cs.find(c=>c.id===r.criterionId)?.label,r.ngDetail].filter(Boolean).join(': ')).join('\n'),
   ...Object.fromEntries(cs.map(c=>['result'+c.slot,record.criterionResults.find(r=>r.criterionId===c.id).result]))};
  if(existing&&!app.photos.size&&recordMatches(existing,payload))return showFeedback('ยังไม่มีข้อมูลที่เปลี่ยนแปลง');
@@ -2086,7 +2088,7 @@ function persistedJobUpdateMatches(job, payload) {
   for (const key of ['inspectionLocation', 'checkingMethod', 'notes',
     'okPictureUrl', 'ngPictureUrl']) {
     if (Object.prototype.hasOwnProperty.call(payload, key)) {
-      if (!same(key === 'notes' ? job.storedNotes : job[key], payload[key])) return false;
+      if (!same(key === 'notes' ? job.storedNotes : (job.legacyPhotoUrls&&key in job.legacyPhotoUrls ? job.legacyPhotoUrls[key] : job[key]), payload[key])) return false;
     }
   }
   for (let i = 1; i <= 4; i++) {
