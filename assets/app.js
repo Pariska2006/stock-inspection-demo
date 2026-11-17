@@ -287,6 +287,15 @@ function photoSlots(record) {
   return urls;
 }
 
+async function photoRequest(body,timeout=45000){
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeout);
+ try{
+  const response=await fetch(PHOTO_UPLOAD_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,idToken:idToken()}),signal:controller.signal,cache:'no-store'});
+  const data=await response.json().catch(()=>null);
+  if(!response.ok||!data||data.status==='ERROR')throw Error(data?.message||'เชื่อม Supabase ไม่สำเร็จ (HTTP '+response.status+')');
+  return data;
+ }finally{clearTimeout(timer)}
+}
 // Private Supabase photos overlay the existing Microsoft Lists job/record data.
 const photoRequests = new Map();
 function overlayPhotos(job){
@@ -306,7 +315,7 @@ async function loadJobPhotos(key,refresh=false){
  const job=findJob(key);if(!job)return null;
  const epoch=sessionEpoch;
  const work=(async()=>{
-  const data=await fetchJson(PHOTO_UPLOAD_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'list',jobKey:key,idToken:idToken()})},30000);
+  const data=await photoRequest({action:'list',jobKey:key},30000);
   if(data.status!=='OK'||!Array.isArray(data.photos))throw Error('Supabase photo index unavailable');
   if(epoch!==sessionEpoch)return null;
   const rows=data.photos.filter(p=>Number.isSafeInteger(p.itemId)&&['SERIAL','JOB_OK','JOB_NG','JOB_METHOD'].includes(p.photoType)&&safeLink(p.url));
@@ -1791,7 +1800,7 @@ async function uploadPhoto(file,job,serial,slot,itemId){
  try{
   if(!photoType||!Number.isSafeInteger(entry.itemId)||entry.itemId<1)throw Error('Item ID รูปไม่ถูกต้อง');
   const fileBase64=await jpegBase64(file);entry.message='กำลังอัปโหลด';saveTransfers();
-  const result=await fetchJson(PHOTO_UPLOAD_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'upload',photoType,itemId:entry.itemId,jobKey:job.id,fileBase64,idToken:idToken()})},75000);
+  const result=await photoRequest({action:'upload',photoType,itemId:entry.itemId,jobKey:job.id,fileBase64},75000);
   if(result.status!=='STORED'||!result.requestId)throw Error('ยังไม่ยืนยันว่ารูปจัดเก็บแล้ว');
   entry.requestId=result.requestId;entry.message='บันทึกไฟล์แล้ว · กำลังตรวจสอบการอ่านกลับ';saveTransfers();
   await checkPhotoTransfer(entry.requestId);
