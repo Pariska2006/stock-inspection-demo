@@ -7,7 +7,7 @@ const API_URL = CONFIG.usersReadUrl;
 const JOBS_API_URL = CONFIG.jobsReadUrl;
 const WRITE_API_URL = CONFIG.writeGatewayUrl;
 const PHOTO_UPLOAD_API_URL = MOCK ? '' : CONFIG.photoGatewayUrl;
-const registrationAllowed = () => MOCK || (CONFIG.mode === 'live' && CONFIG.writesEnabled === true && CONFIG.integrationVerified === true);
+const registrationAllowed = () => MOCK || (CONFIG.mode === 'live' && CONFIG.registrationEnabled === true && safeLink(CONFIG.registrationWriteUrl));
 const liveWritesAllowed = () => MOCK || (CONFIG.mode === 'live' && CONFIG.writesEnabled === true && CONFIG.integrationVerified === true && StockAdapter.canWrite(app.capabilities));
 let registering = false;
 let sessionEpoch = 0;
