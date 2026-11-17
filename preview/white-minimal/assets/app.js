@@ -57,13 +57,13 @@ function dateValue(value) {
 }
 
 const app = {
-  capabilities: {}, modelMaster: [], modelMasterSource: '', transfers: [], reportKind: 'job', reportSerial: '', vehicleGroup: true,
+  capabilities: {}, modelMaster: [], modelMasterSource: '', transfers: [], vehicleGroup: true,
   ready: false, initializing: false, deleteEnabled: false, member: null, line: null, nickname: '', jobs: [], page: 'home',
   group: '', claimFilter: '', modelFilter: '', jobState: '', claimTypes: KNOWN_CLAIM_TYPES, products: GROUPS, search: '', selected: '', editJob: false, editRecord: '', viewRecord: '',
   stars: new Set(),
   jobsLoading: false, jobsLive: false, recordRead: false, loaded: false, loadError: '', partial: false,
   yearsVisible: 1, jobsLoadedAt: '', month: '', monthFilter: 'all',
-  reportMonth: '', reportJob: '', reportFilter: 'all', recordFilter: 'all', detailOrigin: 'jobs', detailMessage: null,
+  reportJob: '', reportFilter: 'all', recordFilter: 'all', detailOrigin: 'jobs', detailMessage: null,
   inspectionBaseline: '', busy: false, pending: new Map(), photos: new Map(), uploadDraft: '', dirty: false
 };
 
@@ -666,18 +666,15 @@ function reportJobs() {
   return app.jobs.filter(job => (!app.reportJob || job.id === app.reportJob));
 }
 function scopedReportJobs() {
-  return reportJobs().map(job => ({ ...job, records: liveRecords(job).filter(record => (app.reportKind !== 'serial' || !app.reportSerial || record.serial === app.reportSerial) && (!app.reportMonth ||
-    (app.reportMonth === 'undated' ? !dateValue(record.checkedAt) : dateValue(record.checkedAt).slice(0, 7) === app.reportMonth))) }));
+ return app.jobs.filter(job => job.id === app.reportJob).map(job => ({...job,records:liveRecords(job)}));
 }
 function renderReports() {
-  $('reportKind').value = app.reportKind;
-  choiceOptions('reportSerial', 'ทั้งหมด', [...new Set(reportJobs().flatMap(job => liveRecords(job).map(record => record.serial)).filter(Boolean))], app.reportSerial);
-  choiceOptions('reportJob', 'ทั้งหมด', app.jobs.map(job => job.id), app.reportJob);
-  const months = [...new Set(app.jobs.flatMap(job => liveRecords(job).map(record => dateValue(record.checkedAt).slice(0, 7) || 'undated')))].sort().reverse();
-  choiceOptions('reportMonth', 'ทั้งหมด', months, app.reportMonth);
-  const jobs = scopedReportJobs();
+  $('reportJob').innerHTML = '<option value="">ทั้งหมด</option>' + app.jobs.map(job => `<option value="${html(job.id)}">${html(job.title)} · ${html(claimNumber(job))}</option>`).join('');
+  $('reportJob').value = app.reportJob;
+  $('previewProblem').disabled = !app.jobs.some(job => job.id === app.reportJob);
+  const jobs = reportJobs().map(job => ({...job,records:liveRecords(job)}));
   setPressed($('reportFilters'), 'report-filter', app.reportFilter);
-  const filtered = jobs.filter(job => (!app.reportMonth || job.records.length) &&
+  const filtered = jobs.filter(job =>
     (app.reportFilter === 'ready' ? reportLink(job) : app.reportFilter === 'waiting' ? finished(job) && !reportLink(job) : true));
   $('reportList').innerHTML = filtered.length ? filtered.map(job => {
     const url = reportLink(job), counts = StockDomain.summary([job]);
@@ -688,13 +685,11 @@ function renderReports() {
   }).join('') : blank('ไม่มีข้อมูลตามตัวกรอง');
 }
 function renderReportPreview(){
- let jobs=scopedReportJobs();
- if(app.reportKind==='serial'&&!app.reportSerial){$('previewContent').innerHTML='<div class="page-head"><h1 tabindex="-1">รายงานราย Serial</h1></div><p class="empty">เลือก Serial ในหน้ารายงานก่อนสร้างรายงานรายคัน</p>';return}
- if(app.reportKind==='monthly'&&app.reportMonth)jobs=jobs.filter(job=>job.records.length||openedDate(job).slice(0,7)===app.reportMonth);
- if(app.reportKind==='serial')jobs=jobs.filter(job=>job.records.length);
+ const jobs=scopedReportJobs();
+ if(!jobs.length){$('previewContent').innerHTML='<div class="page-head"><h1 tabindex="-1">รายงานรายปัญหา</h1></div><p class="empty">เลือกปัญหาในหน้า Reports เพื่อเปิดรายงาน</p>';return}
  const counts=DOMAIN.summary(jobs),created=new Intl.DateTimeFormat('th-TH',{timeZone:TIME_ZONE,dateStyle:'medium',timeStyle:'short'}).format(new Date());
- const title=app.reportKind==='serial'?'รายงานราย Serial':app.reportKind==='monthly'?'รายงานรายเดือน':'รายงาน Claim Job';
- const reportStatus=!counts.total?'Draft':counts.incomplete?'In Progress':app.reportKind==='serial'||jobs.every(finished)?'Completed':'In Progress';
+ const title='รายงานรายปัญหา';
+ const reportStatus=!counts.total?'Draft':counts.incomplete?'In Progress':jobs.every(finished)?'Completed':'In Progress';
  const reportRows=job=>[...job.records].sort((a,b)=>text(b.checkedAt).localeCompare(text(a.checkedAt))).map(record=>{
   const result=vehicleInspection(job,record);
   return `<tr><td data-label="PIN / Model"><strong>${html(record.serial||'— (ไม่ระบุ Serial)')}</strong><br>${html(record.product||'—')} · ${html(record.model||'—')}</td>
@@ -702,19 +697,16 @@ function renderReportPreview(){
    <td data-label="ผล / ความครบถ้วน">${vehicleBadge(result)}<br>${vehicleProgress(result)}</td>
    <td data-label="ผลรายเกณฑ์">${DOMAIN.criteria(job,record).map(c=>{const d=DOMAIN.criterionValue(record,c);return `<p>${html(c.label)}: <strong>${html(d.result||'Pending')}</strong>${d.note?'<br>'+html(d.note):''}${d.ngDetail?'<br>NG: '+html(d.ngDetail):''}<br><small>${niceDate(d.updatedAt)} · ${html(d.inspector||'—')}</small></p>`}).join('')||'—'}<p>หมายเหตุ: ${html(record.note||'—')}</p></td></tr>`;
  }).join('');
- const modelGroups=new Map();for(const job of jobs)for(const record of job.records){const key=[record.product||'—',record.model||'—'].join(' · ');if(!modelGroups.has(key))modelGroups.set(key,[]);modelGroups.get(key).push({...job,records:[record]})}
- const monthly=app.reportKind==='monthly'?`<section class="panel"><h2>สรุป Product / Model</h2><p class="hint">${jobs.length} งาน · งานค้าง ${jobs.filter(j=>!finished(j)).length} · ลงผลแล้ว ${counts.inspected} คัน</p>${[...modelGroups].map(([model,rows])=>{const c=DOMAIN.summary(rows);return `<div class="criterion-result"><strong>${html(model)}</strong><span>${c.total} คัน · OK ${c.OK} / NG ${c.NG} / Pending ${c.pending} / NA ${c.NA}</span></div>`}).join('')||'<p class="empty">ไม่มีผลตรวจในเดือนนี้</p>'}</section>`:'';
  $('previewContent').innerHTML=`<header class="report-heading"><img class="kubota-logo" src="assets/kubota.png" alt="Kubota"><div><p class="eyebrow">STOCK INSPECTION</p><h1 tabindex="-1">${title}</h1></div><span class="status">${reportStatus}</span></header>
-  <div class="page-head"><p>${MOCK?'MOCK REPORT · ข้อมูลจำลอง ไม่ใช่ข้อมูลบริษัท':'รายงานจากข้อมูลที่อ่านยืนยันแล้ว'} · ${html(app.reportMonth||'ทั้งหมด')}</p><button class="btn primary no-print" type="button" data-action="print-report">${icon('download')} พิมพ์ / บันทึก PDF</button></div>
+  <div class="page-head"><p>${MOCK?'MOCK REPORT · ข้อมูลจำลอง ไม่ใช่ข้อมูลบริษัท':'รายงานจากข้อมูลที่อ่านยืนยันแล้ว'}</p><button class="btn primary no-print" type="button" data-action="print-report">${icon('download')} พิมพ์ / บันทึก PDF</button></div>
   <p class="hint">สร้างรายงาน ${html(created)} (Asia/Bangkok) · อ่านข้อมูลล่าสุด ${niceDate(app.jobsLoadedAt)}</p>
   ${!app.jobsLive||app.partial?'<div class="notice warning">Draft · ข้อมูลไม่ครบหรืออาจไม่ใช่ข้อมูลล่าสุด</div>':''}
-  <div class="stats report-metrics">${unitStats(jobs)}</div><p class="hint">Total = OK + NG + Pending + NA · ตรวจครบ ${counts.complete} คัน / ยังไม่ครบ ${counts.incomplete} คัน · — หมายถึงไม่มีข้อมูล</p>${monthly}
+  <div class="stats report-metrics">${unitStats(jobs)}</div><p class="hint">Total = OK + NG + Pending + NA · ตรวจครบ ${counts.complete} คัน / ยังไม่ครบ ${counts.incomplete} คัน · — หมายถึงไม่มีข้อมูล</p>
   ${jobs.map(job=>`<section class="panel print-job"><div class="panel-head"><h2>${html(job.title)}</h2>${statusBadge(job.status)}</div>
    <p>${html(job.id)} · ${html(job.claimCategory||'—')}</p><p class="muted">${html(groupLabel(job))} · เป้าหมาย ${job.targetUnits==null?'—':html(job.targetUnits)} คัน · ในรายงาน ${job.records.length} คัน</p>
    ${job.detail?`<p>${html(job.detail)}</p>`:''}<p>วิธีตรวจ: ${html(job.checkingMethod||'—')}</p>
-   ${app.reportKind!=='monthly'?referencePictures(job):''}
-   ${app.reportKind==='serial'?job.records.map(record=>`<section class="serial-report"><h3>${html(record.serial)}</h3><p>${html(record.product||'—')} · ${html(record.model||'—')} · ${niceDate(record.checkedAt)} · ${html(record.location||'—')} · ${html(record.inspector||'—')}</p>${vehicleBadge(vehicleInspection(job,record))} ${vehicleProgress(vehicleInspection(job,record))}${recordEvidence(job,record)}${auditHistoryMarkup(job,record)}</section>`).join(''):
-    `<div class="report-table-wrap"><table class="report-table"><thead><tr><th>PIN / Product / Model</th><th>วันที่ / สถานที่ / ผู้ตรวจ</th><th>ผล / ความครบถ้วน</th><th>ผลรายเกณฑ์</th></tr></thead><tbody>${reportRows(job)||'<tr><td colspan="4">ไม่มีผลตรวจในช่วงนี้</td></tr>'}</tbody></table></div>`}</section>`).join('')}`;
+   ${referencePictures(job)}
+   <div class="report-table-wrap"><table class="report-table"><thead><tr><th>PIN / Product / Model</th><th>วันที่ / สถานที่ / ผู้ตรวจ</th><th>ผล / ความครบถ้วน</th><th>ผลรายเกณฑ์</th></tr></thead><tbody>${reportRows(job)||'<tr><td colspan="4">ไม่มีผลตรวจในช่วงนี้</td></tr>'}</tbody></table></div></section>`).join('')}`;
 }
 
 
@@ -798,7 +790,7 @@ function renderRecordDetail() {
   root.innerHTML = `<section class="panel">
     <div class="page-head"><div><div class="vehicle-identity">${vehicleBadge(inspection)}<h1 tabindex="-1">${html(record.serial || '— (ไม่ระบุ Serial)')}</h1></div>
     <p>${html(job.title)}</p></div></div>
-    ${vehicleProgress(inspection)}<div class="section-actions"><button type="button" class="btn secondary" data-serial-report="${html(record.serial)}">${icon('file')} รายงานรายคัน</button></div>
+    ${vehicleProgress(inspection)}
     <div class="detail-info">
       <div class="info"><small>Product</small><span>${html(record.product || job.product || '—')}</span></div>
       <div class="info"><small>Model</small><span>${html(record.model || job.model || '—')}</span></div>
@@ -1747,10 +1739,8 @@ async function handleClick(event) {
   if (!button || !button.closest('#appMain') || button.disabled || app.busy) return;
   const { action, nav, job, starJob, month, monthFilter, viewRecord, reportFilter, recordFilter, resultSlot, resultValue,
     editRecord, deleteRecord: remove, pickFile, photoRemove } = button.dataset;
-  if (button.dataset.serialReport) { app.reportKind='serial'; app.reportJob=app.selected; app.reportSerial=button.dataset.serialReport; app.reportMonth=''; navigate('reportpreview', true);
-  } else if (button.dataset.photoCheck) { await checkPhotoTransfer(button.dataset.photoCheck);
+  if (button.dataset.photoCheck) { await checkPhotoTransfer(button.dataset.photoCheck);
   } else if (button.dataset.previewJob) {
-    app.reportKind='job'; app.reportSerial='';
     app.reportJob = button.dataset.previewJob;
     navigate('reportpreview', true);
   } else if (nav) {
@@ -2063,7 +2053,7 @@ for (const prefix of ['home', 'jobs']) {
 }
 $('jobsState').addEventListener('change', event => { app.jobState = event.target.value; renderJobs(); });
 $('chooseModel').addEventListener('change', event => { app.modelFilter = event.target.value; renderChoose(); });
-for (const id of ['reportMonth', 'reportJob', 'reportKind', 'reportSerial']) $(id).addEventListener('change', event => { app[id] = event.target.value; if(id==='reportJob'||id==='reportKind') app.reportSerial=''; if(id==='reportKind'&&app.reportKind==='monthly')app.reportJob=''; renderReports(); });
+$('reportJob').addEventListener('change', event => { app.reportJob=event.target.value; renderReports(); });
 
 document.addEventListener('DOMContentLoaded', init);
 

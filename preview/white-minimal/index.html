@@ -297,7 +297,7 @@
       <section class="view" id="reports">
         <div class="page-head"><div><h1 tabindex="-1"><svg class="ico report-title-icon" aria-hidden="true"><use href="#ic-file"></use></svg> Reports</h1></div><button class="btn ghost" type="button" data-action="refresh-jobs"><svg class="ico sm" aria-hidden="true"><use href="#ic-refresh"></use></svg> รีเฟรช</button></div>
         <div id="reportsLiveBanner" class="notice" role="status" hidden><span></span><button class="btn secondary sm" type="button" data-action="refresh-jobs" hidden>ลองอีกครั้ง</button></div>
-        <section class="panel report-controls"><div class="field"><label for="reportKind">ประเภทรายงาน</label><select class="control" id="reportKind"><option value="job">Claim Job</option><option value="serial">ราย Serial</option><option value="monthly">รายเดือน</option></select></div><div class="field"><label for="reportSerial">PIN / Serial</label><select class="control" id="reportSerial"></select></div><div class="field"><label for="reportMonth">เดือนที่ตรวจ</label><select class="control" id="reportMonth"></select></div><div class="field"><label for="reportJob">งานตรวจ</label><select class="control" id="reportJob"></select></div><button class="btn primary" type="button" data-action="preview-report">Preview / Export PDF</button></section>
+        <section class="panel report-controls"><div class="field"><label for="reportJob">ปัญหา</label><select class="control" id="reportJob"></select></div><button class="btn primary" id="previewProblem" type="button" data-action="preview-report">Preview / Export PDF</button></section>
         
         <section class="panel">
           <div class="filters" id="reportFilters" aria-label="กรองรายงาน">
