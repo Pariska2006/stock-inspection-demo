@@ -517,7 +517,7 @@ function syncSearch(prefix) {
 function unitStats(jobs, includeJobs = false) {
   const counts = DOMAIN.summary(jobs);
   return `<div class="vehicle-total-line">${includeJobs ? stat('งานที่เลือกตรวจ',jobs.length,'list') : ''}${stat('รถในรายการ',counts.total,'truck')}</div>` +
-    `<div class="vehicle-status-line">${stat('OK',counts.OK,'check','teal')}${stat('NG',counts.NG,'alert','negative')}${stat('กำลังดำเนินการ',counts.incomplete,'clock','orange')}</div>`;
+    `<div class="vehicle-status-line">${stat('OK',counts.OK,'check','teal')}${stat('NG',counts.NG,'alert','negative')}${stat('กำลังดำเนินการ',counts.pending,'clock','orange')}</div>`;
 }
 
 function renderHome() {
@@ -737,7 +737,7 @@ function renderReportPreview(){
   <div class="page-head"><p>${MOCK?'MOCK REPORT · ข้อมูลจำลอง ไม่ใช่ข้อมูลบริษัท':'รายงานจากข้อมูลที่อ่านยืนยันแล้ว'}</p><button class="btn primary no-print" type="button" data-action="print-report">${icon('download')} พิมพ์ / บันทึก PDF</button></div>
   <p class="hint">สร้างรายงาน ${html(created)} (Asia/Bangkok) · อ่านข้อมูลล่าสุด ${niceDate(app.jobsLoadedAt)}</p>
   ${!app.jobsLive||app.partial?'<div class="notice warning">Draft · ข้อมูลไม่ครบหรืออาจไม่ใช่ข้อมูลล่าสุด</div>':''}
-  <div class="stats report-metrics">${unitStats(jobs)}</div><p class="hint">Total = OK + NG + Pending + NA · ตรวจครบ ${counts.complete} คัน / ยังไม่ครบ ${counts.incomplete} คัน · — หมายถึงไม่มีข้อมูล</p>
+  <div class="stats report-metrics">${unitStats(jobs)}</div><p class="hint">รวมรถ = OK + NG + กำลังดำเนินการ · ตรวจครบ ${counts.complete} คัน / ยังไม่ครบ ${counts.incomplete} คัน · — หมายถึงไม่มีข้อมูล</p>
   ${jobs.map(job=>`<section class="panel print-job"><div class="panel-head"><h2>${html(job.title)}</h2>${statusBadge(job.status)}</div>
    <p>${html(job.id)} · ${html(job.claimCategory||'—')}</p><p class="muted">${html(groupLabel(job))} · เป้าหมาย ${job.targetUnits==null?'—':html(job.targetUnits)} คัน · ในรายงาน ${job.records.length} คัน</p>
    ${job.detail?`<p>${html(job.detail)}</p>`:''}<p>วิธีตรวจ: ${html(job.checkingMethod||'—')}</p>
@@ -849,7 +849,7 @@ function recordEvidence(job,record){
    ${detail.note?`<p class="record-note">${html(detail.note)}</p>`:''}${detail.ngDetail?`<p class="record-note ng-note">NG: ${html(detail.ngDetail)}</p>`:''}
    <small class="hint">แก้ล่าสุด ${niceDate(detail.updatedAt)} · ผู้ตรวจ ${html(detail.inspector||'—')}</small></article>`;
  }).join('');
- return `${Number(record.schemaVersion)!==2?'<p class="notice warning">ข้อมูลรุ่นเดิม: NA ของข้อมูลรุ่นเก่าจะแสดงเป็นกำลังดำเนินการจนกว่าจะตรวจยืนยัน</p>':''}${results||'<p class="hint">ไม่มีผลรายเกณฑ์</p>'}
+ return `${Number(record.schemaVersion)!==2?'<p class="notice warning">ข้อมูลรุ่นเดิมบางรายการยังต้องตรวจยืนยันผล</p>':''}${results||'<p class="hint">ไม่มีผลรายเกณฑ์</p>'}
  ${record.note?`<div class="record-extra"><h3>หมายเหตุรวม</h3><p class="record-note">${html(record.note)}</p></div>`:''}
  ${record.ngDetail?`<div class="record-extra"><h3>สรุป NG</h3><p class="record-note">${html(record.ngDetail)}</p></div>`:''}
  <div class="record-extra"><h3>รูป Label / PIN</h3>${recordPictures(record)}</div>`;
@@ -1475,7 +1475,7 @@ async function finishJob() {
   const job = findJob();
   if (!job || job.status !== 'progress' || !liveRecords(job).length || app.pending.has(jobScope(job))) return;
   if (liveRecords(job).some(record => !vehicleInspection(job, record).complete)) {
-    return showFeedback('ยังมีรถรอตรวจต่อ กรุณาตรวจให้ครบก่อนจบงาน', 'warning');
+    return showFeedback('ยังมีรถกำลังดำเนินการ กรุณาตรวจให้ครบก่อนจบงาน', 'warning');
   }
   if (!await confirmAction('จบการตรวจ', 'งานจะย้ายไปหน้ารายงานและปิดการแก้ผลตรวจรายคัน', 'จบการตรวจ')) return;
   await withWrite(async () => {
