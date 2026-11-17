@@ -730,10 +730,16 @@ function renderReportPreview(){
  const reportStatus=!counts.total?'Draft':counts.incomplete?'In Progress':jobs.every(finished)?'Completed':'In Progress';
  const reportRows=job=>[...job.records].sort((a,b)=>text(b.checkedAt).localeCompare(text(a.checkedAt))).map(record=>{
   const result=vehicleInspection(job,record);
-  return `<tr><td data-label="PIN / Model"><strong>${html(record.serial||'— (ไม่ระบุ Serial)')}</strong><br>${html(record.product||'—')} · ${html(record.model||'—')}</td>
+  // The serial-label image belongs to this vehicle, not to the whole Claim Job.
+  // Never generate public URLs or bypass access permissions.
+  const serialImage=safeLink(record.photoSlots?.[0]);
+  const serialEvidence=serialImage
+    ? `<div class="report-serial-evidence"><img src="${html(serialImage)}" alt="ป้าย PIN / Serial ${html(record.serial||'')}" loading="eager" data-reference-photo><small>รูปป้าย Serial Number</small></div>`
+    : '<small class="report-photo-pending">ยังไม่มีรูปป้าย Serial Number</small>';
+  return `<tr><td data-label="PIN / Model"><strong>${html(record.serial||'— (ไม่ระบุ Serial)')}</strong><br>${html(record.product||'—')} · ${html(record.model||'—')}${serialEvidence}</td>
    <td data-label="วันที่ / สถานที่ / ผู้ตรวจ">${niceDate(record.checkedAt)}<br>${html(record.location||'—')}<br>${html(record.inspector||'—')}</td>
    <td data-label="ผล / ความครบถ้วน">${vehicleBadge(result)}<br>${vehicleProgress(result)}</td>
-   <td data-label="ผลรายเกณฑ์">${DOMAIN.criteria(job,record).map(c=>{const d=DOMAIN.criterionValue(record,c);return `<p>${html(c.label)}: <strong>${html(d.result||'Pending')}</strong>${d.note?'<br>'+html(d.note):''}${d.ngDetail?'<br>NG: '+html(d.ngDetail):''}<br><small>${niceDate(d.updatedAt)} · ${html(d.inspector||'—')}</small></p>`}).join('')||'—'}<p>หมายเหตุ: ${html(record.note||'—')}</p></td></tr>`;
+   <td data-label="ผลรายเกณฑ์">${DOMAIN.criteria(job,record).map(c=>{const d=DOMAIN.criterionValue(record,c);return `<p>${html(c.label)}: <strong>${html(d.result||'กำลังดำเนินการ')}</strong>${d.note?'<br>'+html(d.note):''}${d.ngDetail?'<br>NG: '+html(d.ngDetail):''}<br><small>${niceDate(d.updatedAt)} · ${html(d.inspector||'—')}</small></p>`}).join('')||'—'}<p>หมายเหตุ: ${html(record.note||'—')}</p></td></tr>`;
  }).join('');
  $('previewContent').innerHTML=`<header class="report-heading"><img class="kubota-logo" src="assets/kubota.png" alt="Kubota"><div><p class="eyebrow">STOCK INSPECTION</p><h1 tabindex="-1">${title}</h1></div><span class="status">${reportStatus}</span></header>
   <div class="page-head"><p>${MOCK?'MOCK REPORT · ข้อมูลจำลอง ไม่ใช่ข้อมูลบริษัท':'รายงานจากข้อมูลที่อ่านยืนยันแล้ว'}</p><button class="btn primary no-print" type="button" data-action="print-report">${icon('download')} พิมพ์ / บันทึก PDF</button></div>
