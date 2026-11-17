@@ -1,0 +1,12 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const {create,fixtures} = require('../assets/mock.js');
+const jobKey='DEMO-L-001', itemId=101;
+const payload={jobKey,itemId,recordItemId:0,serial:'TEST-ABC',model:'L5018',inspectionDate:'2026-11-16',result1:'NG',result2:'NA',result3:'NA',result4:'NA'};
+test('mock is isolated; reads return copies',()=>{const a=create(), b=create();a.request('jobs').jobs.length=0;assert.equal(b.request('jobs').jobs.length,5);assert.equal(a.request('jobs').jobs.length,5)});
+test('stable request ID is idempotent',()=>{const a=create();a.request('saveInspection',{payload,clientRequestId:'same'});a.request('saveInspection',{payload,clientRequestId:'same'});assert.equal(a.request('jobs').jobs.find(j=>j.id===jobKey).records.length,5)});
+test('duplicate serial is rejected within job',()=>{const a=create();a.request('saveInspection',{payload,clientRequestId:'one'});assert.throws(()=>a.request('saveInspection',{payload,clientRequestId:'two'}),/Serial ซ้ำ/)});
+test('existing record is updated without adding a row',()=>{const a=create();a.request('saveInspection',{payload:{...payload,recordItemId:202,serial:'DEMO-L002',result1:'OK',result2:'OK'},clientRequestId:'edit'});const j=a.request('jobs').jobs.find(j=>j.id===jobKey);assert.equal(j.records.length,4);assert.equal(j.records.find(r=>r.id==='202').result1,'OK')});
+test('wrong job item mapping rejected',()=>assert.throws(()=>create().request('saveInspection',{payload:{...payload,itemId:99},clientRequestId:'x'}),/Job ID/));
+test('cannot finish incomplete NG job',()=>assert.throws(()=>create().request('finishJob',{payload:{jobKey,itemId},clientRequestId:'x'}),/ตรวจไม่ครบ/));
+test('create, configure, start and finish complete job',()=>{const a=create();a.request('createJob',{payload:{problem:'Test',claimType:'L',model:'L5018',result1Criteria:'A'},clientRequestId:'new'});const j=a.request('jobs').jobs.find(j=>j.id==='DEMO-new');const ids={jobKey:j.id,itemId:Number(j.sharePointItemId)};a.request('selectJob',{payload:ids,clientRequestId:'start'});a.request('saveInspection',{payload:{...payload,...ids,result1:'OK'},clientRequestId:'record'});a.request('finishJob',{payload:ids,clientRequestId:'finish'});assert.equal(a.request('jobs').jobs.find(item=>item.id===j.id).status,'completed')});
