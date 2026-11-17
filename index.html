@@ -7,7 +7,7 @@
   <meta name="description" content="Stock Inspection — Confirm Tractor in Stock">
   <title>Stock Inspection | KUBOTA — White Minimal Search Update</title>
 <link rel="stylesheet" href="assets/fonts.css?v=20261117-search2">
-<link rel="stylesheet" href="assets/styles.css?v=20261117-mobile-left-drawer">
+<link rel="stylesheet" href="assets/styles.css?v=20261117-work-list-redesign">
 
 </head>
 <body>
@@ -238,7 +238,7 @@
           </button>
         </section>
         <div id="pendingBanner" class="notice warning" role="status" hidden>มีคำขอบันทึกที่ยังไม่ยืนยัน เปิดงานเดิมเพื่อตรวจสอบผล หรือแจ้งผู้ดูแลก่อนส่งคำขอใหม่</div>
-<div id="homeJobStats" class="stats"></div>
+<section class="home-work-overview" aria-label="สรุปงานที่เลือกตรวจ"><div class="home-overview-heading"><h2>งานที่เลือกตรวจ</h2><span>ติดตามทั้งงานที่กำลังดำเนินการและเสร็จแล้ว</span></div><div id="homeJobStats" class="home-progress-grid"></div></section>
 <div class="home-actions">
           <button class="home-action choose" type="button" data-action="choose-job"><svg class="ico sm" aria-hidden="true"><use href="#ic-list"></use></svg> <span>เลือกงานตรวจ</span> <svg class="ico sm" aria-hidden="true"><use href="#ic-arrow"></use></svg></button>
           <button class="home-action create" type="button" data-action="create-job"><svg class="ico sm" aria-hidden="true"><use href="#ic-plus"></use></svg> <span>สร้างงานตรวจ</span> <svg class="ico sm" aria-hidden="true"><use href="#ic-arrow"></use></svg></button>
@@ -250,12 +250,7 @@
  <div class="field"><label for="homeProduct">Product</label><select class="control" id="homeProduct"></select></div>
  <div class="field"><label for="homeModel">Model</label><select class="control" id="homeModel"></select></div></div>
  </section>
-        <section class="panel pinned-panel">
-          <div class="panel-head"><h2><svg class="ico sm" aria-hidden="true"><use href="#ic-star"></use></svg> งานติดดาว</h2></div>
-          <div id="recentJobs"></div>
-          <button class="btn ghost open-jobs-link" type="button" data-nav="jobs"><span id="openJobsLabel">ดูงานที่เปิดอยู่ทั้งหมด</span><svg class="ico sm" aria-hidden="true"><use href="#ic-arrow"></use></svg></button>
-        </section>
-        <div class="section-title"><h2>งานที่เลือกตรวจแล้ว</h2><button type="button" class="btn ghost" data-nav="jobs">ดูทั้งหมด</button></div><div id="homeJobs" class="job-grid"></div>
+        <div class="section-title"><h2>รายการงานที่เลือกตรวจ · กำลังดำเนินการก่อน</h2><button type="button" class="btn ghost" data-nav="jobs">ดูทั้งหมด</button></div><div id="homeJobs" class="job-grid"></div>
         <section class="panel monthly-panel"><div><p class="eyebrow">MONTHLY OVERVIEW</p><h2>ความคืบหน้าประจำเดือน</h2><p class="hint">ตามเดือนที่เริ่มงานตรวจ</p><button class="btn ghost" data-nav="overview" type="button">ดูภาพรวมทั้งหมด</button></div><div id="homeMonth"></div></section>
       </section>
 
@@ -365,7 +360,7 @@
 <script defer src="assets/mock.js?v=20261117-search2"></script>
 <script defer src="assets/vendor/jsQR.js?v=20261117-search2"></script>
 <script defer src="assets/scanner.js?v=20261117-scanner-autofill-fix"></script>
-<script defer src="assets/app.js?v=20261117-mobile-left-drawer"></script>
+<script defer src="assets/app.js?v=20261117-work-list-redesign"></script>
 </body>
 </html>
 
