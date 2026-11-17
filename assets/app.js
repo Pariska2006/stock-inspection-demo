@@ -525,7 +525,7 @@ function renderHome() {
   const pinned = jobs.filter(job => app.stars.has(job.id));
   const selected = selectedJobs(), done = selected.filter(finished).length;
   $('homeJobStats').innerHTML = stat('งานที่เลือกตรวจ', selected.length, 'list') + stat('เสร็จแล้ว', done, 'check') + stat('กำลังดำเนินการ', selected.length - done, 'clock');
-  $('homeVehicleStats').innerHTML = unitStats(selected);
+
   $('pendingBanner').hidden = !app.pending.size;
   $('openJobsLabel').textContent = 'ดูงานที่เลือกตรวจแล้ว' + (app.loaded ? ' (' + selected.length + ')' : '');
   $('recentJobs').innerHTML = pinned.length ? pinned.map(jobCard).join('') : blank('แตะดาวที่งานกำลังตรวจเพื่อปักไว้ตรงนี้');
