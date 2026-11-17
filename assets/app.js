@@ -885,7 +885,7 @@ function reportSummary(job, records) {
   const criteria = [...new Set(records.flatMap(record => recordCriteria(job, record)))].sort();
   return `<section class="panel report-summary">
     <div class="panel-head"><h2>Inspection Summary</h2></div>
-    <div class="stats four">${unitStats([{...job, records}])}</div>
+    <div class="vehicle-stats-section">${unitStats([{...job, records}])}</div>
     ${incomplete ? `<p class="hint">มี ${incomplete} คันที่ตรวจไม่ครบ (รวมคันที่พบ NG)</p>` : ''}
     ${unknown ? `<p class="hint">มี ${unknown} คันที่ยังไม่มีข้อมูลผลตรวจ</p>` : ''}
     ${criteria.map(slot => {
@@ -1007,7 +1007,7 @@ function formFoot(label, scope) {
 
 function criteriaEditor(job) {
   const shown = slot => slot === 1 || !!text(job?.['result' + slot + 'Criteria']);
-  return `<div class="section-title"><h2>เกณฑ์ตรวจ</h2><small class="hint">อย่างน้อย 1 เกณฑ์ สูงสุด 20</small></div>
+  return `<div class="section-title"><h2>เกณฑ์ตรวจ</h2><small class="hint">อย่างน้อย 1 เกณฑ์ · ระบบปัจจุบันรองรับ 4 เกณฑ์</small></div>
     <div class="criteria-editor" id="criteriaEditor">${SLOTS.map(slot => `<div data-criteria-row ${shown(slot) ? '' : 'hidden'}>
       ${field('jfCriteria' + slot, 'เกณฑ์ข้อ ' + slot, job?.['result' + slot + 'Criteria'], {
         placeholder: 'เช่น ไม่มีน้ำมันรั่วบริเวณจุดต่อ'
@@ -1236,6 +1236,12 @@ function syncFormControls() {
 }
 
 function showFeedback(message, kind = '') {
+  if (app.busy && $('writeProgressMessage')) {
+    // The overlay follows the actual write/confirmation stage, not a timer.
+    const note = text(message);
+    if (note && !/^(?:ยังยืนยัน|ติดต่อ STK_08 ไม่สำเร็จ)/.test(note))
+      $('writeProgressMessage').textContent = note;
+  }
   if (isForm(app.page)) {
     const output = $('formMessage');
     output.textContent = message;
@@ -1257,6 +1263,11 @@ function showFeedback(message, kind = '') {
 function setBusy(busy) {
   app.busy = busy;
   $('workspace').classList.toggle('write-busy', busy);
+  const overlay = $('writeProgressOverlay');
+  if (overlay) {
+    overlay.hidden = !busy;
+    if (busy) $('writeProgressMessage').textContent = 'กำลังส่งคำสั่งและตรวจสอบผลบันทึกจาก Microsoft Lists…';
+  }
   syncFormControls();
   showReadState();
 }
