@@ -7,9 +7,14 @@ const API_URL = CONFIG.usersReadUrl;
 const JOBS_API_URL = CONFIG.jobsReadUrl;
 const WRITE_API_URL = CONFIG.writeGatewayUrl;
 const PHOTO_UPLOAD_API_URL = MOCK ? '' : CONFIG.photoGatewayUrl;
-const liveWritesAllowed = () => MOCK || (CONFIG.mode === 'live' && CONFIG.writesEnabled === true && CONFIG.integrationVerified === true);
+const registrationAllowed = () => MOCK || (CONFIG.mode === 'live' && CONFIG.writesEnabled === true && CONFIG.integrationVerified === true);
+const liveWritesAllowed = () => MOCK || (CONFIG.mode === 'live' && CONFIG.writesEnabled === true && CONFIG.integrationVerified === true && StockAdapter.canWrite(app.capabilities));
 let registering = false;
 let sessionEpoch = 0;
+const DOMAIN = StockDomain;
+const isDecided = value => DOMAIN.decided(value);
+const selectedProducts = job => DOMAIN.list(job?.affectedProducts?.length ? job.affectedProducts : [job?.product]);
+const selectedModels = job => DOMAIN.list(job?.affectedModels?.length ? job.affectedModels : [job?.model]);
 
 const $ = id => document.getElementById(id);
 const text = value => String(value ?? '').trim();
@@ -19,8 +24,8 @@ const html = value => String(value ?? '').replace(/[&<>"']/g, ch => ({
 })[ch]);
 const icon = name => `<svg class="ico sm" aria-hidden="true"><use href="#ic-${name}"></use></svg>`;
 const KNOWN_CLAIM_TYPES = ['Quick Report', 'Hotline'];
-const GROUPS = ['FGL', 'MU', 'M', 'L', 'B', 'RX', 'CH', 'SH'];
-const SLOTS = [1, 2, 3, 4];
+const GROUPS = ['M', 'MU', 'L', 'B', 'RX', 'FGL'];
+const SLOTS = StockDomain.slots;
 const PHOTOS = [1]; // One serial-number evidence photo per inspected vehicle
 // Enable only when both write and read flows support inspection deletion.
 const ENABLE_DELETE_INSPECTION = false;
@@ -52,6 +57,7 @@ function dateValue(value) {
 }
 
 const app = {
+  capabilities: {}, modelMaster: [], modelMasterSource: '', transfers: [], reportKind: 'job', reportSerial: '', vehicleGroup: true,
   ready: false, initializing: false, deleteEnabled: false, member: null, line: null, nickname: '', jobs: [], page: 'home',
   group: '', claimFilter: '', modelFilter: '', jobState: '', claimTypes: KNOWN_CLAIM_TYPES, products: GROUPS, search: '', selected: '', editJob: false, editRecord: '', viewRecord: '',
   stars: new Set(),
@@ -116,8 +122,8 @@ function idToken() {
 }
 
 async function post(url, action, values = {}, timeout) {
-  const read = ['status', 'jobs'].includes(action);
-  if (!read && !liveWritesAllowed()) throw Error('ยังไม่เปิดการบันทึกข้อมูลจริง รอทดสอบการเชื่อมต่อที่ได้รับอนุญาต');
+  const read = ['status', 'jobs', 'requestStatus', 'modelMaster'].includes(action);
+  if (!read && !(action==='register'?registrationAllowed():liveWritesAllowed())) throw Error('ยังไม่เปิดการบันทึกข้อมูลจริง รอทดสอบการเชื่อมต่อที่ได้รับอนุญาต');
   if (MOCK) { await delay(120); return mockAdapter.request(action, values); }
   if (!safeLink(url)) throw Error('ยังไม่ตั้งค่าบริการที่ได้รับอนุญาต');
   return fetchJson(url, {
@@ -143,8 +149,8 @@ async function checkAccess() {
     resetSession();
     if (data.registered) return gate(text(data.accessStatus).toLowerCase() === 'pending' ? 'gatePending' : 'gateBlocked');
     if (data.status === 'NOT_REGISTERED') {
-      $('gateRegisterButton').disabled = !liveWritesAllowed();
-      return gate('gateRegister', liveWritesAllowed() ? '' : 'ยังไม่เปิดระบบลงทะเบียนจริง');
+      $('gateRegisterButton').disabled = !registrationAllowed();
+      return gate('gateRegister', registrationAllowed() ? '' : 'ยังไม่เปิดระบบลงทะเบียนจริง');
     }
     throw Error(data.message || 'ตรวจสอบสิทธิ์ไม่สำเร็จ');
   } catch (error) {
@@ -188,7 +194,7 @@ async function logoutLine() {
 async function register(event) {
   event.preventDefault();
   if (registering) return;
-  if (!liveWritesAllowed()) return gate('gateRegister', 'ยังไม่เปิดระบบลงทะเบียนจริง', true);
+  if (!registrationAllowed()) return gate('gateRegister', 'ยังไม่เปิดระบบลงทะเบียนจริง', true);
   const fullName = val('gateFullName'), nickname = val('gateNickName');
   if (!fullName || !nickname) {
     gate('gateRegister', 'กรุณากรอกชื่อและชื่อเล่น', true);
@@ -231,6 +237,7 @@ function openApp(member) {
   app.member = member;
   app.stars = readStars();
   restorePending();
+  restoreTransfers();
   purgeExpiredDrafts();
   app.jobsLoading = false;
   $('accessGate').hidden = true;
@@ -273,7 +280,7 @@ function normalizeJob(job) {
   const records = (Array.isArray(job.records) ? job.records : [])
     .filter(Boolean).map(record => StockDomain.normalizeFields(record, 'record'))
     .map((record, index) => ({
-      ...record, id: text(record.id || record.sharePointItemId || record.serial || 'missing-record-' + index),
+      ...record, ...Object.fromEntries(DOMAIN.criteria(job, record).map(c => ['result'+c.slot, DOMAIN.result(record,c)])), id: text(record.id || record.sharePointItemId || record.serial || 'missing-record-' + index),
       serial: text(record.serial), checkedAt: record.checkedAt || record.inspectionDate,
       note: record.note ?? record.remarks ?? '',
       deleted: record.deleted === true || /^(true|1|yes|deleted)$/i.test(text(record.deleted)),
@@ -292,7 +299,8 @@ function normalizeJob(job) {
     startedAt: dateValue(job.startedAt) || metadata.startedAt,
     product: sourceProduct || (claimAsProduct ? legacyProduct : ''),
     claimCategory: claimCategory(job.claimCategory || job.claimReportType || metadata.claimCategory || (!claimAsProduct ? rawClaim : '')),
-    model: text(job.model), status: reportState, records
+    model: text(job.model), affectedModels: job.affectedModels?.length ? job.affectedModels : DOMAIN.list([job.model]),
+    affectedProducts: job.affectedProducts?.length ? job.affectedProducts : DOMAIN.list([sourceProduct || legacyProduct]), status: reportState, records
   };
 }
 
@@ -302,12 +310,14 @@ function sortJobs(a, b) {
 }
 
 async function readJobs(timeout) {
-  const data = await post(JOBS_API_URL, 'jobs', {}, timeout);
-  if (data.status !== 'OK' || !Array.isArray(data.jobs)) throw Error(data.message || 'อ่านรายการงานไม่สำเร็จ');
+  const data = await StockAdapter.readPages(cursor => post(JOBS_API_URL, 'jobs', { cursor }, timeout));
   return data;
 }
 
 function applyJobs(data) {
+  app.capabilities = data.capabilities || {};
+  app.modelMaster = Array.isArray(data.modelMaster) ? data.modelMaster.filter(row => row && text(row.product) && text(row.model)).map(row => ({product:text(row.product),model:text(row.model)})) : [];
+  app.modelMasterSource = text(data.modelMasterSource);
   const normalized = data.jobs.filter(Boolean).map(normalizeJob);
   app.jobs = normalized.filter(job => job.id).sort(sortJobs);
   const listChoices = data.choices?.claimCategory ?? data.choices?.claimType ?? data.claimCategories;
@@ -325,7 +335,7 @@ function applyJobs(data) {
   app.jobsLive = true;
   app.loaded = true;
   app.jobsLoadedAt = new Date().toISOString();
-  app.partial = !!data.partial || normalized.length !== app.jobs.length || data.jobs.some(job => !job);
+  app.partial = !!data.partial || normalized.length !== app.jobs.length || data.jobs.some(job => !job) || normalized.some(job => (job.criteria || []).length > SLOTS.length || new Set((job.criteria || []).map(c => c.id)).size !== (job.criteria || []).length || new Set((job.criteria||[]).map(c=>c.slot)).size !== (job.criteria||[]).length || (job.criteria||[]).some(c=>!SLOTS.includes(c.slot)||!c.label));
   app.deleteEnabled = ENABLE_DELETE_INSPECTION && data.capabilities?.deleteInspection === true;
   app.recordRead = /STK_Inspections/i.test(text(data.source)) || app.jobs.some(job => job.records.length > 0);
   app.loadError = '';
@@ -379,7 +389,7 @@ const isWaiting = status => ['completed', 'waiting-report'].includes(status);
 const isDone = status => ['report-ready', 'closed'].includes(status);
 const finished = job => isWaiting(job.status) || isDone(job.status);
 const resultCode = value => text(value).toUpperCase();
-const checkedResult = value => ['OK', 'NG'].includes(resultCode(value));
+const checkedResult = isDecided;
 
 function effectiveResult(record) {
   const results = SLOTS.map(slot => resultCode(record['result' + slot]));
@@ -389,13 +399,13 @@ function effectiveResult(record) {
 }
 
 const statusBadge = status => `<span class="status ${html(status)}">${html(STATUS[status])}</span>`;
-const resultBadge = result => ['OK', 'NG'].includes(result)
+const resultBadge = result => ['OK', 'NG', 'NA'].includes(result)
   ? `<span class="result-tag ${result.toLowerCase()}">${result}</span>` : '<span class="result-tag">ยังไม่มีผล</span>';
 const numberText = value => app.loaded ? value : '—';
 const blank = message => !app.loaded && !app.loadError ? '<div class="skeleton" role="status" aria-label="กำลังโหลดข้อมูล"></div>' : `<p class="empty">${html(app.loaded ? message :
   app.loadError ? 'แตะลองอีกครั้งเพื่อโหลดข้อมูล' : 'กำลังโหลดข้อมูล…')}</p>`;
 const niceDate = value => dateValue(value) ? thaiDate.format(new Date(value)) : '—';
-const groupLabel = job => [job.product, job.model].filter(Boolean).join(' · ');
+const groupLabel = job => [selectedProducts(job).join(', '), selectedModels(job).join(', ')].filter(Boolean).join(' · ');
 const claimNumber = job => text(job.docNo2 || job.id);
 const reportLink = job => safeLink(job.reportUrl);
 
@@ -468,33 +478,40 @@ function orderedActiveJobs() {
 
 function filterJobs(jobs) {
   const query = app.search.toLowerCase().trim();
-  return jobs.filter(job => (!app.group || job.product === app.group) &&
-    (!app.claimFilter || job.claimCategory === app.claimFilter) && (!app.modelFilter || job.model === app.modelFilter) &&
+  return jobs.filter(job => (!app.group || selectedProducts(job).includes(app.group)) &&
+    (!app.claimFilter || job.claimCategory === app.claimFilter) && (!app.modelFilter || selectedModels(job).includes(app.modelFilter)) &&
     (!app.jobState || job.status === app.jobState) &&
-    [job.title, job.id, job.product, job.model, job.docNo2, job.detail, job.claimCategory].join(' ').toLowerCase().includes(query));
+    [job.title, job.id, groupLabel(job), job.docNo2, job.detail, job.claimCategory, ...liveRecords(job).map(record => record.serial)].join(' ').toLowerCase().includes(query));
 }
 function syncSearch(prefix) {
   const source = app.jobs;
   choiceOptions(prefix + 'Claim', 'ทุกประเภท', app.claimTypes, app.claimFilter);
   choiceOptions(prefix + 'Product', 'ทุก Product', app.products, app.group);
-  choiceOptions(prefix + 'Model', 'ทุก Model', [...new Set(source.map(j => j.model).filter(Boolean))].sort(), app.modelFilter);
+  choiceOptions(prefix + 'Model', 'ทุก Model', [...new Set(source.flatMap(selectedModels))].sort(), app.modelFilter);
   $(prefix + 'Search').value = app.search;
 }
 function unitStats(jobs, includeJobs = false) {
-  const counts = StockDomain.summary(jobs);
-  return (includeJobs ? stat('งานทั้งหมด', jobs.length, 'list') : '') + stat('รถที่บันทึก', counts.total, 'truck') +
-    stat('OK', counts.OK, 'check', 'teal') + stat('NG', counts.NG, 'alert', 'negative') + stat('Pending', counts.pending, 'clock', 'orange');
+  const counts = DOMAIN.summary(jobs);
+  return (includeJobs ? stat('งานทั้งหมด', jobs.length, 'list') : '') + stat('รถในรายการ', counts.total, 'truck') +
+    stat('OK', counts.OK, 'check', 'teal') + stat('NG', counts.NG, 'alert', 'negative') +
+    stat('Pending', counts.pending, 'clock', 'orange') + stat('NA', counts.NA, 'minus', 'neutral');
 }
+
 function renderHome() {
   const jobs = orderedActiveJobs();
   const pinned = jobs.filter(job => app.stars.has(job.id));
-  $('homeStats').innerHTML = unitStats(app.jobs, true);
+  const units = DOMAIN.summary(app.jobs), done = app.jobs.filter(finished).length;
+  const knownTargets = app.jobs.filter(job => Number.isFinite(Number(job.targetUnits)) && job.targetUnits !== null && text(job.targetUnits) !== '');
+  const target = knownTargets.reduce((n, job) => n + Number(job.targetUnits), 0);
+  $('homeJobStats').innerHTML = stat('งานทั้งหมด', app.jobs.length, 'list') + stat('เสร็จแล้ว', done, 'check') + stat('งานค้าง', app.jobs.length - done, 'clock') + stat('รถเป้าหมาย', knownTargets.length ? target : '—', 'truck');
+  $('homeStats').innerHTML = unitStats(app.jobs);
+  $('homeInspected').textContent = `ลงผลตรวจแล้ว ${units.inspected} คัน · ตรวจครบ ${units.complete} คัน` + (knownTargets.length < app.jobs.length ? ' · บางงานยังไม่ระบุเป้าหมาย' : '');
   $('pendingBanner').hidden = !app.pending.size;
-  $('homeSummaryNote').textContent = app.partial ? 'ข้อมูลไม่ครบ · ยอดเฉพาะรายการที่โหลดได้' : 'Pending = ยังไม่มีผลครบและไม่พบ NG · รถที่พบ NG นับใน NG แม้ยังตรวจไม่ครบ';
+  $('homeSummaryNote').textContent = app.partial ? 'ข้อมูลไม่ครบ · ยอดเฉพาะรายการที่โหลดได้' : 'ยอดรถ = OK + NG + Pending + NA · ตรวจครบแยกจากผลตรวจ';
   $('openJobsLabel').textContent = 'ดูงานทั้งหมด' + (app.loaded ? ' (' + app.jobs.length + ')' : '');
   $('recentJobs').innerHTML = pinned.length ? pinned.map(jobCard).join('') : blank('แตะดาวที่งานกำลังตรวจเพื่อปักไว้ตรงนี้');
   syncSearch('home');
-  const shown = filterJobs(app.jobs).slice(0, 4);
+  const shown = filterJobs(app.jobs).sort((a,b) => Number(b.status === 'progress') - Number(a.status === 'progress') || text(b.updated).localeCompare(text(a.updated))).slice(0, 6);
   $('homeJobs').innerHTML = shown.length ? shown.map(jobCard).join('') : blank('ไม่พบงานที่ตรงกับตัวกรอง');
   const key = dateValue(new Date()).slice(0, 7), buckets = jobsByMonth();
   $('homeMonth').innerHTML = monthCard(key, buckets.get(key) || [], true);
@@ -529,11 +546,11 @@ function renderChoose() {
   app.group = choiceOptions('modelFilter', 'ทั้งหมด', products, app.group);
   app.claimFilter = choiceOptions('claimFilter', 'ทั้งหมด', app.claimTypes, app.claimFilter);
   if ($('jobSearch').value !== app.search) $('jobSearch').value = app.search;
-  choiceOptions('chooseModel', 'ทุก Model', [...new Set(jobs.map(job => job.model).filter(Boolean))], app.modelFilter);
+  choiceOptions('chooseModel', 'ทุก Model', [...new Set(jobs.flatMap(selectedModels))], app.modelFilter);
   const query = app.search.trim().toLowerCase();
-  const filtered = jobs.filter(job => (!app.modelFilter || job.model === app.modelFilter) && (!app.group || job.product === app.group) &&
+  const filtered = jobs.filter(job => (!app.modelFilter || selectedModels(job).includes(app.modelFilter)) && (!app.group || selectedProducts(job).includes(app.group)) &&
     (!app.claimFilter || job.claimCategory === app.claimFilter) &&
-    [job.title, job.id, job.product, job.model, job.docNo2, job.detail, job.claimCategory].join(' ').toLowerCase().includes(query));
+    [job.title, job.id, groupLabel(job), job.docNo2, job.detail, job.claimCategory, ...liveRecords(job).map(record => record.serial)].join(' ').toLowerCase().includes(query));
   $('chooseCount').textContent = app.loaded ? `${filtered.length} งานรอเริ่มตรวจ` : '';
   $('chooseGrid').innerHTML = filtered.length ? filtered.map(jobCard).join('') : blank('ไม่พบงานรอเริ่มตรวจที่ตรงกับตัวกรอง');
 }
@@ -655,10 +672,12 @@ function reportJobs() {
   return app.jobs.filter(job => (!app.reportJob || job.id === app.reportJob));
 }
 function scopedReportJobs() {
-  return reportJobs().map(job => ({ ...job, records: liveRecords(job).filter(record => !app.reportMonth ||
-    (app.reportMonth === 'undated' ? !dateValue(record.checkedAt) : dateValue(record.checkedAt).slice(0, 7) === app.reportMonth)) }));
+  return reportJobs().map(job => ({ ...job, records: liveRecords(job).filter(record => (app.reportKind !== 'serial' || !app.reportSerial || record.serial === app.reportSerial) && (!app.reportMonth ||
+    (app.reportMonth === 'undated' ? !dateValue(record.checkedAt) : dateValue(record.checkedAt).slice(0, 7) === app.reportMonth))) }));
 }
 function renderReports() {
+  $('reportKind').value = app.reportKind;
+  choiceOptions('reportSerial', 'ทุก Serial', [...new Set(reportJobs().flatMap(job => liveRecords(job).map(record => record.serial)).filter(Boolean))], app.reportSerial);
   choiceOptions('reportJob', 'ทุกงาน', app.jobs.map(job => job.id), app.reportJob);
   const months = [...new Set(app.jobs.flatMap(job => liveRecords(job).map(record => dateValue(record.checkedAt).slice(0, 7) || 'undated')))].sort().reverse();
   choiceOptions('reportMonth', 'ทุกเดือน', months, app.reportMonth);
@@ -670,37 +689,45 @@ function renderReports() {
   $('reportList').innerHTML = filtered.length ? filtered.map(job => {
     const url = reportLink(job), counts = StockDomain.summary([job]);
     return `<article class="report-row"><span class="report-icon">${icon('file')}</span><div><h3>${html(job.title)}</h3>
-      <p>${html(groupLabel(job))} · ${html(claimNumber(job))}</p><p>${counts.total} คัน · OK ${counts.OK} · NG ${counts.NG} · Pending ${counts.pending}</p></div>
+      <p>${html(groupLabel(job))} · ${html(claimNumber(job))}</p><p>${counts.total} คัน · OK ${counts.OK} · NG ${counts.NG} · Pending ${counts.pending} · NA ${counts.NA}</p></div>
       <div class="report-actions"><button class="btn secondary sm" type="button" data-preview-job="${html(job.id)}">Preview</button>
       ${url ? `<a class="btn ghost sm" href="${html(url)}" target="_blank" rel="noopener noreferrer">${icon('download')} PDF จากระบบ (ทั้งงาน)</a>` : ''}</div></article>`;
   }).join('') : blank('ไม่มีข้อมูลตามตัวกรอง');
 }
-function renderReportPreview() {
-  const jobs = scopedReportJobs();
-  const counts = StockDomain.summary(jobs);
-  $('previewContent').innerHTML = `<div class="page-head"><div><p class="eyebrow">INSPECTION REPORT</p><h1 tabindex="-1">รายงานตรวจสต็อก</h1>
-    <p>${MOCK ? 'ข้อมูลจำลอง · ไม่ใช่รายงานการผลิตจริง' : 'ข้อมูลที่อ่านล่าสุด'} · ${html(app.reportMonth || 'ทุกเดือน')} · เขตเวลา Asia/Bangkok</p></div>
-    <button class="btn primary no-print" type="button" data-action="print-report">${icon('download')} พิมพ์ / บันทึก PDF</button></div>
-    <div class="notice ${app.partial || !app.jobsLive ? 'warning' : ''}">โหลดข้อมูล ${html(niceDate(app.jobsLoadedAt))} · ${app.partial || !app.jobsLive ? 'ข้อมูลอาจไม่ครบหรือไม่ใช่ข้อมูลล่าสุด' : 'สรุปเฉพาะข้อมูลที่โหลดได้'} · ${counts.incomplete} คันยังตรวจไม่ครบ</div>
-    <div class="stats report-metrics">${unitStats(jobs)}</div>
-    <p class="hint">Total = OK + NG + Pending · NG มีลำดับสูงสุด แม้ตรวจไม่ครบ · — หมายถึงไม่มีข้อมูล · เดือนอ้างอิงวันที่ตรวจรายคัน</p>
-    ${jobs.map(job => `<section class="panel print-job"><h2>${html(job.title)}</h2><p class="muted">${html(job.id)} · ${html(groupLabel(job))} · ${html(job.claimCategory || '—')}</p>
-      ${reportSummary(job, job.records)}
-      <div class="report-table-wrap"><table class="report-table"><thead><tr><th>Serial / Model</th><th>วันที่ / ผู้ตรวจ</th><th>ผล / ความครบถ้วน</th><th>เกณฑ์ตรวจ / หมายเหตุ</th></tr></thead><tbody>
-      ${job.records.length ? [...job.records].sort((a,b) => text(b.checkedAt).localeCompare(text(a.checkedAt))).map(record => {
-        const result = vehicleInspection(job, record);
-        return `<tr><td data-label="Serial / Model"><strong>${html(record.serial || '— (ไม่ระบุ Serial)')}</strong><br>${html(record.model || '—')}</td>
-          <td data-label="วันที่ / ผู้ตรวจ">${niceDate(record.checkedAt)}<br>${html(record.inspector || record.checkedBy || '—')}</td>
-          <td data-label="ผล / ความครบถ้วน">${vehicleBadge(result)}<br>${result.checked}/${result.total} ข้อ${result.complete ? '' : ' · ยังไม่ครบ'}</td>
-          <td data-label="เกณฑ์ตรวจ / หมายเหตุ">${recordCriteria(job, record).map(slot => html(criterionLabel(job, slot)) + ': ' + (checkedResult(record['result' + slot]) ? resultCode(record['result' + slot]) : 'NA')).join('<br>') || 'ไม่ระบุเกณฑ์'}<br>${html(record.note || '—')}${record.ngDetail ? '<br>NG: ' + html(record.ngDetail) : ''}
-          ${recordPictures(record)}</td></tr>`;
-      }).join('') : '<tr><td colspan="4">ไม่มีผลตรวจในช่วงที่เลือก</td></tr>'}</tbody></table></div></section>`).join('')}`;
+function renderReportPreview(){
+ let jobs=scopedReportJobs();
+ if(app.reportKind==='serial'&&!app.reportSerial){$('previewContent').innerHTML='<div class="page-head"><h1 tabindex="-1">รายงานราย Serial</h1></div><p class="empty">เลือก Serial ในหน้ารายงานก่อนสร้างรายงานรายคัน</p>';return}
+ if(app.reportKind==='monthly'&&app.reportMonth)jobs=jobs.filter(job=>job.records.length||openedDate(job).slice(0,7)===app.reportMonth);
+ if(app.reportKind==='serial')jobs=jobs.filter(job=>job.records.length);
+ const counts=DOMAIN.summary(jobs),created=new Intl.DateTimeFormat('th-TH',{timeZone:TIME_ZONE,dateStyle:'medium',timeStyle:'short'}).format(new Date());
+ const title=app.reportKind==='serial'?'รายงานราย Serial':app.reportKind==='monthly'?'รายงานรายเดือน':'รายงาน Claim Job';
+ const reportStatus=!counts.total?'Draft':counts.incomplete?'In Progress':app.reportKind==='serial'||jobs.every(finished)?'Completed':'In Progress';
+ const reportRows=job=>[...job.records].sort((a,b)=>text(b.checkedAt).localeCompare(text(a.checkedAt))).map(record=>{
+  const result=vehicleInspection(job,record);
+  return `<tr><td data-label="PIN / Model"><strong>${html(record.serial||'— (ไม่ระบุ Serial)')}</strong><br>${html(record.product||'—')} · ${html(record.model||'—')}</td>
+   <td data-label="วันที่ / สถานที่ / ผู้ตรวจ">${niceDate(record.checkedAt)}<br>${html(record.location||'—')}<br>${html(record.inspector||'—')}</td>
+   <td data-label="ผล / ความครบถ้วน">${vehicleBadge(result)}<br>${vehicleProgress(result)}</td>
+   <td data-label="ผลรายเกณฑ์">${DOMAIN.criteria(job,record).map(c=>{const d=DOMAIN.criterionValue(record,c);return `<p>${html(c.label)}: <strong>${html(d.result||'Pending')}</strong>${d.note?'<br>'+html(d.note):''}${d.ngDetail?'<br>NG: '+html(d.ngDetail):''}<br><small>${niceDate(d.updatedAt)} · ${html(d.inspector||'—')}</small></p>`}).join('')||'—'}<p>หมายเหตุ: ${html(record.note||'—')}</p></td></tr>`;
+ }).join('');
+ const modelGroups=new Map();for(const job of jobs)for(const record of job.records){const key=[record.product||'—',record.model||'—'].join(' · ');if(!modelGroups.has(key))modelGroups.set(key,[]);modelGroups.get(key).push({...job,records:[record]})}
+ const monthly=app.reportKind==='monthly'?`<section class="panel"><h2>สรุป Product / Model</h2><p class="hint">${jobs.length} งาน · งานค้าง ${jobs.filter(j=>!finished(j)).length} · ลงผลแล้ว ${counts.inspected} คัน</p>${[...modelGroups].map(([model,rows])=>{const c=DOMAIN.summary(rows);return `<div class="criterion-result"><strong>${html(model)}</strong><span>${c.total} คัน · OK ${c.OK} / NG ${c.NG} / Pending ${c.pending} / NA ${c.NA}</span></div>`}).join('')||'<p class="empty">ไม่มีผลตรวจในเดือนนี้</p>'}</section>`:'';
+ $('previewContent').innerHTML=`<header class="report-heading"><img class="kubota-logo" src="assets/kubota.png" alt="Kubota"><div><p class="eyebrow">STOCK INSPECTION</p><h1 tabindex="-1">${title}</h1></div><span class="status">${reportStatus}</span></header>
+  <div class="page-head"><p>${MOCK?'MOCK REPORT · ข้อมูลจำลอง ไม่ใช่ข้อมูลบริษัท':'รายงานจากข้อมูลที่อ่านยืนยันแล้ว'} · ${html(app.reportMonth||'ทุกเดือน')}</p><button class="btn primary no-print" type="button" data-action="print-report">${icon('download')} พิมพ์ / บันทึก PDF</button></div>
+  <p class="hint">สร้างรายงาน ${html(created)} (Asia/Bangkok) · อ่านข้อมูลล่าสุด ${niceDate(app.jobsLoadedAt)}</p>
+  ${!app.jobsLive||app.partial?'<div class="notice warning">Draft · ข้อมูลไม่ครบหรืออาจไม่ใช่ข้อมูลล่าสุด</div>':''}
+  <div class="stats report-metrics">${unitStats(jobs)}</div><p class="hint">Total = OK + NG + Pending + NA · ตรวจครบ ${counts.complete} คัน / ยังไม่ครบ ${counts.incomplete} คัน · — หมายถึงไม่มีข้อมูล</p>${monthly}
+  ${jobs.map(job=>`<section class="panel print-job"><div class="panel-head"><h2>${html(job.title)}</h2>${statusBadge(job.status)}</div>
+   <p>${html(job.id)} · ${html(job.claimCategory||'—')}</p><p class="muted">${html(groupLabel(job))} · เป้าหมาย ${job.targetUnits==null?'—':html(job.targetUnits)} คัน · ในรายงาน ${job.records.length} คัน</p>
+   ${job.detail?`<p>${html(job.detail)}</p>`:''}<p>วิธีตรวจ: ${html(job.checkingMethod||'—')}</p>
+   ${app.reportKind!=='monthly'?referencePictures(job):''}
+   ${app.reportKind==='serial'?job.records.map(record=>`<section class="serial-report"><h3>${html(record.serial)}</h3><p>${html(record.product||'—')} · ${html(record.model||'—')} · ${niceDate(record.checkedAt)} · ${html(record.location||'—')} · ${html(record.inspector||'—')}</p>${vehicleBadge(vehicleInspection(job,record))} ${vehicleProgress(vehicleInspection(job,record))}${recordEvidence(job,record)}${auditHistoryMarkup(job,record)}</section>`).join(''):
+    `<div class="report-table-wrap"><table class="report-table"><thead><tr><th>PIN / Product / Model</th><th>วันที่ / สถานที่ / ผู้ตรวจ</th><th>ผล / ความครบถ้วน</th><th>ผลรายเกณฑ์</th></tr></thead><tbody>${reportRows(job)||'<tr><td colspan="4">ไม่มีผลตรวจในช่วงนี้</td></tr>'}</tbody></table></div>`}</section>`).join('')}`;
 }
 
 
 const jobScope = job => 'job:' + job.id;
 const manualScope = 'manual-job';
-const criteriaSlots = job => SLOTS.filter(slot => text(job['result' + slot + 'Criteria']));
+const criteriaSlots = job => DOMAIN.criteria(job).map(c => c.slot);
 
 const pendingControls = scope => app.pending.has(scope) ? `<div class="section-actions">
   <button class="btn secondary" type="button" data-action="check-save">${icon('refresh')} ตรวจสอบผลบันทึก</button>
@@ -721,14 +748,11 @@ function legacyNgCriteria(record) {
 }
 
 function criterionLabel(job, slot, oldNames) {
-  const name = text(job['result' + slot + 'Criteria']) || oldNames?.get(slot);
-  return name && name !== 'Result ' + slot ? name : 'เกณฑ์ข้อ ' + slot + ' (ไม่ระบุชื่อ)';
+  return DOMAIN.criteria(job).find(c => c.slot === slot)?.label || oldNames?.get(slot) || 'เกณฑ์ข้อ ' + slot + ' (ไม่ระบุชื่อ)';
 }
+function recordCriteria(job, record) { return DOMAIN.criteria(job, record).map(c => c.slot); }
+function resultDetail(job, record, slot) { return DOMAIN.criterionValue(record, DOMAIN.criteria(job,record).find(c => c.slot === slot) || {id:'C'+slot,slot}); }
 
-function recordCriteria(job, record) {
-  return SLOTS.filter(slot => text(job['result' + slot + 'Criteria']) ||
-    checkedResult(record?.['result' + slot]));
-}
 
 function vehicleInspection(job, record) {
   return StockDomain.inspection(job, record);
@@ -760,11 +784,11 @@ function recordLine(job, record, editable) {
 }
 
 function referencePictures(job) {
-  const pictures = [['OK', job.okPictureUrl], ['NG', job.ngPictureUrl]].map(([label, value]) => {
+  const pictures = [['OK', job.okPictureUrl], ['NG', job.ngPictureUrl], ['วิธีตรวจ', job.methodPictureUrl]].map(([label, value]) => {
     const url = safeLink(value);
     return url ? `<a class="reference-photo ${label.toLowerCase()}" href="${html(url)}" target="_blank" rel="noopener noreferrer">
-      <span>ตัวอย่าง ${label}</span><img src="${html(url)}" alt="" data-reference-photo loading="lazy">
-      <small>เปิดรูป ${icon('arrow')}</small></a>` : `<div class="reference-photo"><span>ตัวอย่าง ${label}</span><p class="hint">ยังไม่มีรูปตัวอย่าง</p></div>`;
+      <span>${label === 'วิธีตรวจ' ? label : 'ตัวอย่าง ' + label}</span><img src="${html(url)}" alt="" data-reference-photo loading="lazy">
+      <small>เปิดรูป ${icon('arrow')}</small></a>` : `<div class="reference-photo"><span>${label === 'วิธีตรวจ' ? label : 'ตัวอย่าง ' + label}</span><p class="hint">ยังไม่มีรูปตัวอย่าง</p></div>`;
   }).join('');
   return pictures ? `<div class="reference-grid">${pictures}</div>` : '';
 }
@@ -781,35 +805,43 @@ function renderRecordDetail() {
   root.innerHTML = `<section class="panel">
     <div class="page-head"><div><div class="vehicle-identity">${vehicleBadge(inspection)}<h1 tabindex="-1">${html(record.serial || '— (ไม่ระบุ Serial)')}</h1></div>
     <p>${html(job.title)}</p></div></div>
-    ${vehicleProgress(inspection)}
+    ${vehicleProgress(inspection)}<div class="section-actions"><button type="button" class="btn secondary" data-serial-report="${html(record.serial)}">${icon('file')} รายงานรายคัน</button></div>
     <div class="detail-info">
       <div class="info"><small>Product</small><span>${html(record.product || job.product || '—')}</span></div>
       <div class="info"><small>Model</small><span>${html(record.model || job.model || '—')}</span></div>
       <div class="info"><small>ผู้ตรวจ</small><span>${html(record.inspector || record.checkedBy || '—')}</span></div>
       <div class="info"><small>วันที่ตรวจ</small><span>${html(niceDate(record.checkedAt))}</span></div>
+      <div class="info"><small>สถานที่ตรวจ</small><span>${html(record.location || '—')}</span></div>
       ${record.lotNo ? `<div class="info"><small>Lot No.</small><span>${html(record.lotNo)}</span></div>` : ''}
     </div>
   </section>
   <section class="panel">
     <div class="panel-head"><h2>ผลตามเกณฑ์</h2></div>
     ${recordEvidence(job, record)}
-  </section>`;
+  </section>${auditHistoryMarkup(job, record)}`;
 }
 
-function recordEvidence(job, record) {
-  const criteria = recordCriteria(job, record);
-  const pictures = recordPictures(record);
-  const oldNames = legacyNgCriteria(record);
-  const results = criteria.map(slot => `<div class="criterion-result"><span>${html(criterionLabel(job, slot, oldNames))}</span>
-    ${checkedResult(record['result' + slot]) ? resultBadge(resultCode(record['result' + slot])) : '<span class="result-tag">ยังไม่ตรวจ</span>'}</div>`).join('');
-  const failed = criteria.filter(slot => resultCode(record['result' + slot]) === 'NG');
-  const showNgDetail = record.ngDetail && record.ngDetail !== record.note &&
-    !oldNames.size && record.ngDetail !== ngCriteriaText(job, failed);
-  return `${results || '<p class="hint">ไม่มีข้อมูลผลแยกตามเกณฑ์</p>'}
-    ${record.note ? `<div class="record-extra"><h3>หมายเหตุ</h3><p class="record-note">${html(record.note)}</p></div>` : ''}
-    ${showNgDetail ? `<div class="record-extra"><h3>รายละเอียด NG</h3><p class="record-note">${html(record.ngDetail)}</p></div>` : ''}
-    ${pictures ? `<div class="record-extra"><h3>รูป Serial Number</h3>${pictures}</div>` : ''}`;
+function recordEvidence(job,record){
+ const results=DOMAIN.criteria(job,record).map(c=>{
+  const detail=DOMAIN.criterionValue(record,c);
+  return `<article class="criterion-evidence"><div class="criterion-result"><span>${html(c.label)}</span>${detail.result?resultBadge(detail.result):'<span class="result-tag pending">Pending</span>'}</div>
+   ${detail.note?`<p class="record-note">${html(detail.note)}</p>`:''}${detail.ngDetail?`<p class="record-note ng-note">NG: ${html(detail.ngDetail)}</p>`:''}
+   <small class="hint">แก้ล่าสุด ${niceDate(detail.updatedAt)} · ผู้ตรวจ ${html(detail.inspector||'—')}</small></article>`;
+ }).join('');
+ return `${Number(record.schemaVersion)!==2?'<p class="notice warning">ข้อมูลรุ่นเดิม: NA อาจหมายถึงยังไม่ตรวจ จึงแสดงเป็น Pending จนกว่าจะตรวจยืนยัน</p>':''}${results||'<p class="hint">ไม่มีผลรายเกณฑ์</p>'}
+ ${record.note?`<div class="record-extra"><h3>หมายเหตุรวม</h3><p class="record-note">${html(record.note)}</p></div>`:''}
+ ${record.ngDetail?`<div class="record-extra"><h3>สรุป NG</h3><p class="record-note">${html(record.ngDetail)}</p></div>`:''}
+ <div class="record-extra"><h3>รูป Label / PIN</h3>${recordPictures(record)}</div>`;
 }
+function auditHistoryMarkup(job,record){
+ const history=Array.isArray(record.auditHistory)?record.auditHistory:[];
+ return `<details class="panel audit-history"><summary>ประวัติการแก้ไข (${history.length})</summary>${MOCK?'<p class="hint">ประวัติจำลอง ไม่ใช่ audit ของบริษัท</p>':''}${history.length?[...history].reverse().map(entry=>`<article class="audit-entry"><h3>${html(entry.actor||'—')} · ${niceDate(entry.at)}</h3><small class="hint">Version ${html(entry.version)} · Request ${html(entry.requestId)}</small>${(entry.changes||[]).map(change=>`<p>${html(DOMAIN.criteria(job,record).find(c=>c.id===change.criterionId)?.label||change.criterionId)}: ${html(change.result||'Pending')}${change.note?' · '+html(change.note):''}${change.ngDetail?' · NG: '+html(change.ngDetail):''}</p>`).join('')}</article>`).join(''):'<p class="hint">ยังไม่มีประวัติจากบริการอ่านข้อมูล</p>'}</details>`;
+}
+function groupedVehicles(job,records,active,completed){
+ const groups=new Map();for(const record of records){const key=[record.product||'—',record.model||'—'].join(' · ');if(!groups.has(key))groups.set(key,[]);groups.get(key).push(record)}
+ return [...groups.entries()].map(([model,rows])=>`<section class="vehicle-model-group"><h3>${icon('truck')} ${html(model)} <span class="pill">${rows.length} คัน</span></h3>${rows.map(record=>completed?reportRecord(job,record):recordLine(job,record,active)).join('')}</section>`).join('');
+}
+
 
 function reportRecord(job, record) {
   const inspection = vehicleInspection(job, record);
@@ -826,8 +858,8 @@ function reportSummary(job, records) {
     const { status } = vehicleInspection(job, record);
     if (status) total[status]++;
     return total;
-  }, { OK: 0, NG: 0, pending: 0 });
-  const unknown = records.length - counts.OK - counts.NG - counts.pending;
+  }, { OK: 0, NG: 0, pending: 0, NA: 0 });
+  const unknown = records.length - counts.OK - counts.NG - counts.pending - counts.NA;
   const incomplete = StockDomain.summary([{ ...job, records }]).incomplete;
   const criteria = [...new Set(records.flatMap(record => recordCriteria(job, record)))].sort();
   return `<section class="panel report-summary">
@@ -855,14 +887,14 @@ function renderDetail() {
   const active = job.status === 'progress';
   const completed = finished(job);
   const criteria = criteriaSlots(job);
-  const counts = { all: records.length, OK: 0, NG: 0, pending: 0 };
+  const counts = { all: records.length, OK: 0, NG: 0, pending: 0, NA: 0 };
   const filtered = records.filter(record => {
     const { status } = vehicleInspection(job, record);
     if (status) counts[status]++;
     return app.recordFilter === 'all' || status === app.recordFilter;
   }).sort((a, b) => text(b.checkedAt).localeCompare(text(a.checkedAt)) ||
     (Number(b.sharePointItemId) || 0) - (Number(a.sharePointItemId) || 0));
-  const filters = [['all', 'ทั้งหมด'], ['OK', 'OK'], ['NG', 'NG']];
+  const filters = [['all', 'ทั้งหมด'], ['OK', 'OK'], ['NG', 'NG'], ['NA', 'NA']];
   if (active || counts.pending || app.recordFilter === 'pending') filters.push(['pending', 'รอตรวจต่อ']);
   const url = reportLink(job);
   const target = Number(job.targetUnits);
@@ -897,9 +929,9 @@ function renderDetail() {
     ${job.notes ? `<details class="details-toggle"><summary>หมายเหตุงาน</summary><p class="detail-desc">${html(job.notes)}</p></details>` : ''}
     ${action && !active ? `<div class="detail-actions">${action}</div>` : ''}
   </section>
-  ${detailNotice(job)}
+  ${detailNotice(job)}${transferMarkup(job)}
   ${completed && !url ? '<div class="notice warning">รอไฟล์ PDF · เปิดดูผลในแอปได้</div>' : ''}
-  ${completed ? reportSummary(job, records) : ''}
+  <button type="button" class="btn secondary" data-preview-job="${html(job.id)}">${icon('file')} ดูรายงานงานนี้</button>
   ${isNew ? '' : `<section class="panel">
     <div class="panel-head"><div><h2>รถที่บันทึกผล</h2><span class="muted">${records.length} คัน${target > 0 ? ' จาก ' + target : ''}</span></div>
       ${active && !app.loadError ? `<button class="btn ghost sm" type="button" data-action="refresh-jobs">${icon('refresh')} รีเฟรช</button>` : ''}</div>
@@ -909,7 +941,7 @@ function renderDetail() {
         `<button class="filter-chip ${app.recordFilter === value ? 'active' : ''}" type="button" data-record-filter="${value}" aria-pressed="${app.recordFilter === value}">
           ${label} <span>${counts[value]}</span></button>`).join('')}
     </div>
-    ${filtered.length ? filtered.map(record => completed ? reportRecord(job, record) : recordLine(job, record, active)).join('') :
+    ${filtered.length ? groupedVehicles(job, filtered, active, completed) :
       `<p class="empty">${records.length ? 'ไม่มีรถในผลตรวจที่เลือก' : 'ยังไม่มีรถที่บันทึกผลตรวจ'}</p>`}
   </section>`}
   ${active ? `<div class="finish-actions">
@@ -953,7 +985,7 @@ function formFoot(label, scope) {
 
 function criteriaEditor(job) {
   const shown = slot => slot === 1 || !!text(job?.['result' + slot + 'Criteria']);
-  return `<div class="section-title"><h2>เกณฑ์ตรวจ</h2><small class="hint">อย่างน้อย 1 เกณฑ์ สูงสุด 4</small></div>
+  return `<div class="section-title"><h2>เกณฑ์ตรวจ</h2><small class="hint">อย่างน้อย 1 เกณฑ์ สูงสุด 20</small></div>
     <div class="criteria-editor" id="criteriaEditor">${SLOTS.map(slot => `<div data-criteria-row ${shown(slot) ? '' : 'hidden'}>
       ${field('jfCriteria' + slot, 'เกณฑ์ข้อ ' + slot, job?.['result' + slot + 'Criteria'], {
         placeholder: 'เช่น ไม่มีน้ำมันรั่วบริเวณจุดต่อ'
@@ -986,13 +1018,16 @@ function renderJobForm() {
             <select class="control" id="jfClaimType" ${manual ? 'required' : 'disabled'}><option value="">เลือก Product</option>
               ${products.map(product => `<option value="${html(product)}" ${job?.product === product ? 'selected' : ''}>${html(product)}</option>`).join('')}</select></div>
         </div>
-        ${field('jfModel', manual ? 'Model' : 'Model เริ่มต้นสำหรับตรวจ', job ? inspectionModel(job) : '', { placeholder: 'เช่น L228', required: manual, max: 70 })}
-        ${job ? `<p class="hint">Model ตามงานเคลม: ${html(job.model || '—')} · รายคันจะใช้ Model เดียวกับงานปัญหา</p>` : ''}
+        ${field('jfModel', 'Model เริ่มต้น', job ? inspectionModel(job) : '', { placeholder: 'เช่น L5018SP-CF', required: manual, max: 70 })}
+        ${area('jfModels', 'รุ่นที่เกี่ยวข้อง (คั่นด้วย comma หรือขึ้นบรรทัดใหม่)', selectedModels(job).join(', '), {max:2000})}
+        <fieldset class="scope-products product-options"><legend>Product เพิ่มเติมในงานนี้</legend>${GROUPS.map(product => `<label><input type="checkbox" name="affectedProduct" value="${product}" ${selectedProducts(job).includes(product) ? 'checked' : ''}> ${product}</label>`).join('')}</fieldset>
+        ${job ? `<p class="hint">เลือก Product และ Model แยกได้ในผลตรวจแต่ละคัน</p>` : ''}
         ${job?.detail && text(job.detail) !== job.title ? `<div class="method-box"><h3>รายละเอียดปัญหา</h3><p>${html(job.detail)}</p></div>` : ''}
         <div class="section-title"><h2>รูปตัวอย่าง</h2><span class="hint">ไม่บังคับ</span></div>
         <div class="two-col">
           <div class="reference-field ok">${photoInput('ok', job?.okPictureUrl, 'OK Reference')}</div>
           <div class="reference-field ng">${photoInput('ng', job?.ngPictureUrl, 'NG Reference')}</div>
+          <div class="reference-field">${photoInput('method', job?.methodPictureUrl, 'รูปอธิบายวิธีตรวจ')}</div>
         </div>
         ${photoConnectionHint()}
         ${field('jfTarget', 'จำนวนเป้าหมาย (คัน)', job?.targetUnits ?? '', { type: 'number', max: 7 })}
@@ -1041,90 +1076,64 @@ function renderInspectionSetup(job) {
   syncFormControls();
 }
 
+function modelChoices(job, product) {
+  return DOMAIN.list([...app.modelMaster.filter(row => row.product === product).map(row => row.model), ...selectedModels(job).filter(model => !app.modelMaster.some(row => row.model === model) || app.modelMaster.some(row => row.model === model && row.product === product))]);
+}
 function renderInspection() {
-  const job = findJob();
-  const record = job && liveRecords(job).find(item => item.id === app.editRecord);
-  if (!job || job.status !== 'progress' || app.editRecord && !record) {
-    navigate('jobdetail');
-    return;
-  }
-  const criteria = record ? recordCriteria(job, record) : criteriaSlots(job);
-  if (!criteriaSlots(job).length && !record) return renderInspectionSetup(job);
-  if (!criteria.length) {
-    navigate('jobdetail');
-    showFeedback('ผลตรวจนี้ไม่มีเกณฑ์รายข้อ เปิดวิธีและเกณฑ์ตรวจเพื่อเพิ่มเกณฑ์ของงาน', 'warning');
-    return;
-  }
-  const urls = record?.photoSlots || ['', '', ''];
-  const oldNames = legacyNgCriteria(record);
-  const model = record?.model || inspectionModel(job);
-  app.inspectionBaseline = record ? inspectionSnapshot(job, record) : '';
-  const checks = criteria.map(slot => {
-    const label = criterionLabel(job, slot, oldNames);
-    const chosen = checkedResult(record?.['result' + slot]) ? resultCode(record['result' + slot]) : '';
-    const choice = result => `<button class="pick-result ${chosen === result ? 'selected ' + result.toLowerCase() : ''}"
-      type="button" data-result-slot="${slot}" data-result-value="${result}" aria-pressed="${chosen === result}">${result}</button>`;
-    return `<div class="check-row">
-      <div class="check-description" id="checkLabel${slot}">${html(label)}</div>
-      <div class="check-choices" role="group" aria-labelledby="checkLabel${slot}">${choice('OK')}${choice('NG')}${choice('NA')}</div>
-      <input id="insR${slot}" type="hidden" value="${html(chosen)}">
-    </div>`;
-  }).join('');
-  const heading = record ? (!vehicleInspection(job, record).complete ? 'ตรวจต่อ' : 'แก้ผลตรวจรายคัน') : 'เพิ่มการตรวจ';
-  $('inspectionContent').innerHTML = `<div class="page-head"><div><h1 tabindex="-1">${heading}</h1>
-    <p>${html(job.title)}</p></div></div>
-    <form class="panel wide-form" id="inspectionForm" data-record-slots="${criteria.join(' ')}">
-      <fieldset class="form-layout" id="formFields">
-        ${record ? '' : `<button class="btn secondary scan-button" type="button" data-action="scan-qr">${icon('qr')} Scan QR Code <span>สแกน Serial Number</span></button>`}
-        <div class="inspection-data"><h2>ข้อมูลรถและวันที่ตรวจ</h2>
-          <div class="two-col">
-            ${field('insSerial', 'เลขตัวรถ / Serial No.', record?.serial, { required: true, readOnly: !!record, serial: true, max: 65, placeholder: 'กรอกเลขตัวรถ' })}
-            ${field('insModel', 'Model ตามงานปัญหา', validModel.test(model) ? model : '', { required: true, readOnly: true, max: 70, placeholder: 'Model ของงาน' })}
-            ${field('insLot', 'Lot No.', record?.lotNo, { max: 100, placeholder: 'กรอกถ้ามี' })}
-            ${field('insDate', 'วันที่ตรวจ', dateValue(record?.checkedAt) || dateValue(new Date()), { type: 'date', required: true })}
-          </div>
-        </div>
-        <section class="inspection-method" aria-labelledby="inspectionMethodTitle">
-          <h2 id="inspectionMethodTitle">${icon('clipboard')} วิธีการตรวจ</h2>
-          <p class="inspection-intro">${html(job.checkingMethod || 'งานนี้ยังไม่มีวิธีตรวจที่ระบุไว้')}</p>
-        </section>
-        <div class="inspection-title"><h2>รายการตรวจ</h2><small class="hint">${criteria.length} รายการ</small></div>
-        <div class="check-table">${checks}</div>
-        <div class="live-result" id="liveOverallResult" aria-live="polite"></div>
-        <details class="optional-detail" id="inspectionNotes" ${record?.note ? 'open' : ''}>
-          <summary id="inspectionNotesLabel">เพิ่มหมายเหตุ <span>ไม่บังคับ</span></summary>
-          <div class="optional-body">${area('insRemarks', 'หมายเหตุการตรวจ', record?.note)}</div>
-        </details>
-        <details class="optional-detail" id="optionalPhotos" ${urls.some(Boolean) ? 'open' : ''}>
-          <summary>รูป Serial Number <span>ไม่บังคับ</span></summary>
-          <div class="optional-body">
-            ${photoConnectionHint()}
-            <div class="camera-slots">${PHOTOS.map(slot => photoInput(slot, urls[slot - 1], 'รูป Serial Number')).join('')}</div>
-          </div>
-        </details>
-        <p class="hint">ผู้ตรวจ ${html(app.member?.displayName || app.member?.fullName || app.nickname)}</p>
-      </fieldset>
-      ${formFoot('บันทึกผลตรวจ', jobScope(job))}
-    </form>`;
-  updateQuickResult();
-  syncFormControls();
+  const job=findJob(),record=job&&liveRecords(job).find(r=>r.id===app.editRecord);
+  if(!job||job.status!=='progress'||app.editRecord&&!record)return navigate('jobdetail');
+  const criteria=DOMAIN.criteria(job,record||{});
+  if(!criteria.length)return renderInspectionSetup(job);
+  app.inspectionBaseline=record?inspectionSnapshot(job,record):'';
+  const products=selectedProducts(job),product=record?.product||products[0]||job.product;
+  const model=record?.model||(selectedModels(job).length===1?selectedModels(job)[0]:'');
+  $('inspectionContent').innerHTML=`<div class="page-head"><div><p class="eyebrow">VEHICLE INSPECTION</p><h1 tabindex="-1">${record?'ตรวจต่อ / แก้ไขผล':'เพิ่มการตรวจ'}</h1><p>${html(job.title)}</p></div></div>
+  <form class="panel wide-form" id="inspectionForm" data-record-slots="${criteria.map(c=>c.slot).join(' ')}"><fieldset class="form-layout" id="formFields">
+    ${record?'':`<button type="button" class="btn secondary scan-button" data-action="scan-qr">${icon('qr')} สแกน PIN / Serial</button>`}
+    <div class="two-col">
+      ${field('insSerial','PIN / Serial Number',record?.serial,{required:true,readOnly:!!record,serial:true,max:65,placeholder:'เช่น KBULLCDCHPTD10006'})}
+      <div class="field"><label for="insProduct">Product *</label><select id="insProduct" class="control" required>${products.map(p=>`<option value="${html(p)}" ${p===product?'selected':''}>${html(p)}</option>`).join('')}</select></div>
+      <div class="field"><label for="insModel">Model *</label><input id="insModel" class="control" list="inspectionModels" required maxlength="70" value="${html(model)}" placeholder="ค้นหารุ่น หรือกรอกเอง" autocomplete="off"><datalist id="inspectionModels">${modelChoices(job,product).map(m=>`<option value="${html(m)}"></option>`).join('')}</datalist></div>
+      ${field('insDate','วันที่ตรวจ',dateValue(record?.checkedAt)||dateValue(new Date()),{type:'date',required:true})}
+    </div>
+    <p class="hint">${html(app.modelMasterSource||'ยังไม่พบ Model Master · ตัวเลือกอ้างอิงจากขอบเขต Job')} · ไม่อนุมาน Model จาก PIN</p>
+    <details class="optional-detail"><summary>สถานที่ / Lot</summary><div class="two-col optional-body">${field('insLocation','สถานที่ตรวจ',record?.location||job.inspectionLocation||'',{max:160})}${field('insLot','Lot No.',record?.lotNo,{max:100})}</div></details>
+    <details class="inspection-method" open><summary>${icon('clipboard')} วิธีการตรวจ</summary><p>${html(job.checkingMethod||'ยังไม่ระบุวิธีตรวจ')}</p><details><summary>รูปอ้างอิงร่วมของงาน</summary>${referencePictures(job)}</details></details>
+    <div class="inspection-title"><h2>ผลรายเกณฑ์</h2><small class="hint">${criteria.length} ข้อ</small></div>
+    <p class="hint">ช่องว่าง = Pending · NA = ไม่เกี่ยวข้อง (ต้องเลือกเอง) · บันทึกแล้วกลับมาตรวจต่อได้</p>
+    <div class="check-table">${criteria.map(c=>{
+      const detail=DOMAIN.criterionValue(record||{},c),chosen=detail.result;
+      return `<article class="check-row" data-state="${chosen.toLowerCase()||'pending'}"><div class="check-description" id="checkLabel${c.slot}">${html(c.label)}</div>
+        <div class="check-choices" role="group" aria-labelledby="checkLabel${c.slot}">${['OK','NG','NA','Pending'].map(value=>`<button class="pick-result ${chosen===value||!chosen&&value==='Pending'?'selected '+value.toLowerCase():''}" type="button" data-result-slot="${c.slot}" data-result-value="${value}" aria-pressed="${chosen===value||!chosen&&value==='Pending'}">${value==='Pending'?'รอตรวจ':value}</button>`).join('')}</div>
+        <input id="insR${c.slot}" type="hidden" value="${html(chosen)}">
+        <details class="criterion-notes" ${detail.note||detail.ngDetail?'open':''}><summary>หมายเหตุ / รายละเอียด NG</summary><div class="optional-body">${area('insNote'+c.slot,'หมายเหตุเกณฑ์นี้',detail.note,{max:500})}${area('insNG'+c.slot,'รายละเอียด NG',detail.ngDetail,{max:500})}</div></details>
+        ${detail.updatedAt?`<small class="hint">แก้ล่าสุด ${html(niceDate(detail.updatedAt))} · ${html(detail.inspector||'—')}</small>`:''}</article>`;
+    }).join('')}</div>
+    <div id="liveOverallResult" class="live-result" aria-live="polite"></div>
+    <details class="optional-detail" id="inspectionNotes" ${record?.note?'open':''}><summary id="inspectionNotesLabel">หมายเหตุรวม</summary><div class="optional-body">${area('insRemarks','หมายเหตุรวม',record?.note)}</div></details>
+    <details class="optional-detail" id="optionalPhotos" ${record?.photoSlots?.some(Boolean)?'open':''}><summary>รูป Label / PIN <span>ไม่บังคับ</span></summary><div class="optional-body">${photoConnectionHint()}${photoInput(1,record?.photoSlots?.[0],'รูป Label / PIN ของรถคันนี้')}</div></details>
+    <p class="hint">ผู้ตรวจ ${html(memberName())}</p></fieldset>${formFoot('บันทึกผลตรวจ',jobScope(job))}</form>`;
+  $('insProduct').addEventListener('change',()=>{const choices=modelChoices(job,val('insProduct'));$('inspectionModels').innerHTML=choices.map(m=>`<option value="${html(m)}"></option>`).join('');$('insModel').value='';app.dirty=true;persistDraft()});
+  updateQuickResult();syncFormControls();
+}
+function formRecord() {
+  const job=findJob();
+  return {schemaVersion:2,criterionResults:DOMAIN.criteria(job).map(c=>({criterionId:c.id,result:val('insR'+c.slot),note:val('insNote'+c.slot),ngDetail:val('insNG'+c.slot)}))};
+}
+function refreshCriterionColors(){
+ for(const row of document.querySelectorAll('.check-row')){
+  const first=row.querySelector('[data-result-slot]');if(!first)continue;const value=val('insR'+first.dataset.resultSlot)||'Pending';row.dataset.state=value.toLowerCase();
+  for(const button of row.querySelectorAll('[data-result-slot]')){const selected=button.dataset.resultValue===value;button.className='pick-result'+(selected?' selected '+value.toLowerCase():'');button.setAttribute('aria-pressed',String(selected))}
+ }
+}
+function updateQuickResult(){
+ if(!$('liveOverallResult'))return;
+ const result=DOMAIN.inspection(findJob(),formRecord());
+ $('liveOverallResult').className='live-result '+result.status.toLowerCase();
+ $('liveOverallResult').innerHTML=`${vehicleBadge(result)} ${vehicleProgress(result)}`;
+ refreshCriterionColors();
 }
 
-function updateQuickResult() {
-  const slots = formCriteria();
-  const results = slots.map(slot => val('insR' + slot));
-  const checked = results.filter(checkedResult).length;
-  const complete = slots.length > 0 && checked === slots.length;
-  const ng = results.includes('NG');
-  const status = $('liveOverallResult');
-  status.className = 'live-result' + (ng ? ' ng' : complete ? ' ok' : checked ? ' pending' : '');
-  status.innerHTML = complete ? `${icon('check')} ตรวจครบ ${checked}/${slots.length} ข้อ ${resultBadge(ng ? 'NG' : 'OK')}` :
-    checked ? `${icon('clock')} ตรวจแล้ว ${checked}/${slots.length} ข้อ · บันทึกไว้แล้วกลับมาตรวจต่อได้${ng ? ' ' + resultBadge('NG') : ''}` :
-    'เลือกผลอย่างน้อย 1 ข้อเพื่อบันทึก';
-  $('inspectionNotesLabel').innerHTML = (ng ? 'เพิ่มหมายเหตุเกี่ยวกับ NG' : 'เพิ่มหมายเหตุ') + ' <span>ไม่บังคับ</span>';
-  $('insRemarks').placeholder = ng ? 'เช่น จุดที่พบรอยรั่วหรือสิ่งที่ต้องตรวจซ้ำ' : '';
-
-}
 
 function renderCurrent() {
   const render = {
@@ -1149,7 +1158,7 @@ function navigate(page, focus = false) {
   clearPhotoDraft();
   $('appMain').classList.toggle('form-page', isForm(page));
   $('backButton').hidden = !detailPages.includes(page);
-  $('homeTitle').hidden = page !== 'home';
+  $('homeTitle').hidden = false;
   $('workspace').classList.toggle('home-page', page === 'home');
   for (const view of document.querySelectorAll('.view')) view.classList.toggle('active', view.id === page);
   const related = ['jobdetail', 'recorddetail'].includes(page);
@@ -1326,12 +1335,14 @@ async function trackWrite(scope, action, payload, makeMatcher, onSaved) {
     showFeedback('ยังยืนยันผลคำขอไม่ได้ เก็บสถานะไว้แล้ว ห้ามส่งซ้ำจนกว่าจะตรวจสอบผล', 'warning');
     return false;
   }
+  if (response.status === 'WRITE_REJECTED') { app.pending.delete(scope); persistPending(); showFeedback(response.message || 'คำขอถูกปฏิเสธ กรุณาโหลดข้อมูลล่าสุด', 'error'); return false; }
   if (response.status !== 'WRITE_REQUEST_ACCEPTED') {
     showFeedback('ยังยืนยันผลคำขอไม่ได้ กรุณาตรวจสอบกับผู้ดูแล', 'warning');
     return false;
   }
   descriptor.response = { requestId: text(response.requestId), status: response.status };
-  pending.matches = makeMatcher(response);
+  const matches = makeMatcher(response);
+  pending.matches = job => operationIdentity(descriptor,job) && matches(job);
   persistPending();
   showFeedback('รับคำขอแล้ว กำลังตรวจสอบผลบันทึก…');
   return confirmPending(scope);
@@ -1341,6 +1352,12 @@ async function recheckSave() {
   const scope = currentScope();
   const pending = app.pending.get(scope);
   if (!pending || app.busy || app.jobsLoading) return;
+  if (app.capabilities.requestStatus) {
+    try {
+      const status = await post(JOBS_API_URL, 'requestStatus', {clientRequestId:pending.descriptor.clientRequestId});
+      if (status.status === 'WRITE_REJECTED') { app.pending.delete(scope); persistPending(); syncFormControls(); return showFeedback(status.message || 'ระบบยืนยันว่าไม่บันทึกคำขอนี้ กรุณาโหลดข้อมูลล่าสุด', 'error'); }
+    } catch { /* Read-back below is still safe; never resend. */ }
+  }
   if (!pending.descriptor.response) pending.matches = job => operationMatches(pending.descriptor, job);
   setBusy(true);
   try { await confirmPending(scope, 1); } finally { releaseWrite(); }
@@ -1350,7 +1367,7 @@ function jobData(job) {
   if (!job) return { jobKey: '', itemId: 0 };
   const itemId = Number(job.sharePointItemId);
   if (!job.id || !Number.isSafeInteger(itemId) || itemId < 1) throw Error('ไม่พบ Item ID ที่ใช้บันทึก กรุณาโหลดงานอีกครั้ง');
-  return { jobKey: job.id, itemId };
+  return { jobKey: job.id, itemId, expectedJobVersion: job.version };
 }
 const validModel = /^[\p{L}\p{N} _./-]{1,70}$/u;
 function inspectionModel(job) {
@@ -1358,14 +1375,11 @@ function inspectionModel(job) {
 }
 
 const serialPattern = /^[A-Z0-9_.-]{3,65}$/;
-const jobFields = {
-  inspectionLocation: 'jfLocation', checkingMethod: 'jfMethod',
-  result1Criteria: 'jfCriteria1', result2Criteria: 'jfCriteria2', result3Criteria: 'jfCriteria3',
-  result4Criteria: 'jfCriteria4', okPictureUrl: 'photoValueok', ngPictureUrl: 'photoValueng', notes: 'jfNotes'
-};
+const jobFields = { inspectionLocation:'jfLocation', checkingMethod:'jfMethod', ...Object.fromEntries(SLOTS.map(slot => ['result'+slot+'Criteria', 'jfCriteria'+slot])), okPictureUrl:'photoValueok', ngPictureUrl:'photoValueng', methodPictureUrl:'photoValuemethod', notes:'jfNotes' };
 
 function jobDetailsMatch(job, fields) {
-  const normalize = value => text(value).replace(/\r\n/g, '\n');
+  const stable = value => Array.isArray(value) ? value.map(stable) : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().map(key => [key,stable(value[key])])) : value;
+  const normalize = value => Array.isArray(value) || value && typeof value === 'object' ? JSON.stringify(stable(value)) : text(value).replace(/\r\n/g, '\n');
   return Object.entries(fields).every(([key, value]) =>
     normalize(job[key === 'notes' ? 'storedNotes' : key]) === normalize(value));
 }
@@ -1474,7 +1488,11 @@ async function submitJob(event) {
     defaultInspectionModel: job && model !== job.model ? model : ''
   });
   if (values.notes.length > 700) return validationError('หมายเหตุยาวเกินพื้นที่จัดเก็บ กรุณาย่อข้อความ', 'jfNotes');
-  Object.assign(values, { title: problem, targetUnits });
+  const affectedModels = DOMAIN.list([model, ...DOMAIN.list(val('jfModels'))]);
+  if (affectedModels.some(model => !validModel.test(model))) return validationError('กรุณาตรวจรูปแบบรุ่นรถ', 'jfModels');
+  const affectedProducts = DOMAIN.list([product, ...[...document.querySelectorAll('[name="affectedProduct"]:checked')].map(input => input.value)]);
+  const criteria = SLOTS.filter(slot => text(values['result'+slot+'Criteria'])).map(slot => ({id:DOMAIN.criteria(job || {}).find(c => c.slot === slot)?.id || 'C'+slot,slot,label:values['result'+slot+'Criteria']}));
+  Object.assign(values, { title: problem, targetUnits, affectedModels, affectedProducts, criteria, schemaVersion:2 });
   const payload = { ...jobData(job), ...values };
   const matchDetails = current => jobDetailsMatch(current, values);
   if (job && !app.photos.size && matchDetails(job)) {
@@ -1522,7 +1540,7 @@ async function submitInspectionSetup(event) {
   const criteria = Object.fromEntries(SLOTS.map(slot => ['result' + slot + 'Criteria', val('jfCriteria' + slot)]));
   if (!Object.values(criteria).some(Boolean)) return validationError('กรุณากรอกชื่อเกณฑ์ตรวจอย่างน้อย 1 ข้อ', 'jfCriteria1');
   const fields = Object.fromEntries(Object.keys(jobFields).map(key => [key, text(job[key])]));
-  const details = { ...fields, ...criteria, notes: text(job.storedNotes) };
+  const details = { ...fields, ...criteria, schemaVersion:2, criteria: SLOTS.filter(slot => criteria['result'+slot+'Criteria']).map(slot => ({id:'C'+slot,slot,label:criteria['result'+slot+'Criteria']})), notes: text(job.storedNotes) };
   await withWrite(() => trackWrite(jobScope(job), 'updateJob', { ...jobData(job), ...details },
     () => current => current.id === job.id && jobDetailsMatch(current, details),
     current => {
@@ -1546,109 +1564,63 @@ function inspectionNgDetail(job, results, existing) {
   return sameFailedSlots && existing?.ngDetail ? text(existing.ngDetail) : ngCriteriaText(job, failed);
 }
 
-function recordMatches(record, payload, overall) {
-  const results = SLOTS.every(slot => (resultCode(record['result' + slot]) || 'NA') === payload['result' + slot]);
-  const urls = PHOTOS.map(slot => payload['photoUrl' + slot]).filter(Boolean);
-  return (!payload.recordItemId || Number(record.sharePointItemId) === payload.recordItemId) &&
-    record.serial.toUpperCase() === payload.serial && text(record.model).toUpperCase() === payload.model.toUpperCase() &&
-    results && effectiveResult(record) === overall && text(record.lotNo) === payload.lotNo &&
-    dateValue(record.checkedAt) === payload.inspectionDate && text(record.note) === payload.remarks &&
-    text(record.ngDetail) === payload.ngDetail && JSON.stringify(record.photoSlots.filter(Boolean)) === JSON.stringify(urls);
+function recordMatches(record,payload){
+ const job=findJob(payload.jobKey)||{criteria:payload.criteria||[]};
+ const values=DOMAIN.criteria(job,record).every(c=>{
+  const actual=DOMAIN.criterionValue(record,c),expected=payload.criterionResults?.find(x=>x.criterionId===c.id);
+  return expected&&['result','note','ngDetail'].every(k=>text(actual[k])===text(expected[k]));
+ });
+ return (!payload.recordItemId||Number(record.sharePointItemId)===payload.recordItemId)&&record.serial.toUpperCase()===payload.serial&&
+  record.product===payload.product&&text(record.model)===payload.model&&values&&
+  text(record.location)===payload.location&&text(record.lotNo)===payload.lotNo&&dateValue(record.checkedAt)===payload.inspectionDate&&text(record.note)===payload.remarks&&
+  text(record.ngDetail)===payload.ngDetail&&text(record.photoSlots?.[0])===payload.photoUrl1&&Number(record.schemaVersion)===2&&
+  DOMAIN.inspection(job,record).overallResult===payload.overallResult&&DOMAIN.inspection(job,record).isComplete===payload.isComplete;
 }
-
-function inspectionSnapshot(job, record) {
-  return JSON.stringify([
-    SLOTS.map(slot => [text(job['result' + slot + 'Criteria']), resultCode(record['result' + slot])]),
-    record.model, record.lotNo, record.checkedAt, record.note, record.ngDetail, record.photoSlots
-  ]);
+function inspectionSnapshot(job,record){return JSON.stringify([record.version,DOMAIN.criteria(job,record).map(c=>[c.label,DOMAIN.criterionValue(record,c)]),record.product,record.model,record.location,record.lotNo,record.checkedAt,record.note,record.ngDetail,record.photoSlots])}
+async function latestActiveJob(job){
+ const data=await readJobs();const current=data.jobs.filter(Boolean).map(normalizeJob).find(item=>item.id===job.id);
+ if(!current||current.status!=='progress'){applyJobs(data);throw Error('งานนี้เปลี่ยนสถานะ กรุณาเปิดงานล่าสุด')}
+ return {data,current};
 }
-
-async function latestActiveJob(job) {
-  const data = await readJobs();
-  const current = data.jobs.filter(Boolean).map(normalizeJob).find(item => item.id === job.id);
-  if (!current || current.status !== 'progress') {
-    applyJobs(data);
-    throw Error('งานนี้อาจมีการเปลี่ยนสถานะ กรุณากลับไปเปิดงานอีกครั้ง');
-  }
-  return { data, current };
-}
-
-async function submitInspection(event) {
-  event.preventDefault();
-  const job = findJob();
-  if (!job || job.status !== 'progress' || app.busy || app.pending.has(jobScope(job))) return;
-  const slots = formCriteria();
-  if (!slots.length) return showFeedback('กรุณาตั้งค่าเกณฑ์ตรวจก่อนบันทึก', 'error');
-  const results = SLOTS.map(slot => {
-    const value = slots.includes(slot) ? val('insR' + slot) : '';
-    return checkedResult(value) ? value : 'NA';
+async function submitInspection(event){
+ event.preventDefault();const job=findJob();if(!job||job.status!=='progress'||app.busy||app.pending.has(jobScope(job)))return;
+ const existing=liveRecords(job).find(r=>r.id===app.editRecord);if(app.editRecord&&!existing)return showFeedback('ไม่พบผลเดิม กรุณาเปิดรายการใหม่','error');
+ const serial=val('insSerial').toUpperCase(),model=val('insModel'),product=val('insProduct'),recordItemId=Number(existing?.sharePointItemId||0);
+ if(!serialPattern.test(serial))return validationError('PIN / Serial ใช้ A–Z, ตัวเลข จุด ขีด หรือขีดล่าง 3–65 ตัว','insSerial');
+ if(existing&&(!Number.isSafeInteger(recordItemId)||recordItemId<1))return showFeedback('ไม่พบ Item ID เดิม','error');
+ if(!validModel.test(model))return validationError('กรุณาระบุ Model ตามป้ายรถ','insModel');
+ if(!selectedProducts(job).includes(product))return validationError('Product ไม่อยู่ในขอบเขตงาน','insProduct');
+ if(!StockDomain.validDate(val('insDate'),dateValue(new Date())))return validationError('วันที่ไม่ถูกต้องหรืออยู่ในอนาคต','insDate');
+ if(!existing&&liveRecords(job).some(r=>r.serial.toUpperCase()===serial))return validationError('มีเลขตัวรถนี้ในงานแล้ว เปิดรายการเดิมเพื่อตรวจต่อ','insSerial');
+ const record=formRecord(),cs=DOMAIN.criteria(job);if(!cs.length)return showFeedback('ต้องมีเกณฑ์ตรวจอย่างน้อยหนึ่งข้อ','error');
+ const ng=record.criterionResults.filter(c=>c.result==='NG');
+ const aggregate=DOMAIN.inspection(job,record),changes=DOMAIN.changes(job,existing,record);
+ const payload={...jobData(job),schemaVersion:2,recordItemId,serial,product,model,location:val('insLocation'),expectedVersion:existing?.version??null,
+  criteria:cs,criterionResults:record.criterionResults,changes,overallResult:aggregate.overallResult,isComplete:aggregate.isComplete,
+  lotNo:val('insLot'),inspectionDate:val('insDate'),remarks:val('insRemarks'),photoUrl1:val('photoValue1'),
+  ngDetail:ng.map(r=>[cs.find(c=>c.id===r.criterionId)?.label,r.ngDetail].filter(Boolean).join(': ')).join('\n'),
+  ...Object.fromEntries(cs.map(c=>['result'+c.slot,record.criterionResults.find(r=>r.criterionId===c.id).result]))};
+ if(existing&&!app.photos.size&&recordMatches(existing,payload))return showFeedback('ยังไม่มีข้อมูลที่เปลี่ยนแปลง');
+ if(!selectedModels(job).includes(model)){
+  if(!await confirmAction('ยืนยัน Model นอกตัวเลือก',`Model ${model} ไม่อยู่ในรายการของงาน กรุณาตรวจป้ายรถและขอบเขตงานก่อนยืนยัน`,'ยืนยันรุ่นตามป้าย'))return;
+  payload.manualModelConfirmed=true;
+ }
+ await withWrite(async()=>{
+  const {data,current}=await latestActiveJob(job);if(data.partial)throw Error('ข้อมูลไม่ครบ ยังบันทึกไม่ได้');
+  if(JSON.stringify(DOMAIN.criteria(current))!==JSON.stringify(cs))throw Error('เกณฑ์เปลี่ยนแล้ว กรุณาเปิดงานใหม่');
+  if(!existing&&liveRecords(current).some(r=>r.serial.toUpperCase()===serial))return validationError('มีเลขตัวรถนี้ในงานแล้ว','insSerial');
+  if(existing){const latest=liveRecords(current).find(r=>Number(r.sharePointItemId)===recordItemId);if(!latest||inspectionSnapshot(current,latest)!==app.inspectionBaseline){applyJobs(data);return showFeedback('รายการนี้มีการเปลี่ยนแปลง กรุณาเปิดผลล่าสุดก่อนบันทึก','error')}}
+  payload.expectedJobVersion=current.version;
+  const files=selectedPhotoFiles();
+  await trackWrite(jobScope(job),'saveInspection',payload,()=>saved=>saved.id===job.id&&liveRecords(saved).some(r=>recordMatches(r,payload)),async saved=>{
+   const savedRecord=liveRecords(saved).find(r=>r.serial.toUpperCase()===serial);
+   app.editRecord='';app.recordFilter='all';navigate('jobdetail',true);
+   showFeedback(`${MOCK?'บันทึกข้อมูลจำลอง':'ยืนยันผลบันทึกแล้ว'} · ${serial} · ${aggregate.overallResult} · ${aggregate.checked}/${aggregate.total} ข้อ`,'success');
+   if(files.length)await uploadSavedPhotos(files,saved,serial,savedRecord.sharePointItemId);
   });
-  const checked = results.filter(checkedResult).length;
-  if (!checked) {
-    showFeedback('กรุณาเลือก OK หรือ NG อย่างน้อย 1 ข้อก่อนบันทึก', 'error');
-    document.querySelector(`[data-result-slot="${slots[0]}"]`)?.focus();
-    return;
-  }
-  const overall = results.includes('NG') ? 'NG' : 'OK';
-  const serial = val('insSerial').toUpperCase();
-  const model = val('insModel');
-  const existing = liveRecords(job).find(item => item.id === app.editRecord);
-  if (app.editRecord && !existing) return showFeedback('ไม่พบผลตรวจเดิม กรุณาย้อนกลับแล้วเปิดรายการอีกครั้ง', 'error');
-  const recordItemId = Number(existing?.sharePointItemId || 0);
-  if (existing && (!Number.isInteger(recordItemId) || recordItemId < 1)) {
-    return showFeedback('ไม่พบรหัสรายการเดิม กรุณาโหลดงานอีกครั้งก่อนตรวจต่อ', 'error');
-  }
-  if (!serialPattern.test(serial)) return validationError('Serial ใช้ตัวอักษร A–Z ตัวเลข จุด ขีด และขีดล่าง 3–65 ตัว', 'insSerial');
-  if (!validModel.test(model) || model.toUpperCase() !== text(existing?.model || inspectionModel(job)).toUpperCase()) return validationError('Model ต้องตรงกับรุ่นที่ระบุในงานปัญหา', 'insModel');
-  if (!existing && liveRecords(job).some(record => record.serial.toUpperCase() === serial)) {
-    return validationError('มีเลขตัวรถนี้ในงานแล้ว กดตรวจต่อหรือแก้ไขที่รายการเดิม', 'insSerial');
-  }
-  if (!photosCanSave()) return;
-  if (!StockDomain.validDate(val('insDate'), dateValue(new Date()))) return validationError('วันที่ตรวจไม่ถูกต้องหรืออยู่ในอนาคต', 'insDate');
-  const payload = {
-    ...jobData(job), recordItemId, serial, model,
-    lotNo: val('insLot'), inspectionDate: val('insDate'), result1: results[0], result2: results[1],
-    result3: results[2], result4: results[3], remarks: val('insRemarks'),
-    ngDetail: inspectionNgDetail(job, results, existing),
-    ...Object.fromEntries(PHOTOS.map(slot => ['photoUrl' + slot, val('photoValue' + slot)]))
-  };
-  if (existing && !app.photos.size && recordMatches(existing, payload, overall)) {
-    showFeedback('ยังไม่มีผลตรวจที่เปลี่ยนแปลง');
-    return;
-  }
-  await withWrite(async () => {
-    showFeedback('กำลังตรวจสอบข้อมูลล่าสุด…');
-    const { data, current } = await latestActiveJob(job);
-    if (data.partial) throw Error('ข้อมูลไม่ครบ ยังบันทึกไม่ได้');
-    if (SLOTS.some(slot => text(current['result' + slot + 'Criteria']) !== text(job['result' + slot + 'Criteria']))) throw Error('เกณฑ์ตรวจเปลี่ยนแล้ว กรุณาเปิดงานใหม่');
-    if (!existing && liveRecords(current).some(record => record.serial.toUpperCase() === serial)) return validationError('มีเลขตัวรถนี้ในงานแล้ว กรุณาเปิดรายการเดิม', 'insSerial');
-    if (existing) {
-      const latest = liveRecords(current).find(record => Number(record.sharePointItemId) === recordItemId);
-      if (!latest || inspectionSnapshot(current, latest) !== app.inspectionBaseline) {
-        applyJobs(data);
-        return showFeedback('รายการนี้มีการเปลี่ยนแปลง กรุณากลับไปเปิดผลตรวจล่าสุดก่อนบันทึก', 'error');
-      }
-    }
-    const photoFiles = selectedPhotoFiles();
-    await trackWrite(jobScope(job), 'saveInspection', payload,
-      () => current => current.id === job.id && liveRecords(current).some(record => recordMatches(record, payload, overall)),
-      async current => {
-        const message = checked < slots.length
-          ? 'บันทึกผล ' + serial + ' แล้ว · ตรวจ ' + checked + '/' + slots.length + ' ข้อ'
-          : 'บันทึกผล ' + serial + ' แล้ว · ตรวจครบ · ' + overall;
-        const savedRecord = liveRecords(current).find(r =>
-          r.serial.toUpperCase() === serial && (!recordItemId || Number(r.sharePointItemId) === recordItemId));
-        if (app.page === 'inspection') {
-          Object.assign(app, { editRecord: '', recordFilter: 'all' });
-          navigate('jobdetail', true);
-        }
-        if (photoFiles.length) {
-          if (!savedRecord?.sharePointItemId) throw Error('บันทึกผลตรวจแล้ว แต่ยังหา Item ID เพื่อส่งรูปไม่ได้');
-          await uploadSavedPhotos(photoFiles, current, serial, savedRecord.sharePointItemId);
-        } else showFeedback(message, 'success');
-      });
-  });
+ });
 }
+
 
 async function deleteRecord(id) {
   const job = findJob();
@@ -1697,49 +1669,46 @@ function selectedPhotoFiles() {
   return [...app.photos.entries()].map(([slot, draft]) => ({ slot, file: draft.file }));
 }
 
-async function uploadPhoto(file, job, serial, slot, itemId) {
-  if (!liveWritesAllowed() || !safeLink(PHOTO_UPLOAD_API_URL)) throw Error('ยังไม่เปิดบริการอัปโหลดที่ได้รับอนุญาต');
-  const isSerial = String(slot) === '1';
-  const photoType = isSerial ? 'SERIAL' : slot === 'ok' ? 'JOB_OK' : slot === 'ng' ? 'JOB_NG' : '';
-  const item = Number(itemId);
-  if (!photoType || !Number.isSafeInteger(item) || item <= 0 || !job?.id) {
-    throw Error('ยังไม่มี Item ID สำหรับผูกรูปภาพ กรุณาตรวจสอบการบันทึกข้อมูลก่อน');
-  }
-  const response = await fetchJson(PHOTO_UPLOAD_API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({
-      photoType, itemId: item, jobKey: job.id,
-      serialNumber: isSerial ? text(serial).toUpperCase() : '',
-      mimeType: 'image/jpeg', fileBase64: await jpegBase64(file),
-      requestId: crypto.randomUUID().replace(/-/g, ''), idToken: idToken()
-    })
-  }, 75000);
-  if (response.success !== true || response.status !== 'PHOTO_UPLOADED_TO_INCOMING') {
-    throw Error(response.message || response.status || 'ระบบไม่รับไฟล์ภาพ');
-  }
-  return response;
+function transferKey(){return 'stock-photo-v2:'+storageIdentity()}
+function saveTransfers(){try{localStorage.setItem(transferKey(),JSON.stringify(app.transfers));return true}catch{return false}}
+function transferMarkup(job){
+ const items=app.transfers.filter(item=>item.jobId===job.id);
+ return items.length?`<section class="panel"><h2>สถานะรูปภาพ</h2>${items.map(item=>`<div class="upload-state ${item.state.toLowerCase()}"><strong>${html(item.name)}</strong><span class="result-tag">${item.state}</span><p class="hint">${html(item.message)}</p>${item.state==='Pending'?`<button class="btn secondary sm" type="button" data-photo-check="${html(item.requestId)}">ตรวจสอบผลรูป</button>`:''}</div>`).join('')}</section>`:'';
 }
+async function checkPhotoTransfer(requestId){
+ const entry=app.transfers.find(item=>item.requestId===requestId);if(!entry)return;
+ try{const data=await readJobs();const job=data.jobs.filter(Boolean).map(normalizeJob).find(job=>job.id===entry.jobId);const url=job&&!data.partial&&StockAdapter.photoConfirmed(entry,job);
+  if(url){entry.state='Uploaded';entry.message='อ่านยืนยันการจัดเก็บและผูกรูปกับรายการแล้ว';applyJobs(data)}
+  else{entry.state='Pending';entry.message='ยังไม่พบรูปที่ตรงกับคำขอเดิม ไม่ส่งไฟล์ซ้ำ'}
+ }catch{entry.state='Pending';entry.message='ยังอ่านผลไม่ได้ กรุณาตรวจสอบอีกครั้งเมื่อเชื่อมต่อได้'}
+ saveTransfers();if(app.page==='jobdetail')renderDetail();
+}
+async function uploadPhoto(file,job,serial,slot,itemId){
+ const photoType=String(slot)==='1'?'SERIAL':slot==='ok'?'JOB_OK':slot==='ng'?'JOB_NG':slot==='method'?'JOB_METHOD':'';
+ const entry={jobId:job.id,itemId:Number(itemId),slot:String(slot),name:file.name,requestId:crypto.randomUUID(),state:'Pending',message:'กำลังเตรียมรูป'};
+ const unresolved=app.transfers.find(t=>t.jobId===job.id&&t.itemId===entry.itemId&&t.slot===entry.slot&&t.state==='Pending');
+ if(unresolved)return unresolved;
+ app.transfers.push(entry);if(!saveTransfers()){entry.state='Failed';entry.message='เก็บ Request ID ไม่ได้ จึงยังไม่ส่งไฟล์';return entry}
+ if(MOCK||!liveWritesAllowed()||!safeLink(PHOTO_UPLOAD_API_URL)||!app.capabilities.photoReadback){entry.state='Failed';entry.message=MOCK?'MOCK · ไม่ส่งหรือจัดเก็บไฟล์จริง ข้อมูลผลตรวจจำลองบันทึกแล้ว':'ยังไม่เปิดบริการรูปภาพที่ยืนยันผลได้';saveTransfers();return entry}
+ let transmitted=false;
+ try{
+  if(!photoType||!Number.isSafeInteger(entry.itemId)||entry.itemId<1)throw Error('Item ID ของรูปไม่ถูกต้อง');
+  const fileBase64=await jpegBase64(file);entry.message='Upload Pending · รอระบบยืนยัน';saveTransfers();transmitted=true;
+  const response=await fetchJson(PHOTO_UPLOAD_API_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({photoType,itemId:entry.itemId,jobKey:job.id,serialNumber:serial,mimeType:'image/jpeg',fileBase64,requestId:entry.requestId,idToken:idToken()})},75000);
+  if(response.status==='UPLOAD_REJECTED'){entry.state='Failed';entry.message='ระบบยืนยันว่าไม่จัดเก็บรูปนี้';saveTransfers();return entry}
+  entry.message='ระบบรับคำขอแล้ว รอตรวจ URL ที่ผูกกับรายการ';saveTransfers();
+  await checkPhotoTransfer(entry.requestId);
+ }catch(error){entry.state=transmitted?'Pending':'Failed';entry.message=transmitted?'ยังไม่ทราบผลส่งไฟล์ ตรวจสอบ Request เดิมก่อนส่งซ้ำ':error.message;saveTransfers()}
+ return entry;
+}
+async function uploadSavedPhotos(files,job,serial,itemId){
+ for(const {slot,file}of files)await uploadPhoto(file,job,serial,slot,itemId);
+ const failed=app.transfers.some(item=>item.jobId===job.id&&item.state==='Failed');
+ showFeedback(failed?'บันทึกข้อมูลแล้ว แต่รูปภาพ Failed · รูปเดิมยังคงอยู่':'บันทึกข้อมูลแล้ว กรุณาตรวจสถานะรูปภาพ','warning');
+ if(app.page==='jobdetail')renderDetail();
+}
+function photosCanSave(){return true}
 
-async function uploadSavedPhotos(files, job, serial, itemId) {
-  if (!files.length) return;
-  if (!PHOTO_UPLOAD_API_URL) throw Error('ยังไม่ได้ตั้งค่าบริการอัปโหลดรูป');
-  showFeedback('บันทึกข้อมูลแล้ว กำลังส่งรูปภาพไป OneDrive…');
-  let count = 0;
-  for (const {slot, file} of files) {
-    await uploadPhoto(file, job, serial, slot, itemId);
-    count++;
-  }
-  showFeedback('ระบบรับไฟล์ ' + count + ' รูปแล้ว · ยังไม่ยืนยันการจัดเก็บและผูกภาพกับรายการ กรุณารีเฟรชเพื่อตรวจรูป', 'warning');
-}
-
-function photosCanSave() {
-  if (app.photos.size && !PHOTO_UPLOAD_API_URL) {
-    showFeedback('ยังบันทึกรูปไม่ได้ กรุณาลบรูปที่เพิ่งเลือกเพื่อบันทึกข้อมูลก่อน', 'error');
-    return false;
-  }
-  return true;
-}
 
 function clearPhotoDraft() {
   for (const draft of app.photos.values()) URL.revokeObjectURL(draft.preview);
@@ -1785,7 +1754,10 @@ async function handleClick(event) {
   if (!button || !button.closest('#appMain') || button.disabled || app.busy) return;
   const { action, nav, job, starJob, month, monthFilter, viewRecord, reportFilter, recordFilter, resultSlot, resultValue,
     editRecord, deleteRecord: remove, pickFile, photoRemove } = button.dataset;
-  if (button.dataset.previewJob) {
+  if (button.dataset.serialReport) { app.reportKind='serial'; app.reportJob=app.selected; app.reportSerial=button.dataset.serialReport; app.reportMonth=''; navigate('reportpreview', true);
+  } else if (button.dataset.photoCheck) { await checkPhotoTransfer(button.dataset.photoCheck);
+  } else if (button.dataset.previewJob) {
+    app.reportKind='job'; app.reportSerial='';
     app.reportJob = button.dataset.previewJob;
     navigate('reportpreview', true);
   } else if (nav) {
@@ -1818,14 +1790,16 @@ async function handleClick(event) {
     renderDetail();
     document.querySelector(`[data-record-filter="${recordFilter}"]`)?.focus({ preventScroll: true });
   } else if (resultSlot) {
-    $('insR' + resultSlot).value = resultValue === 'NA' ? '' : resultValue;
+    $('insR' + resultSlot).value = resultValue === 'Pending' ? '' : resultValue;
     for (const choice of document.querySelectorAll(`[data-result-slot="${resultSlot}"]`)) {
       const selected = choice.dataset.resultValue === resultValue;
       choice.classList.toggle('selected', selected);
       choice.classList.toggle('ok', selected && resultValue === 'OK');
       choice.classList.toggle('ng', selected && resultValue === 'NG');
+      choice.classList.toggle('na', selected && resultValue === 'NA');
       choice.setAttribute('aria-pressed', String(selected));
     }
+    button.closest('.check-row')?.setAttribute('data-state', resultValue.toLowerCase());
     app.dirty = true;
     updateQuickResult();
     persistDraft();
@@ -1837,7 +1811,7 @@ async function handleClick(event) {
   } else if (pickFile) {
     $(pickFile).click();
   } else if (photoRemove) {
-    removePhoto(photoRemove);
+    if (!val('photoValue'+photoRemove) || await confirmAction('นำรูปเดิมออก', 'การบันทึกครั้งถัดไปจะนำลิงก์รูปนี้ออกจากรายการ', 'นำออก')) removePhoto(photoRemove);
   } else if (action === 'scan-qr') {
     await StockQR.start();
   } else if (action === 'preview-report') {
@@ -1994,20 +1968,22 @@ function persistPending() {
   try { localStorage.setItem(journalKey(), JSON.stringify([...app.pending.values()].map(item => item.descriptor))); return true; }
   catch { return false; }
 }
+function operationIdentity(operation,job){return operation.action==='saveInspection' ? liveRecords(job).some(record=>record.clientRequestId===operation.clientRequestId&&recordMatches(record,operation.payload)) : job.clientRequestId===operation.clientRequestId;}
 function operationMatches(operation, job) {
+  if(!operationIdentity(operation,job))return false;
   const payload = operation.payload;
   if (!operation.response) {
     if (operation.action === 'createJob') return job.clientRequestId === operation.clientRequestId;
     if (operation.action === 'saveInspection') return job.id === payload.jobKey && liveRecords(job).some(record =>
-      record.clientRequestId === operation.clientRequestId && recordMatches(record, payload, [payload.result1, payload.result2, payload.result3, payload.result4].includes('NG') ? 'NG' : 'OK'));
-    return job.id === payload.jobKey && job.clientRequestId === operation.clientRequestId && (operation.action === 'updateJob' ? jobDetailsMatch(job, Object.fromEntries(Object.entries(payload).filter(([key]) => !['jobKey','itemId'].includes(key)))) : operation.action === 'finishJob' ? finished(job) : operation.action === 'selectJob' && job.status === 'progress');
+      record.clientRequestId === operation.clientRequestId && recordMatches(record, payload, payload.overallResult));
+    return job.id === payload.jobKey && job.clientRequestId === operation.clientRequestId && (operation.action === 'updateJob' ? jobDetailsMatch(job, Object.fromEntries(Object.entries(payload).filter(([key]) => !['jobKey','itemId','expectedJobVersion'].includes(key)))) : operation.action === 'finishJob' ? finished(job) : operation.action === 'selectJob' && job.status === 'progress');
   }
   if (operation.action === 'createJob') return text(job.id).endsWith(operation.response.requestId) &&
     jobDetailsMatch(job, Object.fromEntries(Object.keys(jobFields).map(key => [key, payload[key]])));
   if (job.id !== payload.jobKey) return false;
   if (operation.action === 'saveInspection') return liveRecords(job).some(record => recordMatches(record, payload,
-    [payload.result1, payload.result2, payload.result3, payload.result4].includes('NG') ? 'NG' : 'OK'));
-  if (operation.action === 'updateJob') return jobDetailsMatch(job, Object.fromEntries(Object.entries(payload).filter(([key]) => !['jobKey','itemId'].includes(key))));
+    payload.overallResult));
+  if (operation.action === 'updateJob') return jobDetailsMatch(job, Object.fromEntries(Object.entries(payload).filter(([key]) => !['jobKey','itemId','expectedJobVersion'].includes(key))));
   if (operation.action === 'selectJob') return job.status === 'progress';
   if (operation.action === 'finishJob') return finished(job);
   return false;
@@ -2025,14 +2001,14 @@ function restorePending() {
 }
 function purgeExpiredDrafts() {
   try {
-    const prefix = 'stock-draft-v2:' + storageIdentity() + ':';
+    const prefix = 'stock-draft-v3:' + storageIdentity() + ':';
     for (const key of Object.keys(localStorage).filter(key => key.startsWith(prefix))) {
       try { if (JSON.parse(localStorage.getItem(key)).expires < Date.now()) localStorage.removeItem(key); }
       catch { localStorage.removeItem(key); }
     }
   } catch { /* Storage errors are reported when attempting to save a draft/write. */ }
 }
-function draftKey() { return 'stock-draft-v2:' + storageIdentity() + ':' + currentScope() + ':' + (app.editRecord || app.page); }
+function draftKey() { return 'stock-draft-v3:' + storageIdentity() + ':' + currentScope() + ':' + (app.editRecord || app.page); }
 function draftSource() {
   const job = findJob();
   if (!job || app.page === 'jobform' && !app.editJob) return '';
@@ -2070,13 +2046,13 @@ function restoreDraft() {
       button.setAttribute('aria-pressed', String(selected));
     }
     app.dirty = true;
-    if ($('liveOverallResult')) updateQuickResult();
+    if ($('liveOverallResult')) { refreshCriterionColors(); updateQuickResult(); }
     showFeedback('กู้ข้อความร่างจากอุปกรณ์นี้แล้ว · รูปภาพต้องเลือกใหม่', 'warning');
   } catch { /* Invalid local draft never changes server data. */ }
 }
 function clearSavedDraft(scope) {
   try {
-    const prefix = 'stock-draft-v2:' + storageIdentity() + ':' + scope + ':';
+    const prefix = 'stock-draft-v3:' + storageIdentity() + ':' + scope + ':';
     Object.keys(localStorage).filter(key => key.startsWith(prefix)).forEach(key => localStorage.removeItem(key));
   } catch { /* Saving remains successful when storage is unavailable. */ }
   app.dirty = false;
@@ -2094,6 +2070,9 @@ for (const prefix of ['home', 'jobs']) {
 }
 $('jobsState').addEventListener('change', event => { app.jobState = event.target.value; renderJobs(); });
 $('chooseModel').addEventListener('change', event => { app.modelFilter = event.target.value; renderChoose(); });
-for (const id of ['reportMonth', 'reportJob']) $(id).addEventListener('change', event => { app[id] = event.target.value; renderReports(); });
+for (const id of ['reportMonth', 'reportJob', 'reportKind', 'reportSerial']) $(id).addEventListener('change', event => { app[id] = event.target.value; if(id==='reportJob'||id==='reportKind') app.reportSerial=''; if(id==='reportKind'&&app.reportKind==='monthly')app.reportJob=''; renderReports(); });
 
 document.addEventListener('DOMContentLoaded', init);
+
+// Persist only upload metadata, not image bytes or authentication tokens.
+function restoreTransfers(){try{const stored=JSON.parse(localStorage.getItem(transferKey())||'[]');app.transfers=Array.isArray(stored)?stored:[]}catch{app.transfers=[]}}

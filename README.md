@@ -1,3 +1,9 @@
+# Stock Inspection — White Minimal
+
+Current upgrade: [features, schema mapping, integration checklist and deployment guide](docs/WHITE-MINIMAL.md). Default mode is MOCK; production integration remains unverified.
+
+Blank = Pending; explicit NA = not applicable. Overall result and completion are independent. Reports: Claim Job, Serial and Monthly.
+
 # Stock Inspection — Dark Navy
 
 LINE LIFF stock inspection app สำหรับตรวจสต็อกผ่านมือถือ พร้อม Dashboard, QR, ผลตรวจบางเกณฑ์ และรายงาน A4

@@ -1,7 +1,7 @@
 /* Camera frames are decoded locally and never uploaded or saved as evidence. */
 window.StockQR = (() => {
   'use strict';
-  let stream, timer, generation = 0, deadline = 0;
+  let label, stream, timer, generation = 0, deadline = 0;
   const dialog = () => document.getElementById('qrDialog');
   const status = value => { document.getElementById('qrStatus').textContent = value; };
   function stop() {
@@ -16,7 +16,7 @@ window.StockQR = (() => {
     stop();
     const current = generation;
     document.getElementById('qrUse').disabled = true;
-    document.getElementById('qrCandidate').value = '';
+    document.getElementById('qrCandidate').value = ''; label=null; document.getElementById('qrFields').textContent='';
     if (!dialog().open) dialog().showModal();
     status('กำลังขอใช้กล้อง…');
     if (!navigator.mediaDevices?.getUserMedia || !window.isSecureContext) return status('กล้องต้องใช้ HTTPS หรือ localhost · ปิดหน้าต่างแล้วพิมพ์ Serial ได้');
@@ -53,7 +53,9 @@ window.StockQR = (() => {
           if (raw) {
             stop();
             try {
-              document.getElementById('qrCandidate').value = StockDomain.parseQR(raw);
+              label = StockDomain.parseLabel(raw);
+              document.getElementById('qrCandidate').value = label.serial;
+              document.getElementById('qrFields').textContent = label.identifierType==='unlabelled'?'รหัสไม่ระบุชนิด · กรุณาเทียบกับ PIN บนป้าย':label.fields.map(f=>f.label+': '+f.value).join(' · ');
               document.getElementById('qrUse').disabled = false;
               status('ตรวจสอบ Serial ด้านล่าง แล้วกดใช้ Serial นี้ · ยังไม่ได้บันทึกผลตรวจ');
             } catch (error) { status(error.message); }
@@ -77,6 +79,7 @@ window.StockQR = (() => {
       const input = document.getElementById('insSerial');
       if (input && !input.readOnly) {
         input.value = document.getElementById('qrCandidate').value;
+        if(label?.model){const model=document.getElementById('insModel'); if(model){model.value=label.model;model.dispatchEvent(new Event('input',{bubbles:true}));}}
         input.dispatchEvent(new Event('input', { bubbles:true }));
         dialog().close(); input.focus();
       }

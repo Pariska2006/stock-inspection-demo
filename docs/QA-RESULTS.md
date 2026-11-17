@@ -1,3 +1,5 @@
+> Historical Dark Navy baseline. Current behavior and integration contract: [White Minimal upgrade](WHITE-MINIMAL.md).
+
 # QA results — 16 November 2026
 
 Tests run locally against isolated fixtures. No production endpoint or Microsoft 365 write was performed. Node 24.22.1, Playwright 1.62.1, headless Chromium 156.0.8078.79 on Linux. Thai UI, Bangkok business dates.

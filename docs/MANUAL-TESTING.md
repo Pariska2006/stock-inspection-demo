@@ -1,3 +1,5 @@
+> Historical Dark Navy baseline. Current behavior and integration contract: [White Minimal upgrade](WHITE-MINIMAL.md).
+
 # Manual acceptance checklist
 
 บันทึกสถานะ **PASS / FAIL / NOT TESTED**, browser/device, tester, เวลา, fixture หรือ sandbox Job ID และหลักฐานต่อกรณี ห้ามเปลี่ยนสถานะเป็น PASS ถ้ายังไม่ได้ทำจริง ห้ามสร้าง test records ใน production Lists

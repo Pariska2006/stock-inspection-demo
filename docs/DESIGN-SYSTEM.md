@@ -1,3 +1,5 @@
+> Historical Dark Navy baseline. Current behavior and integration contract: [White Minimal upgrade](WHITE-MINIMAL.md).
+
 # Dark Navy design system
 
 ปรับเส้นทางใช้งานจากการเลือกเมนูหลายชั้นเป็น **ดูยอด → ค้นหา/กรอง → เปิดงาน → ตรวจรายคัน → ตรวจทานรายงาน**

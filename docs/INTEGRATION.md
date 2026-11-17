@@ -1,3 +1,5 @@
+> Historical Dark Navy baseline. Current behavior and integration contract: [White Minimal upgrade](WHITE-MINIMAL.md).
+
 # Integration contract and blockers
 
 **Status: NOT TESTED against company services. Keep live writes disabled.** All executable tests in this PR use local fixtures. The original frontend named n8n STK_04, STK_07, STK_08, STK_10 and Power Automate STK_06/STK_09, but their definitions are absent. Exact action-to-flow ownership must be confirmed with the integration owner.

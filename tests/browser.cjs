@@ -16,30 +16,30 @@ async function pageFor(options={}) {
  return {page,context,errors,external};
 }
 async function test(name,run){let state;try{state=await pageFor();await run(state);assert.deepEqual(state.errors,[],'browser runtime errors');assert.deepEqual(state.external,[],'mock attempted external network');results.push({name,status:'PASS'});console.log('PASS',name)}catch(e){results.push({name,status:'FAIL',error:e.message});console.log('FAIL',name,e.message);if(state)await state.page.screenshot({path:'test-results/fail-'+results.length+'.png',fullPage:true})}finally{await state?.context.close()}}
-async function openInspection(page,id='DEMO-L-001'){await page.evaluate(id=>{selectJob(id);app.editRecord='';navigate('inspection')},id);}
+async function openInspection(page,id='DEMO-L-001'){await page.evaluate(id=>{selectJob(id);app.editRecord='';navigate('inspection')},id);if(await page.locator('#insModel').count()&&!await page.inputValue('#insModel'))await page.fill('#insModel',id==='DEMO-L-001'?'L5018SP-CF':'RX1800');}
 async function saved(page){await page.waitForFunction(()=>app.page==='jobdetail'&&!app.busy,{},{timeout:10000})}
 (async()=>{
  fs.mkdirSync('test-results',{recursive:true});
  try{await fetch(base)}catch{server=spawn('python3',['-m','http.server','4173','--bind','127.0.0.1'],{stdio:'ignore'});for(let i=0;i<30;i++){try{await fetch(base);break}catch{await new Promise(r=>setTimeout(r,100))}}}
  browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH || (fs.existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined),args:['--no-sandbox']});
  await test('dashboard, independent filters, pinning, NG counts',async({page})=>{
-  assert.deepEqual(await page.locator('#homeStats .stat strong').allTextContents(),['5','5','2','1','2']);
+  assert.deepEqual(await page.locator('#homeStats .stat strong').allTextContents(),['5','2','1','2','0']);
   await page.selectOption('#homeProduct','L');assert.equal(await page.locator('#homeJobs [data-job]').count(),2);
   await page.selectOption('#homeClaim','Hotline');assert.equal(await page.locator('#homeJobs [data-job]').count(),0);
   await page.selectOption('#homeProduct','M');assert.equal(await page.locator('#homeJobs [data-job]').count(),1);
-  await page.selectOption('#homeModel','L5018');assert.equal(await page.locator('#homeJobs [data-job]').count(),0);
+  await page.selectOption('#homeModel','L5018SP-CF');assert.equal(await page.locator('#homeJobs [data-job]').count(),0);
   await page.evaluate(()=>{app.group='';app.claimFilter='';app.modelFilter='';renderHome()});
   await page.locator('#homeJobs [data-star-job="DEMO-L-001"]').click();assert.equal(await page.locator('#recentJobs [data-job]').count(),1);
   await page.locator('#recentJobs [data-job]').click();
   assert.equal(await page.locator('[data-record-filter="NG"] span').innerText(),'1');
-  await page.locator('[data-record-filter="NG"]').click();assert.match(await page.locator('#detailContent').innerText(),/DEMO-L002/);
+  await page.locator('[data-record-filter="NG"]').click();assert.match(await page.locator('#detailContent').innerText(),/KBULLCDCHPTD10006/);
   assert.equal(await page.locator('[data-action="finish-job"]').isDisabled(),true);
  });
  await test('partial NG save, double submit, continue, totals and latest-first',async({page})=>{
   await openInspection(page);await page.fill('#insSerial','TEST-NEW-001');await page.locator('[data-result-slot="1"][data-result-value="NG"]').click();
   await page.evaluate(()=>{document.getElementById('inspectionForm').requestSubmit();document.getElementById('inspectionForm').requestSubmit()});await saved(page);
   assert.equal(await page.evaluate(()=>findJob().records.filter(r=>r.serial==='TEST-NEW-001').length),1);
-  assert.equal(await page.evaluate(()=>findJob().records.find(r=>r.serial==='TEST-NEW-001').result2),'NA');
+  assert.equal(await page.evaluate(()=>findJob().records.find(r=>r.serial==='TEST-NEW-001').result2),'');
   assert.match(await page.locator('#detailContent .record').first().innerText(),/TEST-NEW-001/);
   assert.match(await page.locator('#detailContent .record').first().innerText(),/NG/);
   await page.locator('#detailContent .record').first().locator('[data-edit-record]').click();
@@ -48,8 +48,8 @@ async function saved(page){await page.waitForFunction(()=>app.page==='jobdetail'
   assert.equal(await page.evaluate(()=>findJob().records.length),5);
   assert.equal(await page.evaluate(()=>vehicleInspection(findJob(),findJob().records.find(r=>r.serial==='TEST-NEW-001')).status),'OK');
  });
- await test('duplicate serial and zero checked criteria blocked',async({page})=>{
-  await openInspection(page);await page.fill('#insSerial','DEMO-L001');await page.click('#formSubmit');assert.match(await page.locator('#formMessage').innerText(),/อย่างน้อย/);
+ await test('duplicate serial blocked before sending',async({page})=>{
+  await openInspection(page);await page.fill('#insSerial','DEMO-L001');await page.click('#formSubmit');assert.match(await page.locator('#formMessage').innerText(),/มีเลขตัวรถ/);
   await page.locator('[data-result-slot="1"][data-result-value="OK"]').click();await page.click('#formSubmit');assert.match(await page.locator('#formMessage').innerText(),/มีเลขตัวรถ/);
   assert.equal(await page.evaluate(()=>app.pending.size),0);
  });
@@ -57,7 +57,7 @@ async function saved(page){await page.waitForFunction(()=>app.page==='jobdetail'
   await openInspection(page,'DEMO-B-003');await page.fill('#insSerial','TEST-B-001');await page.locator('[data-result-slot="1"][data-result-value="OK"]').click();await page.click('#formSubmit');await saved(page);
   assert.equal(await page.evaluate(()=>vehicleInspection(findJob(),findJob().records[0]).complete),true);
   await openInspection(page,'DEMO-RX-005');assert.equal(await page.locator('#inspectionSetupForm').count(),1);
-  await page.fill('#jfCriteria1','ทดสอบเกณฑ์');await page.click('#formSubmit');await page.waitForSelector('#inspectionForm');assert.equal(await page.locator('[data-result-slot="1"]').count(),3);
+  await page.fill('#jfCriteria1','ทดสอบเกณฑ์');await page.click('#formSubmit');await page.waitForSelector('#inspectionForm');assert.equal(await page.locator('[data-result-slot="1"]').count(),4);
  });
  await test('create job, edit job, target and finish workflow',async({page})=>{
   await page.locator('#home [data-action="create-job"]').click();await page.fill('#jfProblem','ทดสอบงานใหม่');await page.selectOption('#jfCategory','Quick Report');await page.selectOption('#jfClaimType','L');await page.fill('#jfModel','L5018');await page.fill('#jfMethod','ตรวจด้วยสายตา');await page.fill('#jfCriteria1','ไม่มีรอยรั่ว');await page.fill('#jfTarget','1');await page.click('#formSubmit');await page.click('#confirmButton');await saved(page);
@@ -66,8 +66,8 @@ async function saved(page){await page.waitForFunction(()=>app.page==='jobdetail'
   await page.click('[data-action="inspect-job"]');await page.fill('#insSerial','TEST-CREATE');await page.locator('[data-result-slot="1"][data-result-value="OK"]').click();await page.click('#formSubmit');await saved(page);
   await page.click('[data-action="finish-job"]');await page.click('#confirmButton');await page.waitForFunction(()=>findJob().status==='completed'&&!app.busy);
  });
- await test('draft survives reload; NA reset; no tokens stored',async({page})=>{
-  await openInspection(page);await page.fill('#insSerial','DRAFT-123');await page.locator('[data-result-slot="1"][data-result-value="OK"]').click();await page.locator('[data-result-slot="1"][data-result-value="NA"]').click();assert.equal(await page.inputValue('#insR1'),'');
+ await test('draft survives reload; Pending reset; no tokens stored',async({page})=>{
+  await openInspection(page);await page.fill('#insSerial','DRAFT-123');await page.locator('[data-result-slot="1"][data-result-value="OK"]').click();await page.locator('[data-result-slot="1"][data-result-value="Pending"]').click();assert.equal(await page.inputValue('#insR1'),'');
   await page.locator('#inspectionNotes summary').click();await page.fill('#insRemarks','ข้อความร่าง');await page.reload();await page.waitForFunction(()=>app.loaded);await openInspection(page);assert.equal(await page.inputValue('#insSerial'),'DRAFT-123');assert.equal(await page.inputValue('#insRemarks'),'ข้อความร่าง');
   assert.equal(await page.evaluate(()=>JSON.stringify({...sessionStorage,...localStorage}).includes('idToken')),false);
  });
@@ -104,10 +104,10 @@ async function saved(page){await page.waitForFunction(()=>app.page==='jobdetail'
   await page.route('**/private-image',route=>route.fulfill({status:403,contentType:'text/plain',body:'Sign in'}));
   await page.evaluate(()=>{findJob().okPictureUrl=location.origin+'/private-image';const original=safeLink;safeLink=value=>String(value || '').startsWith(location.origin)?value:original(value);renderDetail()});
   await page.waitForFunction(()=>document.querySelector('#detailContent').textContent.includes('ลงชื่อเข้าใช้ Microsoft'));
-  await page.click('[data-action="inspect-job"]');await page.locator('#optionalPhotos summary').click();await page.setInputFiles('#choose1',{name:'test.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64')});await page.fill('#insSerial','PHOTO-123');await page.locator('[data-result-slot="1"][data-result-value="OK"]').click();await page.click('#formSubmit');assert.match(await page.locator('#formMessage').innerText(),/ยังบันทึกรูปไม่ได้/);assert.equal(await page.evaluate(()=>app.pending.size),0);
+  await page.click('[data-action="inspect-job"]');await page.locator('#optionalPhotos summary').click();await page.setInputFiles('#choose1',{name:'test.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64')});await page.fill('#insSerial','PHOTO-123');await page.fill('#insModel','L5018SP-CF');await page.locator('[data-result-slot="1"][data-result-value="OK"]').click();await page.click('#formSubmit');await saved(page);assert.equal(await page.evaluate(()=>app.transfers.at(-1).state),'Failed');assert.equal(await page.evaluate(()=>findJob().records.filter(r=>r.serial==='PHOTO-123').length),1);assert.equal(await page.evaluate(()=>app.pending.size),0);
  });
  await test('monthly report totals, preview escaping and A4 PDF',async({page})=>{
-  await page.evaluate(()=>navigate('reports'));assert.deepEqual(await page.locator('#reportStats .stat strong').allTextContents(),['5','2','1','2']);await page.selectOption('#reportJob','DEMO-L-001');assert.deepEqual(await page.locator('#reportStats .stat strong').allTextContents(),['4','1','1','2']);
+  await page.evaluate(()=>navigate('reports'));assert.deepEqual(await page.locator('#reportStats .stat strong').allTextContents(),['5','2','1','2','0']);await page.selectOption('#reportJob','DEMO-L-001');assert.deepEqual(await page.locator('#reportStats .stat strong').allTextContents(),['4','1','1','2','0']);
   const month=await page.locator('#reportMonth option').nth(1).getAttribute('value');await page.selectOption('#reportMonth',month);
   await page.evaluate(()=>{findJob('DEMO-L-001').records[0].note='<img src=x onerror=alert(1)>'});await page.click('[data-action="preview-report"]');assert.equal(await page.locator('#previewContent img[src="x"]').count(),0);assert.match(await page.locator('#previewContent').innerText(),/NG/);await page.emulateMedia({media:'print'});await page.pdf({path:'test-results/report-a4.pdf',format:'A4',printBackground:true,preferCSSPageSize:true});assert.ok(fs.statSync('test-results/report-a4.pdf').size>10000);
  });
@@ -117,7 +117,7 @@ async function saved(page){await page.waitForFunction(()=>app.page==='jobdetail'
    for(const screen of ['home','jobs','choose','overview','monthdetail','jobdetail','inspection','jobform','recorddetail','reports','reportpreview','profile']){
     await page.evaluate(screen=>{app.selected='DEMO-L-001';app.viewRecord='202';app.editJob=true;app.editRecord='';app.month=dateValue(new Date()).slice(0,7);navigate(screen)},screen);
     const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);assert.equal(overflow,false,`${screen} horizontal overflow at ${width}`);
-    if(['home','inspection','reportpreview'].includes(screen)&&[390,1440].includes(width))await page.screenshot({path:`test-results/${screen}-${width}.png`,fullPage:true});
+    if([390,1440].includes(width))await page.screenshot({path:`test-results/${screen}-${width}.jpg`,type:'jpeg',quality:65,fullPage:true});
    }
   }
   await page.setViewportSize({width:320,height:700});await page.evaluate(()=>navigate('home'));await page.keyboard.press('Tab');assert.ok(await page.evaluate(()=>document.activeElement!==document.body));
@@ -132,7 +132,7 @@ async function saved(page){await page.waitForFunction(()=>app.page==='jobdetail'
  await test('missing Serial and invalid date remain visible; incomplete NG included in summary',async({page})=>{
   await page.evaluate(()=>{const j=normalizeJob({id:'MISSING',status:'progress',records:[{id:'7',sharePointItemId:'7',checkedAt:'2026-02-30'}],result1Criteria:'A'});app.jobs.push(j);app.reportJob='MISSING';navigate('reportpreview')});
   assert.match(await page.locator('#previewContent').innerText(),/ไม่ระบุ Serial/);assert.equal(await page.evaluate(()=>dateValue('2026-02-30')),'');assert.equal(await page.evaluate(()=>StockDomain.summary([findJob('MISSING')]).total),1);
-  await page.evaluate(()=>{app.reportJob='DEMO-L-001';renderReportPreview()});assert.match(await page.locator('.report-summary').innerText(),/3 คันที่ตรวจไม่ครบ/);
+  await page.evaluate(()=>{app.reportJob='DEMO-L-001';renderReportPreview()});assert.match(await page.locator('#previewContent').innerText(),/ยังไม่ครบ 3 คัน/);
  });
  await test('draft is not applied to changed inspection criteria',async({page})=>{
   await openInspection(page);await page.fill('#insSerial','STALE-DRAFT');await page.locator('[data-result-slot="1"][data-result-value="OK"]').click();

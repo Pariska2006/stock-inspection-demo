@@ -1,3 +1,5 @@
+> Historical Dark Navy baseline. Current behavior and integration contract: [White Minimal upgrade](WHITE-MINIMAL.md).
+
 # System audit and fixes
 
 ตรวจ source ทั้งหมดของ `Pariska2006/stock-inspection-demo` ที่ commit `010e36d9a0235f6ba58ff539f2dd7a2b4c5208ef` ก่อนแก้ไข Repository เดิมมีเพียง `index.html` (2,748 lines, รวม font/logo แบบ embedded) ไม่มี AGENTS.md, test suite, deployment guide, n8n exports หรือ Power Automate definitions
