@@ -65,7 +65,7 @@ function dateValue(value) {
 }
 
 const app = {
-  capabilities: {}, modelMaster: [], modelMasterSource: '', transfers: [], vehicleGroup: true,
+  capabilities: {}, modelMaster: [], modelMasterSource: '', transfers: [], photoAssets: new Map(), vehicleGroup: true,
   ready: false, initializing: false, deleteEnabled: false, member: null, line: null, nickname: '', jobs: [], page: 'home',
   group: '', claimFilter: '', modelFilter: '', jobState: '', claimTypes: KNOWN_CLAIM_TYPES, products: GROUPS, search: '', selected: '', editJob: false, editRecord: '', viewRecord: '',
   stars: new Set(),
@@ -189,7 +189,7 @@ function resetSession() {
   clearPhotoDraft();
   Object.assign(app, {
     member: null, jobs: [], jobsLive: false, loaded: false, recordRead: false, partial: false, loadError: '',
-    selected: '', editJob: false, editRecord: '', deleteEnabled: false, inspectionBaseline: '', jobsLoading: false,
+    selected: '', editJob: false, editRecord: '', deleteEnabled: false, inspectionBaseline: '', jobsLoading: false, photoAssets: new Map(),
     detailMessage: null, dirty: false, busy: false, group: '', claimFilter: '', search: '', stars: new Set(),
     claimTypes: KNOWN_CLAIM_TYPES, products: GROUPS, month: '', monthFilter: 'all', yearsVisible: 1, jobsLoadedAt: ''
   });
@@ -287,6 +287,40 @@ function photoSlots(record) {
   return urls;
 }
 
+// Private Supabase photos overlay the existing Microsoft Lists job/record data.
+const photoRequests = new Map();
+function overlayPhotos(job){
+ const cached=app.photoAssets.get(job.id);if(!cached||Date.now()-cached.loadedAt>12*60*1000)return job;
+ for(const p of cached.rows){
+  if(p.photoType==='JOB_OK')job.okPictureUrl=p.url;
+  else if(p.photoType==='JOB_NG')job.ngPictureUrl=p.url;
+  else if(p.photoType==='JOB_METHOD')job.methodPictureUrl=p.url;
+  else if(p.photoType==='SERIAL'){const rec=job.records.find(r=>Number(r.sharePointItemId)===p.itemId);if(rec)rec.photoSlots[0]=p.url}
+ }
+ return job;
+}
+async function loadJobPhotos(key,refresh=false){
+ if(!key||!PHOTO_UPLOAD_API_URL||MOCK||!app.member)return null;
+ const cached=app.photoAssets.get(key);if(!refresh&&cached&&Date.now()-cached.loadedAt<10*60*1000)return cached;
+ if(photoRequests.has(key))return photoRequests.get(key);
+ const job=findJob(key);if(!job)return null;
+ const epoch=sessionEpoch;
+ const work=(async()=>{
+  const data=await fetchJson(PHOTO_UPLOAD_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'list',jobKey:key,idToken:idToken()})},30000);
+  if(data.status!=='OK'||!Array.isArray(data.photos))throw Error('Supabase photo index unavailable');
+  if(epoch!==sessionEpoch)return null;
+  const rows=data.photos.filter(p=>Number.isSafeInteger(p.itemId)&&['SERIAL','JOB_OK','JOB_NG','JOB_METHOD'].includes(p.photoType)&&safeLink(p.url));
+  const index={loadedAt:Date.now(),rows};app.photoAssets.set(key,index);overlayPhotos(job);
+  if(['jobdetail','recorddetail','reportpreview'].includes(app.page)&&(app.selected===key||app.reportJob===key))renderCurrent();
+  return index;
+ })();
+ photoRequests.set(key,work);try{return await work}finally{photoRequests.delete(key)}
+}
+function loadVisiblePhotos(page){
+ const key=page==='reportpreview'?app.reportJob:app.selected;
+ if(key&&['jobdetail','recorddetail','inspection','jobform','reportpreview'].includes(page))
+  loadJobPhotos(key).catch(e=>console.warn('Photo read unavailable',e.message));
+}
 function normalizeJob(job) {
   job = StockDomain.normalizeFields(job, 'job');
   const metadata = decodeJobNotes(job.notes);
@@ -308,7 +342,7 @@ function normalizeJob(job) {
   const url = safeLink(job.reportUrl);
   const reportState = url && isWaiting(status) ? 'report-ready' :
     !url && status === 'report-ready' ? 'waiting-report' : status;
-  return {
+  const normalized = {
     ...job, id: text(job.id), sharePointItemId: text(job.sharePointItemId),
     title: text(job.title || job.problem) || 'งานตรวจสต็อก',
     ...metadata,
@@ -319,6 +353,7 @@ function normalizeJob(job) {
     model: text(job.model), affectedModels: job.affectedModels?.length ? job.affectedModels : DOMAIN.list([job.model]),
     affectedProducts: job.affectedProducts?.length ? job.affectedProducts : DOMAIN.list([sourceProduct || legacyProduct]), status: reportState, records
   };
+  return overlayPhotos(normalized);
 }
 
 function sortJobs(a, b) {
@@ -1090,7 +1125,7 @@ function photoInput(slot, value, label) {
 }
 
 function photoConnectionHint() {
-  return PHOTO_UPLOAD_API_URL ? '<p class="hint">รูปจะส่งหลังบันทึกรายการสำเร็จ รีเฟรชเพื่อตรวจสอบรูปที่จัดเก็บแล้ว</p>' : '<p class="hint">ยังไม่เชื่อมระบบอัปโหลดรูปภาพ</p>';
+ return PHOTO_UPLOAD_API_URL ? '<p class="hint">หลังบันทึกผลตรวจ รูปจะส่งเข้า Supabase Private Storage และโหลดกลับมาแสดงในงาน/รายงาน</p>' : '<p class="hint">ยังไม่เชื่อมระบบอัปโหลดรูปภาพ</p>';
 }
 
 function renderInspectionSetup(job) {
@@ -1203,6 +1238,7 @@ function navigate(page, focus = false) {
   else if (page === 'inspection') renderInspection();
   else renderCurrent();
   if (isForm(page)) restoreDraft();
+  loadVisiblePhotos(page);
   window.scrollTo(0, 0);
   showReadState();
   if (focus) (page === 'home' ? $('topBrand') : $(page)).querySelector('h1')?.focus({ preventScroll: true });
@@ -1736,29 +1772,30 @@ function transferMarkup(job){
  return items.length?`<section class="panel"><h2>สถานะรูปภาพ</h2>${items.map(item=>`<div class="upload-state ${item.state.toLowerCase()}"><strong>${html(item.name)}</strong><span class="result-tag">${item.state}</span><p class="hint">${html(item.message)}</p>${item.state==='Pending'?`<button class="btn secondary sm" type="button" data-photo-check="${html(item.requestId)}">ตรวจสอบผลรูป</button>`:''}</div>`).join('')}</section>`:'';
 }
 async function checkPhotoTransfer(requestId){
- const entry=app.transfers.find(item=>item.requestId===requestId);if(!entry)return;
- try{const data=await readJobs();const job=data.jobs.filter(Boolean).map(normalizeJob).find(job=>job.id===entry.jobId);const url=job&&!data.partial&&StockAdapter.photoConfirmed(entry,job);
-  if(url){entry.state='Uploaded';entry.message='อ่านยืนยันการจัดเก็บและผูกรูปกับรายการแล้ว';applyJobs(data)}
-  else{entry.state='Pending';entry.message='ยังไม่พบรูปที่ตรงกับคำขอเดิม ไม่ส่งไฟล์ซ้ำ'}
- }catch{entry.state='Pending';entry.message='ยังอ่านผลไม่ได้ กรุณาตรวจสอบอีกครั้งเมื่อเชื่อมต่อได้'}
+ const entry=app.transfers.find(t=>t.requestId===requestId);if(!entry)return;
+ try{
+  const index=await loadJobPhotos(entry.jobId,true);
+  const found=index?.rows.find(p=>p.requestId===requestId&&p.photoType===entry.photoType&&p.itemId===entry.itemId);
+  if(found){entry.state='Uploaded';entry.message='ยืนยันรูปจาก Supabase Private Storage แล้ว'}
+  else{entry.state='Pending';entry.message='ยังอ่านยืนยันรูปไม่ได้ · ไม่ส่งรูปซ้ำ'}
+ }catch(e){entry.state='Pending';entry.message='อ่านยืนยันรูปไม่ได้: '+e.message}
  saveTransfers();if(app.page==='jobdetail')renderDetail();
 }
 async function uploadPhoto(file,job,serial,slot,itemId){
  const photoType=String(slot)==='1'?'SERIAL':slot==='ok'?'JOB_OK':slot==='ng'?'JOB_NG':slot==='method'?'JOB_METHOD':'';
- const entry={jobId:job.id,itemId:Number(itemId),slot:String(slot),name:file.name,requestId:crypto.randomUUID(),state:'Pending',message:'กำลังเตรียมรูป'};
+ const entry={jobId:job.id,itemId:Number(itemId),photoType,slot:String(slot),name:file.name,requestId:crypto.randomUUID(),state:'Pending',message:'กำลังเตรียมรูป'};
  const unresolved=app.transfers.find(t=>t.jobId===job.id&&t.itemId===entry.itemId&&t.slot===entry.slot&&t.state==='Pending');
  if(unresolved)return unresolved;
- app.transfers.push(entry);if(!saveTransfers()){entry.state='Failed';entry.message='เก็บ Request ID ไม่ได้ จึงยังไม่ส่งไฟล์';return entry}
- if(MOCK||!liveWritesAllowed()||!safeLink(PHOTO_UPLOAD_API_URL)||!app.capabilities.photoReadback){entry.state='Failed';entry.message=MOCK?'MOCK · ไม่ส่งหรือจัดเก็บไฟล์จริง ข้อมูลผลตรวจจำลองบันทึกแล้ว':'ยังไม่เปิดบริการรูปภาพที่ยืนยันผลได้';saveTransfers();return entry}
- let transmitted=false;
+ app.transfers.push(entry);if(!saveTransfers()){entry.state='Failed';entry.message='เก็บข้อมูลสถานะอัปโหลดไม่ได้';return entry}
+ if(MOCK||!liveWritesAllowed()||!safeLink(PHOTO_UPLOAD_API_URL)){entry.state='Failed';entry.message='ระบบรูปยังไม่พร้อม';saveTransfers();return entry}
  try{
-  if(!photoType||!Number.isSafeInteger(entry.itemId)||entry.itemId<1)throw Error('Item ID ของรูปไม่ถูกต้อง');
-  const fileBase64=await jpegBase64(file);entry.message='Upload Pending · รอระบบยืนยัน';saveTransfers();transmitted=true;
-  const response=await fetchJson(PHOTO_UPLOAD_API_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({photoType,itemId:entry.itemId,jobKey:job.id,serialNumber:serial,mimeType:'image/jpeg',fileBase64,requestId:entry.requestId,idToken:idToken()})},75000);
-  if(response.status==='UPLOAD_REJECTED'){entry.state='Failed';entry.message='ระบบยืนยันว่าไม่จัดเก็บรูปนี้';saveTransfers();return entry}
-  entry.message='ระบบรับคำขอแล้ว รอตรวจ URL ที่ผูกกับรายการ';saveTransfers();
+  if(!photoType||!Number.isSafeInteger(entry.itemId)||entry.itemId<1)throw Error('Item ID รูปไม่ถูกต้อง');
+  const fileBase64=await jpegBase64(file);entry.message='กำลังอัปโหลด';saveTransfers();
+  const result=await fetchJson(PHOTO_UPLOAD_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'upload',photoType,itemId:entry.itemId,jobKey:job.id,fileBase64,idToken:idToken()})},75000);
+  if(result.status!=='STORED'||!result.requestId)throw Error('ยังไม่ยืนยันว่ารูปจัดเก็บแล้ว');
+  entry.requestId=result.requestId;entry.message='บันทึกไฟล์แล้ว · กำลังตรวจสอบการอ่านกลับ';saveTransfers();
   await checkPhotoTransfer(entry.requestId);
- }catch(error){entry.state=transmitted?'Pending':'Failed';entry.message=transmitted?'ยังไม่ทราบผลส่งไฟล์ ตรวจสอบ Request เดิมก่อนส่งซ้ำ':error.message;saveTransfers()}
+ }catch(e){entry.state='Failed';entry.message='อัปโหลดไม่สำเร็จ: '+e.message;saveTransfers()}
  return entry;
 }
 async function uploadSavedPhotos(files,job,serial,itemId){
