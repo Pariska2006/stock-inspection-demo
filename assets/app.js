@@ -2115,8 +2115,12 @@ function operationIdentity(operation,job){
     job.status === 'progress' && text(job.version) !== text(operation.payload.expectedJobVersion);
   if (operation.action === 'finishJob') return job.id === operation.payload.jobKey &&
     finished(job) && text(job.version) !== text(operation.payload.expectedJobVersion);
-  if (operation.action === 'createJob') return !!operation.response?.requestId &&
-    text(job.id).endsWith(text(operation.response.requestId));
+  if (operation.action === 'createJob') {
+    const requestId = text(operation.response?.requestId);
+    // STK_06 may generate a separate JobKey; the import key can carry the
+    // correlated write request. Never match by title alone (duplicate risk).
+    return !!requestId && [job.id, job.importKey].some(value => text(value).endsWith(requestId));
+  }
   if (operation.action === 'saveInspection') return liveRecords(job).some(record =>
     record.clientRequestId === operation.clientRequestId && recordMatches(record, operation.payload));
   return false;
@@ -2130,7 +2134,7 @@ function operationMatches(operation, job) {
       record.clientRequestId === operation.clientRequestId && recordMatches(record, payload, payload.overallResult));
     return job.id === payload.jobKey && job.clientRequestId === operation.clientRequestId && (operation.action === 'updateJob' ? persistedJobUpdateMatches(job, payload) : operation.action === 'finishJob' ? finished(job) : operation.action === 'selectJob' && job.status === 'progress');
   }
-  if (operation.action === 'createJob') return text(job.id).endsWith(operation.response.requestId) &&
+  if (operation.action === 'createJob') return [job.id,job.importKey].some(value => text(value).endsWith(text(operation.response.requestId))) &&
     jobDetailsMatch(job, Object.fromEntries(Object.keys(jobFields).map(key => [key, payload[key]])));
   if (job.id !== payload.jobKey) return false;
   if (operation.action === 'saveInspection') return liveRecords(job).some(record => recordMatches(record, payload,
