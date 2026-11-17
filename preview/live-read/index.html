@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#FFFFFF">
+  <meta name="description" content="Stock Inspection — Confirm Tractor in Stock">
+  <title>Stock Inspection | KUBOTA — Live Read Test (No Writes)</title>
+<link rel="stylesheet" href="assets/fonts.css?v=20261117-search2">
+<link rel="stylesheet" href="assets/styles.css?v=20261117-search2">
+
+</head>
+<body>
+<a class="skip-link" href="#workspace">ข้ามไปเนื้อหา</a>
+<div id="environmentBanner" class="environment-banner" role="status"></div>
+  <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden">
+    <symbol id="ic-qr" viewBox="0 0 24 24">
+  <path d="M17 12v4a1 1 0 0 1-1 1h-4" />
+  <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+  <path d="M17 8V7" />
+  <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+  <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+  <path d="M7 17h.01" />
+  <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+  <rect x="7" y="7" width="5" height="5" rx="1" />
+</symbol>
+<symbol id="ic-home" viewBox="0 0 24 24">
+  <path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" />
+  <path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+</symbol>
+    <symbol id="ic-chart" viewBox="0 0 24 24">
+  <path d="M3 3v16a2 2 0 0 0 2 2h16" />
+  <path d="M18 17V9" />
+  <path d="M13 17V5" />
+  <path d="M8 17v-3" />
+</symbol>
+    <symbol id="ic-list" viewBox="0 0 24 24">
+  <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
+  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+  <path d="M12 11h4" />
+  <path d="M12 16h4" />
+  <path d="M8 11h.01" />
+  <path d="M8 16h.01" />
+</symbol>
+    <symbol id="ic-file" viewBox="0 0 24 24">
+  <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+  <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+  <path d="M10 9H8" />
+  <path d="M16 13H8" />
+  <path d="M16 17H8" />
+</symbol>
+    <symbol id="ic-user" viewBox="0 0 24 24">
+  <circle cx="12" cy="8" r="5" />
+  <path d="M20 21a8 8 0 0 0-16 0" />
+</symbol>
+    <symbol id="ic-plus" viewBox="0 0 24 24">
+  <path d="M5 12h14" />
+  <path d="M12 5v14" />
+</symbol>
+    <symbol id="ic-arrow" viewBox="0 0 24 24">
+  <path d="M5 12h14" />
+  <path d="m12 5 7 7-7 7" />
+</symbol>
+    <symbol id="ic-chevron" viewBox="0 0 24 24">
+  <path d="m9 18 6-6-6-6" />
+</symbol>
+    <symbol id="ic-back" viewBox="0 0 24 24">
+  <path d="m12 19-7-7 7-7" />
+  <path d="M19 12H5" />
+</symbol>
+    <symbol id="ic-check" viewBox="0 0 24 24">
+  <path d="M20 6 9 17l-5-5" />
+</symbol>
+    <symbol id="ic-x" viewBox="0 0 24 24">
+  <path d="M18 6 6 18" />
+  <path d="m6 6 12 12" />
+</symbol>
+    <symbol id="ic-camera" viewBox="0 0 24 24">
+  <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+  <circle cx="12" cy="13" r="3" />
+</symbol>
+    <symbol id="ic-search" viewBox="0 0 24 24">
+  <circle cx="11" cy="11" r="8" />
+  <path d="m21 21-4.3-4.3" />
+</symbol>
+    <symbol id="ic-truck" viewBox="0 0 24 24">
+  <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2" />
+  <path d="M15 18H9" />
+  <path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14" />
+  <circle cx="17" cy="18" r="2" />
+  <circle cx="7" cy="18" r="2" />
+</symbol>
+    <symbol id="ic-calendar" viewBox="0 0 24 24">
+  <path d="M8 2v4" />
+  <path d="M16 2v4" />
+  <rect width="18" height="18" x="3" y="4" rx="2" />
+  <path d="M3 10h18" />
+</symbol>
+    <symbol id="ic-clock" viewBox="0 0 24 24">
+  <circle cx="12" cy="12" r="10" />
+  <polyline points="12 6 12 12 16 14" />
+</symbol>
+    <symbol id="ic-upload" viewBox="0 0 24 24">
+  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+  <polyline points="17 8 12 3 7 8" />
+  <line x1="12" x2="12" y1="3" y2="15" />
+</symbol>
+    <symbol id="ic-download" viewBox="0 0 24 24">
+  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+  <polyline points="7 10 12 15 17 10" />
+  <line x1="12" x2="12" y1="15" y2="3" />
+</symbol>
+    <symbol id="ic-edit" viewBox="0 0 24 24">
+  <path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+  <path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z" />
+</symbol>
+    <symbol id="ic-refresh" viewBox="0 0 24 24">
+  <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+  <path d="M21 3v5h-5" />
+  <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+  <path d="M8 16H3v5" />
+</symbol>
+    <symbol id="ic-logout" viewBox="0 0 24 24">
+  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+  <polyline points="16 17 21 12 16 7" />
+  <line x1="21" x2="9" y1="12" y2="12" />
+</symbol>
+    <symbol id="ic-alert" viewBox="0 0 24 24">
+  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
+  <path d="M12 9v4" />
+  <path d="M12 17h.01" />
+</symbol>
+    <symbol id="ic-heart" viewBox="0 0 24 24">
+  <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+</symbol>
+    <symbol id="ic-shield" viewBox="0 0 24 24">
+  <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+  <path d="m9 12 2 2 4-4" />
+</symbol>
+    <symbol id="ic-clipboard" viewBox="0 0 24 24">
+  <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
+  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+  <path d="m9 14 2 2 4-4" />
+</symbol>
+    <symbol id="ic-info" viewBox="0 0 24 24">
+  <circle cx="12" cy="12" r="10" />
+  <path d="M12 16v-4" />
+  <path d="M12 8h.01" />
+</symbol>
+    <symbol id="ic-copy" viewBox="0 0 24 24">
+  <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+  <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+</symbol>
+    <symbol id="ic-sparkle" viewBox="0 0 24 24">
+  <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
+  <path d="M20 3v4" />
+  <path d="M22 5h-4" />
+  <path d="M4 17v2" />
+  <path d="M5 18H3" />
+</symbol>
+  <symbol id="ic-star" viewBox="0 0 24 24">
+  <path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z" />
+</symbol><symbol id="ic-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol></svg>
+
+<section id="accessGate">
+  <div class="gate-shell">
+    <div class="gate-brand"><img class="kubota-logo" src="assets/kubota.png" alt="Kubota"><h1 lang="en">Stock Inspection</h1><p class="brand-subtitle">ระบบตรวจสต็อก</p></div>
+    <div class="gate-card">
+      <div id="gateLoading"><h2>กำลังตรวจสอบสิทธิ์</h2></div>
+      <div id="gateLogin" hidden>
+        <h2>เข้าสู่ระบบ</h2><p>ใช้บัญชี LINE เพื่อเข้าถึงงานตรวจสต็อกของหน่วยงาน</p>
+        <button class="btn primary full" id="gateLoginButton">เข้าสู่ระบบด้วย LINE <svg class="ico sm" aria-hidden="true"><use href="#ic-arrow"></use></svg></button>
+        <small class="hint">สมาชิกใหม่จะต้องส่งคำขอให้ผู้ดูแลอนุมัติ</small>
+      </div>
+      <div id="gateRegister" hidden>
+        <h2>ลงทะเบียน</h2><p>ส่งชื่อให้ผู้ดูแลตรวจสอบสิทธิ์</p>
+        <div class="gate-user"><img id="gateAvatar" alt="" hidden><span id="gateDisplayName">สมาชิก LINE</span></div>
+        <form id="gateRegisterForm">
+          <div class="field"><label for="gateFullName">ชื่อ–นามสกุล</label><input class="control" id="gateFullName" required maxlength="120" autocomplete="name"></div>
+          <div class="field"><label for="gateNickName">ชื่อเล่น</label><input class="control" id="gateNickName" required maxlength="60" autocomplete="nickname"></div>
+          <button class="btn primary full" id="gateRegisterButton">ส่งคำขอลงทะเบียน</button>
+        </form>
+        <button class="gate-link" id="gateSwitchAccount">เปลี่ยนบัญชี LINE</button>
+      </div>
+      <div id="gatePending" hidden>
+        <h2>รออนุมัติ</h2><p>เข้าใช้งานได้เมื่อผู้ดูแลอนุมัติบัญชี</p>
+        <button class="btn primary full" id="gateRefresh">ตรวจสอบสถานะ</button>
+        <button class="gate-link" id="gatePendingLogout">ออกจากบัญชี LINE</button>
+      </div>
+      <div id="gateBlocked" hidden>
+        <h2>บัญชีนี้ยังเข้าใช้งานไม่ได้</h2><p>ติดต่อผู้ดูแลเพื่อตรวจสอบสิทธิ์ของบัญชี</p>
+        <button class="btn secondary full" id="gateBlockedRefresh">ตรวจสอบสถานะ</button>
+        <button class="gate-link" id="gateBlockedLogout">เปลี่ยนบัญชี LINE</button>
+      </div>
+      <div id="gateError" hidden>
+        <h2>เชื่อมต่อไม่สำเร็จ</h2><p>ตรวจสอบอินเทอร์เน็ตแล้วลองอีกครั้ง</p>
+        <button class="btn primary full" id="gateRetry">ลองอีกครั้ง</button>
+        <button class="gate-link" id="gateErrorLogout">เข้าสู่ระบบ LINE ใหม่</button>
+      </div>
+      <div class="gate-state" id="gateMessage" role="status" aria-live="polite"></div>
+    </div>
+    <div class="gate-footer">Inspection Claim · KUBOTA</div>
+  </div>
+</section>
+
+<div class="app" id="appMain" hidden>
+  <div class="app-layout">
+    <aside class="side"><div class="side-brand"><img src="assets/kubota.png" alt="Kubota"><span>STOCK INSPECTION</span><small>Inspection workspace</small></div>
+      <nav aria-label="เมนูหลักบนเดสก์ท็อป"><button class="nav-btn" type="button" data-nav="home"><svg class="ico sm" aria-hidden="true"><use href="#ic-home"></use></svg> หน้าหลัก</button>
+<button class="nav-btn" type="button" data-nav="jobs"><svg class="ico sm" aria-hidden="true"><use href="#ic-list"></use></svg> งานตรวจ</button>
+<button class="nav-btn" type="button" data-nav="overview"><svg class="ico sm" aria-hidden="true"><use href="#ic-chart"></use></svg> ภาพรวม</button>
+<button class="nav-btn" type="button" data-nav="reports"><svg class="ico sm" aria-hidden="true"><use href="#ic-file"></use></svg> Reports</button>
+<button class="nav-btn" type="button" data-nav="profile"><svg class="ico sm" aria-hidden="true"><use href="#ic-user"></use></svg> โปรไฟล์</button></nav>
+      <div class="nav-bottom"><button class="nav-btn" type="button" data-action="contact"><svg class="ico sm" aria-hidden="true"><use href="#ic-info"></use></svg> ติดต่อผู้ดูแล</button></div>
+    </aside>
+    <main class="workspace" id="workspace" tabindex="-1">
+      <header class="topbar">
+        <div class="title-left">
+          <button id="backButton" class="icon-btn" type="button" data-action="back" aria-label="ย้อนกลับ" hidden><svg class="ico sm" aria-hidden="true"><use href="#ic-back"></use></svg></button>
+          <div class="top-brand" id="topBrand"><img class="kubota-logo" src="assets/kubota.png" alt="Kubota"><span class="brand-claim" lang="en">Inspection Claim</span><div id="homeTitle"><h1 lang="en" tabindex="-1">Stock Inspection</h1><p class="brand-subtitle">ระบบตรวจสต็อก</p></div></div>
+        </div>
+        <button class="user-top" type="button" data-nav="profile" aria-label="เปิดโปรไฟล์">
+          <img class="mini-avatar" id="topAvatar" alt="" hidden><span class="avatar-fallback" id="topAvatarFallback" aria-hidden="true">P</span><span id="topName">สมาชิก</span>
+        </button>
+      </header>
+
+      <section class="view active" id="home">
+        <div class="page-head dashboard-heading"><div><p class="eyebrow">OPERATIONS / OVERVIEW</p><h2>ภาพรวมการตรวจสต็อก</h2></div><button class="btn secondary sm" type="button" data-action="refresh-jobs"><svg class="ico" aria-hidden="true"><use href="#ic-refresh"></use></svg> รีเฟรช</button></div>
+<section class="welcome-card">
+          <h2 class="welcome-name"><span>สวัสดี คุณ</span> <strong id="greetingName">สมาชิก</strong>
+            <svg class="ico greeting-mark" aria-hidden="true"><use href="#ic-sparkle"></use></svg></h2>
+          <button class="welcome-profile" hidden type="button" data-nav="profile" aria-label="เปิดโปรไฟล์">
+            <img id="greetingAvatar" alt="" hidden>
+            <span class="avatar-fallback" id="greetingAvatarFallback" aria-hidden="true">P</span>
+          </button>
+        </section>
+        <div id="pendingBanner" class="notice warning" role="status" hidden>มีคำขอบันทึกที่ยังไม่ยืนยัน เปิดงานเดิมเพื่อตรวจสอบผล หรือแจ้งผู้ดูแลก่อนส่งคำขอใหม่</div>
+<div id="homeJobStats" class="stats"></div>
+<div class="home-actions">
+          <button class="home-action choose" type="button" data-action="choose-job"><svg class="ico sm" aria-hidden="true"><use href="#ic-list"></use></svg> <span>เลือกงานตรวจ</span> <svg class="ico sm" aria-hidden="true"><use href="#ic-arrow"></use></svg></button>
+          <button class="home-action create" type="button" data-action="create-job"><svg class="ico sm" aria-hidden="true"><use href="#ic-plus"></use></svg> <span>สร้างงานตรวจ</span> <svg class="ico sm" aria-hidden="true"><use href="#ic-arrow"></use></svg></button>
+        </div>
+        <div id="homeLiveBanner" class="notice" role="status" hidden><span></span><button class="btn secondary sm" type="button" data-action="refresh-jobs" hidden>ลองอีกครั้ง</button></div>
+        <section class="panel search-panel" aria-label="ค้นหาและกรองงาน">
+ <div class="field search-main"><label for="homeSearch">ค้นหางาน</label><div class="searchfield"><svg class="ico" aria-hidden="true"><use href="#ic-search"></use></svg><input id="homeSearch" type="search" placeholder="ชื่อปัญหา เลขเคลม Model หรือ Serial" autocomplete="off"></div></div>
+ <div class="filter-row"><div class="field"><label for="homeClaim">ClaimType</label><select class="control" id="homeClaim"></select></div>
+ <div class="field"><label for="homeProduct">Product</label><select class="control" id="homeProduct"></select></div>
+ <div class="field"><label for="homeModel">Model</label><select class="control" id="homeModel"></select></div></div>
+ </section>
+        <section class="panel pinned-panel">
+          <div class="panel-head"><h2><svg class="ico sm" aria-hidden="true"><use href="#ic-star"></use></svg> งานติดดาว</h2></div>
+          <div id="recentJobs"></div>
+          <button class="btn ghost open-jobs-link" type="button" data-nav="jobs"><span id="openJobsLabel">ดูงานที่เปิดอยู่ทั้งหมด</span><svg class="ico sm" aria-hidden="true"><use href="#ic-arrow"></use></svg></button>
+        </section>
+        <div class="section-title"><h2>รายการงาน</h2><button type="button" class="btn ghost" data-nav="jobs">ดูทั้งหมด</button></div><div id="homeJobs" class="job-grid"></div>
+        <section class="panel monthly-panel"><div><p class="eyebrow">MONTHLY OVERVIEW</p><h2>ความคืบหน้าประจำเดือน</h2><p class="hint">ตามเดือนที่เริ่มงานตรวจ</p><button class="btn ghost" data-nav="overview" type="button">ดูภาพรวมทั้งหมด</button></div><div id="homeMonth"></div></section>
+      </section>
+
+      <section class="view" id="jobs">
+        <div class="page-head"><h1 tabindex="-1">งานตรวจสต็อก</h1><button class="btn primary" type="button" data-action="choose-job"><svg class="ico sm" aria-hidden="true"><use href="#ic-plus"></use></svg> เลือกงานตรวจ</button></div>
+        <div id="jobsLiveBanner" class="notice" role="status" hidden><span></span><button class="btn secondary sm" type="button" data-action="refresh-jobs" hidden>ลองอีกครั้ง</button></div>
+        <section class="panel search-panel" aria-label="ค้นหาและกรองงาน">
+ <div class="field search-main"><label for="jobsSearch">ค้นหางาน</label><div class="searchfield"><svg class="ico" aria-hidden="true"><use href="#ic-search"></use></svg><input id="jobsSearch" type="search" placeholder="ชื่อปัญหา เลขเคลม Model หรือ Serial" autocomplete="off"></div></div>
+ <div class="filter-row"><div class="field"><label for="jobsClaim">ClaimType</label><select class="control" id="jobsClaim"></select></div>
+ <div class="field"><label for="jobsProduct">Product</label><select class="control" id="jobsProduct"></select></div>
+ </div>
+ </section><div class="field state-filter"><label for="jobsState">สถานะงาน</label><select class="control" id="jobsState"><option value="">ทั้งหมด</option value="new">รอเริ่มตรวจ</option><option value="progress">กำลังตรวจ</option><option value="completed">รอรายงาน</option><option value="report-ready">รายงานพร้อม</option><option value="closed">ปิดงาน</option></select></div><div class="list-info"><span id="jobResultCount" role="status"></span><button id="refreshJobs" type="button" class="btn ghost sm" data-action="refresh-jobs"><svg class="ico sm" aria-hidden="true"><use href="#ic-refresh"></use></svg> รีเฟรช</button></div>
+        <div class="job-grid" id="jobGrid"></div>
+      </section>
+
+      <section class="view" id="choose">
+        <div class="page-head"><h1 tabindex="-1">เลือกงานตรวจ</h1></div>
+        <div id="chooseLiveBanner" class="notice" role="status" hidden><span></span><button class="btn secondary sm" type="button" data-action="refresh-jobs" hidden>ลองอีกครั้ง</button></div>
+        <div class="panel filter-fields chooser-fields">
+          <div class="field"><label for="jobSearch">ค้นหางานที่รอเริ่มตรวจ</label><div class="searchfield"><svg class="ico sm" aria-hidden="true"><use href="#ic-search"></use></svg><input id="jobSearch" type="search" autocomplete="off" placeholder="ชื่อปัญหา เลขเคลม หรือรุ่น"></div></div>
+          <div class="field"><label for="claimFilter">ClaimType</label><select class="select" id="claimFilter"></select></div>
+          <div class="field"><label for="modelFilter">Product</label><select class="select" id="modelFilter"></select></div>
+        </div>
+        <div class="field state-filter"><label for="chooseModel">Model</label><select class="control" id="chooseModel"></select></div><div class="list-info"><span id="chooseCount" role="status"></span></div>
+        <div class="job-grid" id="chooseGrid"></div>
+      </section>
+
+      <section class="view" id="overview">
+        <div class="page-head"><div><h1 tabindex="-1">Monthly Overview</h1></div></div>
+        <div id="overviewLiveBanner" class="notice" role="status" hidden><span></span><button class="btn secondary sm" type="button" data-action="refresh-jobs" hidden>ลองอีกครั้ง</button></div>
+        <div id="systemOverview"></div>
+        <div id="monthGrid"></div>
+        <button class="btn secondary older-months" type="button" id="olderMonths" data-action="older-months" hidden>ดูประวัติเดือนก่อนหน้า</button>
+      </section>
+
+      <section class="view" id="monthdetail"><div id="monthContent"></div></section>
+      <section class="view" id="jobdetail"><div id="detailContent"></div></section>
+      <section class="view" id="recorddetail"><div id="recordContent"></div></section>
+      <section class="view" id="jobform"><div id="jobFormContent"></div></section>
+      <section class="view" id="inspection"><div id="inspectionContent"></div></section>
+
+      <section class="view" id="reports">
+        <div class="page-head"><div><h1 tabindex="-1"><svg class="ico report-title-icon" aria-hidden="true"><use href="#ic-file"></use></svg> Reports</h1></div><button class="btn ghost" type="button" data-action="refresh-jobs"><svg class="ico sm" aria-hidden="true"><use href="#ic-refresh"></use></svg> รีเฟรช</button></div>
+        <div id="reportsLiveBanner" class="notice" role="status" hidden><span></span><button class="btn secondary sm" type="button" data-action="refresh-jobs" hidden>ลองอีกครั้ง</button></div>
+        <section class="panel report-controls"><div class="field"><label for="reportJob">ค้นหาชื่อปัญหา</label><input class="control" id="reportJob" type="search" list="reportJobOptions" autocomplete="off" placeholder="พิมพ์ชื่อปัญหา หรือเลขเคลม" aria-describedby="reportJobHint"><datalist id="reportJobOptions"></datalist><small class="hint" id="reportJobHint">พิมพ์เพื่อค้นหา แล้วเลือกรายการที่ต้องการออกรายงาน</small></div><button class="btn primary" id="previewProblem" type="button" data-action="preview-report">Preview / Export PDF</button></section>
+        
+        <section class="panel">
+          <div class="filters" id="reportFilters" aria-label="กรองรายงาน">
+            <button class="filter-chip" type="button" data-report-filter="all">ทั้งหมด</button>
+            <button class="filter-chip" type="button" data-report-filter="waiting">รอไฟล์</button>
+            <button class="filter-chip" type="button" data-report-filter="ready">PDF พร้อม</button>
+          </div>
+          <div id="reportList"></div>
+        </section>
+      </section>
+
+      <section class="view" id="reportpreview"><div id="previewContent"></div></section>
+<section class="view" id="profile">
+        <div class="page-head"><h1 tabindex="-1">Profile</h1></div>
+        <section class="panel">
+          <div class="profilehero"><img class="photo" id="profileAvatar" alt="" hidden><span class="avatar-fallback" id="profileFallback" aria-hidden="true">P</span>
+            <div><h2 id="profileName">สมาชิก</h2><p>Inspection Claim</p></div></div>
+          <div class="list-row"><span>ชื่อในระบบ</span><span id="memberFullName">—</span></div>
+          <div class="list-row"><span>สถานะบัญชี</span><span class="status report-ready" id="memberStatus">อนุมัติแล้ว</span></div>
+          <div class="list-row"><span>สิทธิ์ผู้ใช้งาน</span><span id="memberRole">Inspector</span></div>
+          <div class="list-row" id="systemDateRow" hidden><span>วันที่จัดทำระบบ</span><time id="systemDate"></time></div>
+          <div class="list-row"><span>ฉบับออกแบบหน้าจอ</span><time datetime="2026-11-17">17 พ.ย. 2569</time></div>
+          <button class="btn secondary" type="button" id="appRefresh"><svg class="ico sm" aria-hidden="true"><use href="#ic-refresh"></use></svg> ตรวจสอบสิทธิ์</button>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><h2>User Guide</h2></div>
+          <div class="guide-grid">
+            <details class="guide-step"><summary><span class="guide-icon blue"><svg class="ico sm" aria-hidden="true"><use href="#ic-list"></use></svg></span><span><strong>เลือกหรือสร้างงาน</strong><small>ClaimType · Product · Model</small></span></summary>
+              <ol><li>ไปที่หน้าหลักแล้วแตะ <b>เลือกงานตรวจ</b> เพื่อเปิดงาน NEW</li><li>กรองด้วย ClaimType และ Product หรือค้นชื่อปัญหา</li><li>ถ้าไม่มีงานในรายการ ให้แตะ <b>สร้างงานตรวจ</b> แล้วกรอกชื่อปัญหาและ Model</li></ol></details>
+            <details class="guide-step"><summary><span class="guide-icon violet"><svg class="ico sm" aria-hidden="true"><use href="#ic-edit"></use></svg></span><span><strong>ตั้งค่าเกณฑ์งานใหม่</strong><small>วิธีตรวจและชื่อเกณฑ์</small></span></summary>
+              <ol><li>กรอกวิธีตรวจและเกณฑ์อย่างน้อย 1 ข้อ</li><li>แนบรูปตัวอย่าง OK/NG จากกล้องหรืออัลบั้มได้เมื่อเปิดใช้ที่เก็บรูป</li><li>กด <b>บันทึกและเริ่มตรวจ</b> แล้วแตะดาวเพื่อปักงานไว้หน้าแรก</li></ol></details>
+            <details class="guide-step"><summary><span class="guide-icon amber"><svg class="ico sm" aria-hidden="true"><use href="#ic-clipboard"></use></svg></span><span><strong>บันทึกผลรายคัน</strong><small>Serial · Model · OK/NG</small></span></summary>
+              <ol><li>กด <b>เพิ่มการตรวจ</b> แล้วกรอกเลขตัวรถ รุ่น Lot (ถ้ามี) และวันที่</li><li>อ่านวิธีตรวจ แล้วเลือก OK / NG / NA ในข้อที่ตรวจแล้ว ช่องว่างคือ Pending</li><li>กด <b>บันทึกผลตรวจ</b> ถ้ายังตรวจไม่ครบ กด <b>ตรวจต่อ</b> ที่เลขตัวรถเดิม</li></ol></details>
+            <details class="guide-step"><summary><span class="guide-icon green"><svg class="ico sm" aria-hidden="true"><use href="#ic-file"></use></svg></span><span><strong>จบงานและเปิดรายงาน</strong><small>Reports · PDF</small></span></summary>
+              <ol><li>ตรวจทานผลแล้วกด <b>จบการตรวจ</b> ที่ท้ายหน้างาน</li><li>ไปที่ Reports แล้วกด <b>ดูรายงาน</b> เพื่อเปิดผลทุกคัน</li><li>กด <b>ดาวน์โหลด PDF</b> เมื่อไฟล์พร้อม</li></ol></details>
+          </div>
+        </section>
+        <section class="panel support-panel" id="supportPanel">
+          <div><h2>ติดต่อผู้ดูแล</h2><p class="support-contact">LINE ID <strong id="supportLineId">King12348</strong> (น้องปารีส)</p></div>
+          <div class="section-actions"><button class="btn secondary sm" type="button" id="copyLineID"><svg class="ico sm" aria-hidden="true"><use href="#ic-copy"></use></svg> คัดลอก ID</button><a class="btn ghost sm" target="_blank" rel="noopener noreferrer" href="https://line.me/ti/p/~King12348">เปิด LINE</a></div>
+        </section>
+        <button class="btn full logout-button" type="button" id="appLogout"><svg class="ico sm" aria-hidden="true"><use href="#ic-logout"></use></svg> ออกจากระบบ</button>
+      </section>
+    </main>
+  </div>
+  <nav class="bottom" aria-label="เมนูหลักบนมือถือ">
+<button class="nav-btn" type="button" data-nav="home"><svg class="ico" aria-hidden="true"><use href="#ic-home"></use></svg> หน้าหลัก</button>
+<button class="nav-btn" type="button" data-nav="jobs"><svg class="ico" aria-hidden="true"><use href="#ic-list"></use></svg> งานตรวจ</button>
+<button class="nav-btn" type="button" data-nav="inspection"><svg class="ico" aria-hidden="true"><use href="#ic-qr"></use></svg> ตรวจสต็อก</button>
+<button class="nav-btn" type="button" data-nav="reports"><svg class="ico" aria-hidden="true"><use href="#ic-file"></use></svg> รายงาน</button></nav>
+</div>
+
+<dialog id="qrDialog" aria-labelledby="qrTitle"><h2 id="qrTitle">สแกน QR Code</h2><p class="hint">ตรวจสอบ PIN และ Model จากป้ายก่อนยืนยัน ภาพจากกล้องจะไม่ถูกจัดเก็บ</p><video id="qrVideo" playsinline muted aria-label="ภาพจากกล้องสำหรับอ่าน QR"></video><p id="qrStatus" role="status" aria-live="polite"></p><p id="qrFields" class="hint"></p><div class="field"><label for="qrCandidate">Serial ที่อ่านได้</label><input class="control" id="qrCandidate" readonly></div><div class="section-actions"><button class="btn ghost" id="qrCancel" type="button">ปิด</button><button class="btn secondary" id="qrRetry" type="button">สแกนใหม่</button><button class="btn primary" id="qrUse" type="button" disabled>ใช้ Serial นี้</button></div></dialog>
+<dialog id="confirmDialog" aria-labelledby="confirmTitle">
+  <h2 id="confirmTitle"></h2><p id="confirmText"></p>
+  <form method="dialog"><button class="btn ghost" value="cancel" autofocus>ยกเลิก</button><button class="btn primary" id="confirmButton" value="confirm">ยืนยัน</button></form>
+</dialog>
+
+<script defer src="config.js?v=20261117-search2"></script>
+<script defer src="assets/domain.js?v=20261117-search2"></script>
+<script defer src="assets/adapter.js?v=20261117-search2"></script>
+<script defer src="assets/mock.js?v=20261117-search2"></script>
+<script defer src="assets/vendor/jsQR.js?v=20261117-search2"></script>
+<script defer src="assets/scanner.js?v=20261117-search2"></script>
+<script defer src="assets/app.js?v=20261117-search2"></script>
+</body>
+</html>
+
