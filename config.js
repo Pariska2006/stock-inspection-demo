@@ -9,7 +9,7 @@ window.STOCK_CONFIG = Object.freeze({
   registrationWriteUrl: 'https://n8n-hook.siamkubota.co.th/webhook/stk-liff-users-v1',
   registrationEnabled: true,
   writeGatewayUrl: 'https://n8n-hook.siamkubota.co.th/webhook/stk-liff-write-v1',
-  photoGatewayUrl: '',
+  photoGatewayUrl: 'https://oixxsocunhxqqbfrkgts.supabase.co/functions/v1/stock-photo-bridge',
   writesEnabled: true,
   fourSlotBridgeEnabled: true,
   integrationVerified: false
