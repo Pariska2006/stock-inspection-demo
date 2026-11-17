@@ -1347,13 +1347,32 @@ async function trackWrite(scope, action, payload, makeMatcher, onSaved) {
   let response;
   try {
     response = await post(WRITE_API_URL, action, { payload, clientRequestId: descriptor.clientRequestId });
-  } catch {
-    showFeedback('ยังยืนยันผลคำขอไม่ได้ เก็บสถานะไว้แล้ว ห้ามส่งซ้ำจนกว่าจะตรวจสอบผล', 'warning');
+  } catch (error) {
+    showFeedback('ติดต่อ STK_08 ไม่สำเร็จ: ' + text(error?.message || 'ไม่ทราบสาเหตุ') + ' · คำขอยังค้าง ห้ามกดส่งซ้ำจนกว่าจะตรวจสอบผล', 'warning');
     return false;
   }
-  if (response.status === 'WRITE_REJECTED') { app.pending.delete(scope); persistPending(); showFeedback(response.message || 'คำขอถูกปฏิเสธ กรุณาโหลดข้อมูลล่าสุด', 'error'); return false; }
-  if (response.status !== 'WRITE_REQUEST_ACCEPTED') {
-    showFeedback('ยังยืนยันผลคำขอไม่ได้ กรุณาตรวจสอบกับผู้ดูแล', 'warning');
+  const code = text(response?.status || response?.code || 'UNKNOWN_RESPONSE');
+  const detail = text(response?.message).slice(0, 260);
+  // These states are explicit server-side rejections: STK_08 has not handed
+  // anything to STK_06. Other states could have side effects; keep the journal.
+  const definitelyNotSubmitted = new Set([
+    'WRITE_REJECTED', 'WRITE_BRIDGE_NOT_CONFIGURED', 'NOT_APPROVED',
+    'NOT_REGISTERED', 'TOKEN_REQUIRED', 'INVALID_INPUT', 'BAD_ACTION',
+    'INVALID_ACTION', 'INVALID_REQUEST', 'PERMISSION_DENIED'
+  ]);
+  if (definitelyNotSubmitted.has(code)) {
+    app.pending.delete(scope);
+    persistPending();
+    syncFormControls();
+    showFeedback('STK_08 ไม่รับคำขอ (' + code + ')' + (detail ? ': ' + detail : '') +
+      ' · ยังไม่มีการส่งบันทึกไป STK_06', 'error');
+    return false;
+  }
+  if (code !== 'WRITE_REQUEST_ACCEPTED') {
+    descriptor.response = { requestId: text(response?.requestId), status: code };
+    persistPending();
+    showFeedback('STK_08 ตอบกลับ ' + code + (detail ? ': ' + detail : '') +
+      ' · ยังไม่ยืนยันว่าข้อมูลลง Lists แล้ว กดตรวจสอบผลบันทึกหรือดู STK_08 > Executions ห้ามส่งซ้ำ', 'warning');
     return false;
   }
   descriptor.response = { requestId: text(response.requestId), status: response.status };
