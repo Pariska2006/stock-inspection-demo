@@ -1221,9 +1221,25 @@ function renderCurrent() {
 const isForm = page => page === 'jobform' || page === 'inspection';
 const detailPages = ['choose', 'jobdetail', 'jobform', 'inspection', 'recorddetail', 'monthdetail', 'reportpreview'];
 
+function closeMobileNav(restoreFocus=false){
+ const root=$('appMain'),backdrop=$('mobileNavBackdrop'),toggle=$('mobileNavToggle');
+ if(!root||!backdrop||!toggle)return;
+ const wasOpen=root.classList.contains('mobile-nav-open');
+ root.classList.remove('mobile-nav-open');backdrop.hidden=true;
+ toggle.setAttribute('aria-expanded','false');toggle.setAttribute('aria-label','เปิดเมนูด้านซ้าย');
+ if(restoreFocus&&wasOpen)toggle.focus({preventScroll:true});
+}
+function openMobileNav(){
+ const root=$('appMain'),sidebar=$('mainSidebar'),backdrop=$('mobileNavBackdrop'),toggle=$('mobileNavToggle');
+ if(!root||!sidebar||!backdrop||!toggle||!window.matchMedia('(max-width:840px)').matches)return;
+ root.classList.add('mobile-nav-open');backdrop.hidden=false;
+ toggle.setAttribute('aria-expanded','true');toggle.setAttribute('aria-label','ปิดเมนูด้านซ้าย');
+ sidebar.querySelector('.mobile-nav-close')?.focus({preventScroll:true});
+}
 function navigate(page, focus = false) {
   if (!app.member || !Object.hasOwn(TITLES, page)) return;
   StockQR.stop();
+  closeMobileNav();
   app.page = page;
   $('jobFormContent').replaceChildren();
   $('inspectionContent').replaceChildren();
@@ -1862,6 +1878,12 @@ async function handleClick(event) {
   if (!button || !button.closest('#appMain') || button.disabled || app.busy) return;
   const { action, nav, job, starJob, month, monthFilter, viewRecord, reportFilter, recordFilter, resultSlot, resultValue,
     editRecord, deleteRecord: remove, pickFile, photoRemove } = button.dataset;
+  if (action === 'toggle-mobile-nav') {
+    if ($('appMain').classList.contains('mobile-nav-open')) closeMobileNav(true);
+    else openMobileNav();
+    return;
+  }
+  if (action === 'close-mobile-nav') { closeMobileNav(true); return; }
   if (button.dataset.photoCheck) { await checkPhotoTransfer(button.dataset.photoCheck);
   } else if (button.dataset.previewJob) {
     app.reportJob = button.dataset.previewJob;
@@ -2237,3 +2259,6 @@ document.addEventListener('DOMContentLoaded', init);
 
 // Persist only upload metadata, not image bytes or authentication tokens.
 function restoreTransfers(){try{const stored=JSON.parse(localStorage.getItem(transferKey())||'[]');app.transfers=Array.isArray(stored)?stored:[]}catch{app.transfers=[]}}
+
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&$('appMain')?.classList.contains('mobile-nav-open')){closeMobileNav(true);event.preventDefault();}});
+window.matchMedia('(min-width:841px)').addEventListener('change',event=>{if(event.matches)closeMobileNav();});
