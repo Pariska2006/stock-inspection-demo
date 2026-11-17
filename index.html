@@ -7,7 +7,7 @@
   <meta name="description" content="Stock Inspection — Confirm Tractor in Stock">
   <title>Stock Inspection | KUBOTA — White Minimal Search Update</title>
 <link rel="stylesheet" href="assets/fonts.css?v=20261117-search2">
-<link rel="stylesheet" href="assets/styles.css?v=20261117-report-serial-photo">
+<link rel="stylesheet" href="assets/styles.css?v=20261117-mobile-left-drawer">
 
 </head>
 <body>
@@ -24,6 +24,7 @@
   <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
   <rect x="7" y="7" width="5" height="5" rx="1" />
 </symbol>
+<symbol id="ic-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
 <symbol id="ic-home" viewBox="0 0 24 24">
   <path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" />
   <path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
@@ -205,8 +206,9 @@
 
 <div class="app" id="appMain" hidden>
   <div class="app-layout">
-    <aside class="side"><div class="side-brand"><img src="assets/kubota.png" alt="Kubota"><span>STOCK INSPECTION</span><small>Inspection workspace</small></div>
-      <nav aria-label="เมนูหลักบนเดสก์ท็อป"><button class="nav-btn" type="button" data-nav="home"><svg class="ico sm" aria-hidden="true"><use href="#ic-home"></use></svg> หน้าหลัก</button>
+    <button id="mobileNavBackdrop" class="mobile-nav-backdrop" type="button" data-action="close-mobile-nav" aria-label="ปิดเมนู" hidden></button>
+    <aside class="side" id="mainSidebar" aria-label="เมนูหลัก"><button id="mobileNavClose" class="mobile-nav-close icon-btn" type="button" data-action="close-mobile-nav" aria-label="ปิดเมนูด้านซ้าย"><svg class="ico sm" aria-hidden="true"><use href="#ic-x"></use></svg></button><div class="side-brand"><img src="assets/kubota.png" alt="Kubota"><span>STOCK INSPECTION</span><small>Inspection workspace</small></div>
+      <nav aria-label="เมนูหลัก"><button class="nav-btn" type="button" data-nav="home"><svg class="ico sm" aria-hidden="true"><use href="#ic-home"></use></svg> หน้าหลัก</button>
 <button class="nav-btn" type="button" data-nav="jobs"><svg class="ico sm" aria-hidden="true"><use href="#ic-list"></use></svg> งานตรวจ</button>
 <button class="nav-btn" type="button" data-nav="overview"><svg class="ico sm" aria-hidden="true"><use href="#ic-chart"></use></svg> ภาพรวม</button>
 <button class="nav-btn" type="button" data-nav="reports"><svg class="ico sm" aria-hidden="true"><use href="#ic-file"></use></svg> Reports</button>
@@ -216,6 +218,7 @@
     <main class="workspace" id="workspace" tabindex="-1">
       <header class="topbar">
         <div class="title-left">
+          <button id="mobileNavToggle" class="icon-btn mobile-nav-toggle" type="button" data-action="toggle-mobile-nav" aria-label="เปิดเมนูด้านซ้าย" aria-controls="mainSidebar" aria-expanded="false"><svg class="ico sm" aria-hidden="true"><use href="#ic-menu"></use></svg></button>
           <button id="backButton" class="icon-btn" type="button" data-action="back" aria-label="ย้อนกลับ" hidden><svg class="ico sm" aria-hidden="true"><use href="#ic-back"></use></svg></button>
           <div class="top-brand" id="topBrand"><img class="kubota-logo" src="assets/kubota.png" alt="Kubota"><span class="brand-claim" lang="en">Inspection Claim</span><div id="homeTitle"><h1 lang="en" tabindex="-1">Stock Inspection</h1><p class="brand-subtitle">ระบบตรวจสต็อก</p></div></div>
         </div>
@@ -362,7 +365,7 @@
 <script defer src="assets/mock.js?v=20261117-search2"></script>
 <script defer src="assets/vendor/jsQR.js?v=20261117-search2"></script>
 <script defer src="assets/scanner.js?v=20261117-scanner-autofill-fix"></script>
-<script defer src="assets/app.js?v=20261117-confirm-create-fix"></script>
+<script defer src="assets/app.js?v=20261117-mobile-left-drawer"></script>
 </body>
 </html>
 
