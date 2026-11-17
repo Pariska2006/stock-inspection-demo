@@ -1,7 +1,6 @@
-/* Production: real LINE and n8n reads; only STK_04 registration writes permitted.
-   Do not put Power Automate signed URLs, tokens, or secrets in public GitHub.
-   STK_08/STK_06 inspection writes remain disabled until the server supports
-   criterion-level partial updates and confirmed saved versions. */
+/* Production: LINE + n8n reads and four-slot STK_08/STK_06 writes.
+   Writes are enabled only after STK_07 confirms a complete four-slot read.
+   No atomic concurrency guarantee. Never expose signed PA URLs or credentials. */
 window.STOCK_CONFIG = Object.freeze({
   mode: 'live',
   liffId: '2012530584-4TCAHUlC',
@@ -11,6 +10,7 @@ window.STOCK_CONFIG = Object.freeze({
   registrationEnabled: true,
   writeGatewayUrl: 'https://n8n-hook.siamkubota.co.th/webhook/stk-liff-write-v1',
   photoGatewayUrl: '',
-  writesEnabled: false,
+  writesEnabled: true,
+  fourSlotBridgeEnabled: true,
   integrationVerified: false
 });

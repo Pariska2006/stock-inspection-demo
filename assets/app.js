@@ -8,7 +8,14 @@ const JOBS_API_URL = CONFIG.jobsReadUrl;
 const WRITE_API_URL = CONFIG.writeGatewayUrl;
 const PHOTO_UPLOAD_API_URL = MOCK ? '' : CONFIG.photoGatewayUrl;
 const registrationAllowed = () => MOCK || (CONFIG.mode === 'live' && CONFIG.registrationEnabled === true && safeLink(CONFIG.registrationWriteUrl));
-const liveWritesAllowed = () => MOCK || (CONFIG.mode === 'live' && CONFIG.writesEnabled === true && CONFIG.integrationVerified === true && StockAdapter.canWrite(app.capabilities));
+// The installed STK_07 V4 / STK_08 V2 / STK_06 V2 contract is a four-slot
+// legacy bridge. It does NOT provide atomic version checks or a request-status API.
+// Never advertise those capabilities; use readback and pending-journal safeguards.
+const legacyBridgeReady = () => CONFIG.mode === 'live' && CONFIG.writesEnabled === true &&
+  CONFIG.fourSlotBridgeEnabled === true && app.jobsLive === true && app.loaded === true &&
+  app.recordRead === true && app.partial === false &&
+  app.capabilities?.inspectionV2 === true && app.capabilities?.fourSlotBridge === true;
+const liveWritesAllowed = () => MOCK || legacyBridgeReady();
 let registering = false;
 let sessionEpoch = 0;
 const DOMAIN = StockDomain;
@@ -123,7 +130,16 @@ function idToken() {
 
 async function post(url, action, values = {}, timeout) {
   const read = ['status', 'jobs', 'requestStatus', 'modelMaster'].includes(action);
-  if (!read && !(action==='register'?registrationAllowed():liveWritesAllowed())) throw Error('ยังไม่เปิดการบันทึกข้อมูลจริง รอทดสอบการเชื่อมต่อที่ได้รับอนุญาต');
+  if (!read && !(action==='register'?registrationAllowed():liveWritesAllowed())) throw Error('ระบบบันทึกยังไม่พร้อม: ต้องอ่าน STK_07 V4 ให้ครบและได้รับ fourSlotBridge');
+  if (!read && action !== 'register' && CONFIG.fourSlotBridgeEnabled === true && !MOCK) {
+    const payload = values?.payload || {};
+    const criteria = Array.isArray(payload.criteria) ? payload.criteria : [];
+    if (criteria.length > 4 || criteria.some(c => Number(c.slot) > 4 || Number(c.slot) < 1) ||
+        Object.keys(payload).some(k => /^result(?:[5-9]|1[0-9]|20)(?:Criteria)?$/.test(k) && text(payload[k])))
+      throw Error('Lists ปัจจุบันรองรับ 4 เกณฑ์เท่านั้น กรุณาลดจำนวนเกณฑ์ก่อนบันทึก');
+    if (action === 'saveInspection' && (!criteria.length || Number(payload.schemaVersion) !== 2))
+      throw Error('รูปแบบผลตรวจไม่ตรง STK_08 V2 กรุณารีเฟรชงาน');
+  }
   if (MOCK) { await delay(120); return mockAdapter.request(action, values); }
   if (!safeLink(url)) throw Error('ยังไม่ตั้งค่าบริการที่ได้รับอนุญาต');
   return fetchJson(url, {
@@ -337,6 +353,10 @@ function applyJobs(data) {
   app.partial = !!data.partial || normalized.length !== app.jobs.length || data.jobs.some(job => !job) || normalized.some(job => (job.criteria || []).length > SLOTS.length || new Set((job.criteria || []).map(c => c.id)).size !== (job.criteria || []).length || new Set((job.criteria||[]).map(c=>c.slot)).size !== (job.criteria||[]).length || (job.criteria||[]).some(c=>!SLOTS.includes(c.slot)||!c.label));
   app.deleteEnabled = ENABLE_DELETE_INSPECTION && data.capabilities?.deleteInspection === true;
   app.recordRead = /STK_Inspections/i.test(text(data.source)) || app.jobs.some(job => job.records.length > 0);
+  if (!MOCK) $('environmentBanner').textContent = liveWritesAllowed()
+    ? 'LIVE · อ่าน/บันทึก Microsoft Lists จริง · รองรับ 4 เกณฑ์ · ยังไม่มี atomic version lock'
+    : 'LIVE · อ่าน Microsoft Lists จริง · บันทึกปิดอัตโนมัติเมื่อข้อมูลไม่ครบหรือ Flow ไม่รองรับ';
+  syncFormControls();
   app.loadError = '';
   if (text(data.memberNickname)) renameProfile(data.memberNickname);
   renderCurrent();
@@ -1921,7 +1941,7 @@ async function init() {
   app.initializing = true;
   gate('gateLoading');
   try {
-    $('environmentBanner').textContent = MOCK ? 'DEMO / MOCK · ข้อมูลจำลองในหน่วยความจำ · ไม่เชื่อม Microsoft 365 · รีเฟรชเพื่อเริ่มใหม่' : 'LIVE · ' + (liveWritesAllowed() ? 'เชื่อมบริการที่ตั้งค่าไว้' : 'อ่านอย่างเดียว · ยังไม่เปิดการบันทึกจริง');
+    $('environmentBanner').textContent = MOCK ? 'DEMO / MOCK · ข้อมูลจำลองในหน่วยความจำ · ไม่เชื่อม Microsoft 365 · รีเฟรชเพื่อเริ่มใหม่' : 'LIVE · เชื่อม LINE / Microsoft Lists · โหมดบันทึก 4 เกณฑ์ (รอการอ่านข้อมูลให้ครบ)';
     if (MOCK) {
       app.ready = true;
       app.line = { userId: 'mock-inspector', displayName: 'ผู้ตรวจตัวอย่าง' };
