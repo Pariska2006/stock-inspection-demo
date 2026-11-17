@@ -2162,6 +2162,9 @@ function operationIdentity(operation,job){
     // correlated write request. Never match by title alone (duplicate risk).
     return !!requestId && [job.id, job.importKey].some(value => text(value).endsWith(requestId));
   }
+  if (operation.action === 'deleteInspection') return job.id === operation.payload.jobKey &&
+    Number.isSafeInteger(Number(operation.payload.recordItemId)) &&
+    !liveRecords(job).some(record => Number(record.sharePointItemId) === Number(operation.payload.recordItemId));
   if (operation.action === 'saveInspection') return liveRecords(job).some(record =>
     record.clientRequestId === operation.clientRequestId && recordMatches(record, operation.payload));
   return false;
@@ -2178,6 +2181,8 @@ function operationMatches(operation, job) {
   if (operation.action === 'createJob') return [job.id,job.importKey].some(value => text(value).endsWith(text(operation.response.requestId))) &&
     jobDetailsMatch(job, Object.fromEntries(Object.keys(jobFields).map(key => [key, payload[key]])));
   if (job.id !== payload.jobKey) return false;
+  if (operation.action === 'deleteInspection') return !liveRecords(job).some(record =>
+    Number(record.sharePointItemId) === Number(payload.recordItemId));
   if (operation.action === 'saveInspection') return liveRecords(job).some(record => recordMatches(record, payload,
     payload.overallResult));
   if (operation.action === 'updateJob') return persistedJobUpdateMatches(job, payload);
