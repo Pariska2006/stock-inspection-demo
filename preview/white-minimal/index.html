@@ -263,7 +263,7 @@
  <div class="field search-main"><label for="jobsSearch">ค้นหางาน</label><div class="searchfield"><svg class="ico" aria-hidden="true"><use href="#ic-search"></use></svg><input id="jobsSearch" type="search" placeholder="ชื่อปัญหา เลขเคลม Model หรือ Serial" autocomplete="off"></div></div>
  <div class="filter-row"><div class="field"><label for="jobsClaim">ClaimType</label><select class="control" id="jobsClaim"></select></div>
  <div class="field"><label for="jobsProduct">Product</label><select class="control" id="jobsProduct"></select></div>
- <div class="field"><label for="jobsModel">Model</label><select class="control" id="jobsModel"></select></div></div>
+ </div>
  </section><div class="field state-filter"><label for="jobsState">สถานะงาน</label><select class="control" id="jobsState"><option value="">ทั้งหมด</option value="new">รอเริ่มตรวจ</option><option value="progress">กำลังตรวจ</option><option value="completed">รอรายงาน</option><option value="report-ready">รายงานพร้อม</option><option value="closed">ปิดงาน</option></select></div><div class="list-info"><span id="jobResultCount" role="status"></span><button id="refreshJobs" type="button" class="btn ghost sm" data-action="refresh-jobs"><svg class="ico sm" aria-hidden="true"><use href="#ic-refresh"></use></svg> รีเฟรช</button></div>
         <div class="job-grid" id="jobGrid"></div>
       </section>
@@ -297,7 +297,7 @@
       <section class="view" id="reports">
         <div class="page-head"><div><h1 tabindex="-1"><svg class="ico report-title-icon" aria-hidden="true"><use href="#ic-file"></use></svg> Reports</h1></div><button class="btn ghost" type="button" data-action="refresh-jobs"><svg class="ico sm" aria-hidden="true"><use href="#ic-refresh"></use></svg> รีเฟรช</button></div>
         <div id="reportsLiveBanner" class="notice" role="status" hidden><span></span><button class="btn secondary sm" type="button" data-action="refresh-jobs" hidden>ลองอีกครั้ง</button></div>
-        <section class="panel report-controls"><div class="field"><label for="reportJob">ปัญหา</label><select class="control" id="reportJob"></select></div><button class="btn primary" id="previewProblem" type="button" data-action="preview-report">Preview / Export PDF</button></section>
+        <section class="panel report-controls"><div class="field"><label for="reportJob">ค้นหาชื่อปัญหา</label><input class="control" id="reportJob" type="search" list="reportJobOptions" autocomplete="off" placeholder="พิมพ์ชื่อปัญหา หรือเลขเคลม" aria-describedby="reportJobHint"><datalist id="reportJobOptions"></datalist><small class="hint" id="reportJobHint">พิมพ์เพื่อค้นหา แล้วเลือกรายการที่ต้องการออกรายงาน</small></div><button class="btn primary" id="previewProblem" type="button" data-action="preview-report">Preview / Export PDF</button></section>
         
         <section class="panel">
           <div class="filters" id="reportFilters" aria-label="กรองรายงาน">
