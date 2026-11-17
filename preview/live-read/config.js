@@ -1,4 +1,4 @@
-/* Staging: READ-ONLY real LINE + STK_04/STK_07. No Microsoft writes. */
+/* Staging: LINE + STK_04 registration and STK_07 reads. Inspection/file writes disabled. */
 window.STOCK_CONFIG = Object.freeze({
   mode: 'live',
   liffId: '2012530584-4TCAHUlC',
