@@ -127,3 +127,9 @@ html { scroll-padding-bottom:100px }
 @keyframes stock-write-spin {to{transform:rotate(360deg)}}
 @media(max-width:560px){.vehicle-status-line{grid-template-columns:1fr 1fr}.write-progress-dialog{padding:24px 18px}}
 @media(prefers-reduced-motion:reduce){.write-progress-spinner{animation-duration:2.5s}}
+
+/* Serial-label photo for each inspected vehicle on screen and printable A4 report */
+.report-serial-evidence{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin-top:8px}
+.report-serial-evidence img{display:block;max-width:118px;width:100%;max-height:88px;object-fit:contain;border-radius:5px;border:1px solid #dce5e1;background:#fff}
+.report-serial-evidence small,.report-photo-pending{display:block;color:#64748b;font-size:10px;margin-top:4px}
+@media print{.report-serial-evidence{break-inside:avoid;margin-top:2mm}.report-serial-evidence img{max-width:26mm;max-height:19mm;object-fit:contain}.report-serial-evidence small,.report-photo-pending{font-size:7pt}}
