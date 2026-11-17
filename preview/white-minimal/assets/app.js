@@ -63,7 +63,7 @@ const app = {
   stars: new Set(),
   jobsLoading: false, jobsLive: false, recordRead: false, loaded: false, loadError: '', partial: false,
   yearsVisible: 1, jobsLoadedAt: '', month: '', monthFilter: 'all',
-  reportJob: '', reportFilter: 'all', recordFilter: 'all', detailOrigin: 'jobs', detailMessage: null,
+  reportJob: '', reportQuery: '', reportFilter: 'all', recordFilter: 'all', detailOrigin: 'jobs', detailMessage: null,
   inspectionBaseline: '', busy: false, pending: new Map(), photos: new Map(), uploadDraft: '', dirty: false
 };
 
@@ -478,7 +478,7 @@ function orderedActiveJobs() {
 function filterJobs(jobs) {
   const query = app.search.toLowerCase().trim();
   return jobs.filter(job => (!app.group || selectedProducts(job).includes(app.group)) &&
-    (!app.claimFilter || job.claimCategory === app.claimFilter) && (!app.modelFilter || selectedModels(job).includes(app.modelFilter)) &&
+    (!app.claimFilter || job.claimCategory === app.claimFilter) && (app.page === 'jobs' || !app.modelFilter || selectedModels(job).includes(app.modelFilter)) &&
     (!app.jobState || job.status === app.jobState) &&
     [job.title, job.id, groupLabel(job), job.docNo2, job.detail, job.claimCategory, ...liveRecords(job).map(record => record.serial)].join(' ').toLowerCase().includes(query));
 }
@@ -486,7 +486,7 @@ function syncSearch(prefix) {
   const source = app.jobs;
   choiceOptions(prefix + 'Claim', 'ทั้งหมด', app.claimTypes, app.claimFilter);
   choiceOptions(prefix + 'Product', 'ทั้งหมด', app.products, app.group);
-  choiceOptions(prefix + 'Model', 'ทั้งหมด', [...new Set(source.flatMap(selectedModels))].sort(), app.modelFilter);
+  if ($(prefix + 'Model')) choiceOptions(prefix + 'Model', 'ทั้งหมด', [...new Set(source.flatMap(selectedModels))].sort(), app.modelFilter);
   $(prefix + 'Search').value = app.search;
 }
 function unitStats(jobs, includeJobs = false) {
@@ -668,11 +668,22 @@ function reportJobs() {
 function scopedReportJobs() {
  return app.jobs.filter(job => job.id === app.reportJob).map(job => ({...job,records:liveRecords(job)}));
 }
+function reportOption(job) {
+  return [job.title, claimNumber(job), job.id].filter(Boolean).join(' · ');
+}
 function renderReports() {
-  $('reportJob').innerHTML = '<option value="">ทั้งหมด</option>' + app.jobs.map(job => `<option value="${html(job.id)}">${html(job.title)} · ${html(claimNumber(job))}</option>`).join('');
-  $('reportJob').value = app.reportJob;
+  $('reportJobOptions').innerHTML = app.jobs.map(job => `<option value="${html(reportOption(job))}"></option>`).join('');
+  if (app.reportJob) {
+    const selected = app.jobs.find(job => job.id === app.reportJob);
+    if (selected) app.reportQuery = reportOption(selected);
+    else app.reportJob = '';
+  }
+  if ($('reportJob').value !== app.reportQuery) $('reportJob').value = app.reportQuery;
   $('previewProblem').disabled = !app.jobs.some(job => job.id === app.reportJob);
-  const jobs = reportJobs().map(job => ({...job,records:liveRecords(job)}));
+  const query = app.reportQuery.toLocaleLowerCase().trim();
+  const jobs = reportJobs().filter(job => app.reportJob || !query ||
+    [job.title, claimNumber(job), job.id, ...selectedModels(job)].join(' ').toLocaleLowerCase().includes(query))
+    .map(job => ({...job,records:liveRecords(job)}));
   setPressed($('reportFilters'), 'report-filter', app.reportFilter);
   const filtered = jobs.filter(job =>
     (app.reportFilter === 'ready' ? reportLink(job) : app.reportFilter === 'waiting' ? finished(job) && !reportLink(job) : true));
@@ -2048,12 +2059,17 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) persi
 for (const prefix of ['home', 'jobs']) {
   $(prefix + 'Search').addEventListener('input', event => { app.search = event.target.value; renderCurrent(); });
   for (const [suffix, field] of [['Claim','claimFilter'],['Product','group'],['Model','modelFilter']]) {
-    $(prefix + suffix).addEventListener('change', event => { app[field] = event.target.value; renderCurrent(); });
+    if ($(prefix + suffix)) $(prefix + suffix).addEventListener('change', event => { app[field] = event.target.value; renderCurrent(); });
   }
 }
 $('jobsState').addEventListener('change', event => { app.jobState = event.target.value; renderJobs(); });
 $('chooseModel').addEventListener('change', event => { app.modelFilter = event.target.value; renderChoose(); });
-$('reportJob').addEventListener('change', event => { app.reportJob=event.target.value; renderReports(); });
+$('reportJob').addEventListener('input', event => {
+  app.reportQuery = event.target.value;
+  const match = app.jobs.find(job => reportOption(job).toLocaleLowerCase() === app.reportQuery.trim().toLocaleLowerCase());
+  app.reportJob = match ? match.id : '';
+  renderReports();
+});
 
 document.addEventListener('DOMContentLoaded', init);
 
