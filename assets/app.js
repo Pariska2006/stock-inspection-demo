@@ -1547,7 +1547,7 @@ async function submitJob(event) {
       if (currentJob.status !== job.status || JSON.stringify([...Object.keys(jobFields), 'title', 'targetUnits', 'model'].map(key => currentJob[key])) !== JSON.stringify([...Object.keys(jobFields), 'title', 'targetUnits', 'model'].map(key => job[key]))) throw Error('รายละเอียดงานเปลี่ยนแล้ว กรุณาเปิดงานใหม่');
       if (liveRecords(currentJob).length && SLOTS.some(slot => text(values['result' + slot + 'Criteria']) !== text(currentJob['result' + slot + 'Criteria']))) throw Error('งานมีผลตรวจแล้ว ไม่สามารถเปลี่ยนเกณฑ์ที่ใช้แปลผลเดิมได้');
       await trackWrite(scope, 'updateJob', payload,
-        () => current => current.id === job.id && matchDetails(current),
+        () => current => persistedJobUpdateMatches(current, payload),
         async current => {
           if (app.page === 'jobform') navigate('jobdetail', true);
           if (photoFiles.length) await uploadSavedPhotos(photoFiles, current, '', current.sharePointItemId);
@@ -1577,7 +1577,7 @@ async function submitInspectionSetup(event) {
   const fields = Object.fromEntries(Object.keys(jobFields).map(key => [key, text(job[key])]));
   const details = { ...fields, ...criteria, schemaVersion:2, criteria: SLOTS.filter(slot => criteria['result'+slot+'Criteria']).map(slot => ({id:'C'+slot,slot,label:criteria['result'+slot+'Criteria']})), notes: text(job.storedNotes) };
   await withWrite(() => trackWrite(jobScope(job), 'updateJob', { ...jobData(job), ...details },
-    () => current => current.id === job.id && jobDetailsMatch(current, details),
+    () => current => persistedJobUpdateMatches(current, { ...details, jobKey:job.id, expectedJobVersion:job.version }),
     current => {
       if (app.page === 'inspection' && app.selected === job.id) navigate('inspection', true);
       showFeedback(current.status === 'progress' ? 'บันทึกเกณฑ์แล้ว' : 'บันทึกเกณฑ์แล้ว สถานะงานมีการเปลี่ยนแปลง', 'success');
@@ -2001,7 +2001,52 @@ function persistPending() {
   try { localStorage.setItem(journalKey(), JSON.stringify([...app.pending.values()].map(item => item.descriptor))); return true; }
   catch { return false; }
 }
-function operationIdentity(operation,job){return operation.action==='saveInspection' ? liveRecords(job).some(record=>record.clientRequestId===operation.clientRequestId&&recordMatches(record,operation.payload)) : job.clientRequestId===operation.clientRequestId;}
+
+// STK_06 V2 writes job fields but does not persist a job-level clientRequestId.
+// Confirm an update using the SharePoint version change AND every persisted field.
+// A successful Teams/HTTP receipt alone is never evidence of a saved Lists row.
+function persistedJobUpdateMatches(job, payload) {
+  if (!job || !payload || text(job.id) !== text(payload.jobKey)) return false;
+  if (!payload.expectedJobVersion || !job.version ||
+      text(job.version) === text(payload.expectedJobVersion)) return false;
+  const same = (actual, expected) => text(actual).replace(/\r\n/g, '\n') ===
+    text(expected).replace(/\r\n/g, '\n');
+  for (const key of ['inspectionLocation', 'checkingMethod', 'notes',
+    'okPictureUrl', 'ngPictureUrl']) {
+    if (Object.prototype.hasOwnProperty.call(payload, key)) {
+      if (!same(key === 'notes' ? job.storedNotes : job[key], payload[key])) return false;
+    }
+  }
+  for (let i = 1; i <= 4; i++) {
+    const key = 'result' + i + 'Criteria';
+    if (Object.prototype.hasOwnProperty.call(payload, key) &&
+        !same(job[key], payload[key])) return false;
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'title') &&
+      !same(job.title, payload.title)) return false;
+  if (Object.prototype.hasOwnProperty.call(payload, 'targetUnits') &&
+      (job.targetUnits == null ? null : Number(job.targetUnits)) !==
+      (payload.targetUnits == null ? null : Number(payload.targetUnits))) return false;
+  // The current Lists schema supports one product and one model per job.
+  if (Array.isArray(payload.affectedModels) && payload.affectedModels.length === 1 &&
+      !same(job.model, payload.affectedModels[0])) return false;
+  if (Array.isArray(payload.affectedProducts) && payload.affectedProducts.length === 1 &&
+      !same(job.product, payload.affectedProducts[0])) return false;
+  return true;
+}
+
+function operationIdentity(operation,job){
+  if (operation.action === 'updateJob') return persistedJobUpdateMatches(job, operation.payload);
+  if (operation.action === 'selectJob') return job.id === operation.payload.jobKey &&
+    job.status === 'progress' && text(job.version) !== text(operation.payload.expectedJobVersion);
+  if (operation.action === 'finishJob') return job.id === operation.payload.jobKey &&
+    finished(job) && text(job.version) !== text(operation.payload.expectedJobVersion);
+  if (operation.action === 'createJob') return !!operation.response?.requestId &&
+    text(job.id).endsWith(text(operation.response.requestId));
+  if (operation.action === 'saveInspection') return liveRecords(job).some(record =>
+    record.clientRequestId === operation.clientRequestId && recordMatches(record, operation.payload));
+  return false;
+}
 function operationMatches(operation, job) {
   if(!operationIdentity(operation,job))return false;
   const payload = operation.payload;
@@ -2009,14 +2054,14 @@ function operationMatches(operation, job) {
     if (operation.action === 'createJob') return job.clientRequestId === operation.clientRequestId;
     if (operation.action === 'saveInspection') return job.id === payload.jobKey && liveRecords(job).some(record =>
       record.clientRequestId === operation.clientRequestId && recordMatches(record, payload, payload.overallResult));
-    return job.id === payload.jobKey && job.clientRequestId === operation.clientRequestId && (operation.action === 'updateJob' ? jobDetailsMatch(job, Object.fromEntries(Object.entries(payload).filter(([key]) => !['jobKey','itemId','expectedJobVersion'].includes(key)))) : operation.action === 'finishJob' ? finished(job) : operation.action === 'selectJob' && job.status === 'progress');
+    return job.id === payload.jobKey && job.clientRequestId === operation.clientRequestId && (operation.action === 'updateJob' ? persistedJobUpdateMatches(job, payload) : operation.action === 'finishJob' ? finished(job) : operation.action === 'selectJob' && job.status === 'progress');
   }
   if (operation.action === 'createJob') return text(job.id).endsWith(operation.response.requestId) &&
     jobDetailsMatch(job, Object.fromEntries(Object.keys(jobFields).map(key => [key, payload[key]])));
   if (job.id !== payload.jobKey) return false;
   if (operation.action === 'saveInspection') return liveRecords(job).some(record => recordMatches(record, payload,
     payload.overallResult));
-  if (operation.action === 'updateJob') return jobDetailsMatch(job, Object.fromEntries(Object.entries(payload).filter(([key]) => !['jobKey','itemId','expectedJobVersion'].includes(key))));
+  if (operation.action === 'updateJob') return persistedJobUpdateMatches(job, payload);
   if (operation.action === 'selectJob') return job.status === 'progress';
   if (operation.action === 'finishJob') return finished(job);
   return false;
