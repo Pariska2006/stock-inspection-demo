@@ -128,6 +128,33 @@ html { scroll-padding-bottom:100px }
 @media(max-width:560px){.vehicle-status-line{grid-template-columns:1fr 1fr}.write-progress-dialog{padding:24px 18px}}
 @media(prefers-reduced-motion:reduce){.write-progress-spinner{animation-duration:2.5s}}
 
+
+/* Phone screens use a compact left drawer with the same navigation as desktop. */
+.mobile-nav-toggle,.mobile-nav-close,.mobile-nav-backdrop{display:none}
+.btn.finish:not(:disabled){background:#117746;border:2px solid #0b6137;color:#fff;font-size:16px;font-weight:700;min-height:56px;padding:14px 28px;box-shadow:0 5px 15px rgba(17,119,70,.16)}
+.btn.finish:not(:disabled):hover{background:#095a34;border-color:#095a34;color:#fff}
+.btn.finish:disabled{background:#edf1ee;color:#7c8b83;border:1px solid #d7dfd9;opacity:1;box-shadow:none}
+.btn.finish .ico{width:21px;height:21px}
+.finish-actions{border-top:1px solid var(--line);padding-top:18px;margin-top:22px}
+@media(max-width:840px){
+ .app-layout{display:block}
+ .mobile-nav-toggle{display:inline-grid;place-items:center;flex:none}
+ .mobile-nav-backdrop:not([hidden]){display:block;position:fixed;inset:0;background:rgba(16,28,23,.48);z-index:79}
+ .side{display:flex;position:fixed;inset:0 auto 0 0;width:min(290px,86vw);height:100dvh;z-index:80;overflow-y:auto;overscroll-behavior:contain;padding:26px 16px 24px;background:var(--paper);box-shadow:12px 0 36px rgba(15,23,42,.13);transform:translateX(-105%);visibility:hidden;transition:transform .2s ease,visibility .2s}
+ .app.mobile-nav-open .side{transform:translateX(0);visibility:visible}
+ .mobile-nav-close{display:inline-grid;position:absolute;right:12px;top:16px;z-index:1}
+ .side-brand{padding-right:40px}
+ .bottom,.form-page .bottom{display:none!important}
+ .view{padding-bottom:28px}
+ .form-page .view{padding-bottom:18px}
+ .finish-actions{justify-items:stretch;gap:10px}
+ .finish-actions .btn.finish{width:100%;min-height:58px}
+ .topbar{gap:8px}
+}
+@media(max-width:380px){.topbar{padding:12px}.title-left{gap:6px}.top-brand .kubota-logo{width:68px}.user-top{max-width:36%}}
+@media print{.mobile-nav-toggle,.mobile-nav-close,.mobile-nav-backdrop{display:none!important}}
+@media(prefers-reduced-motion:reduce){.side{transition:none}}
+
 /* Serial-label photo for each inspected vehicle on screen and printable A4 report */
 .report-serial-evidence{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin-top:8px}
 .report-serial-evidence img{display:block;max-width:118px;width:100%;max-height:88px;object-fit:contain;border-radius:5px;border:1px solid #dce5e1;background:#fff}
