@@ -879,7 +879,7 @@ function reportSummary(job, records) {
     const { status } = vehicleInspection(job, record);
     if (status) total[status]++;
     return total;
-  }, { OK: 0, NG: 0, pending: 0 };
+  }, { OK: 0, NG: 0, pending: 0 });
   const unknown = records.length - counts.OK - counts.NG - counts.pending;
   const incomplete = StockDomain.summary([{ ...job, records }]).incomplete;
   const criteria = [...new Set(records.flatMap(record => recordCriteria(job, record)))].sort();
@@ -1008,7 +1008,7 @@ function formFoot(label, scope) {
 function criteriaEditor(job) {
   const shown = slot => slot === 1 || !!text(job?.['result' + slot + 'Criteria']);
   return `<div class="section-title"><h2>เกณฑ์ตรวจ</h2><small class="hint">อย่างน้อย 1 เกณฑ์ · ระบบปัจจุบันรองรับ 4 เกณฑ์</small></div>
-    <div class="criteria-editor" id="criteriaEditor">${SLOTS.map(slot => `<div data-criteria-row ${shown(slot) ? '' : 'hidden'}>
+    <div class="criteria-editor" id="criteriaEditor">${SUPPORTED_CRITERIA.map(slot => `<div data-criteria-row ${shown(slot) ? '' : 'hidden'}>
       ${field('jfCriteria' + slot, 'เกณฑ์ข้อ ' + slot, job?.['result' + slot + 'Criteria'], {
         placeholder: 'เช่น ไม่มีน้ำมันรั่วบริเวณจุดต่อ'
       })}</div>`).join('')}</div>
