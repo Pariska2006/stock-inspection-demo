@@ -36,7 +36,7 @@ const SLOTS = StockDomain.slots;
 const SUPPORTED_CRITERIA = SLOTS.slice(0, 4); // Microsoft Lists V2 bridge currently supports exactly four slots
 const PHOTOS = [1]; // One serial-number evidence photo per inspected vehicle
 // Enable only when both write and read flows support inspection deletion.
-const ENABLE_DELETE_INSPECTION = false;
+const ENABLE_DELETE_INSPECTION = true; // Display deletion only if STK_07 advertises supported safe delete workflow.
 const MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
 const STATUS = {
   unknown: 'ไม่ทราบสถานะ', new: 'รอเริ่มตรวจ', progress: 'กำลังดำเนินการ', completed: 'รอรายงาน',
@@ -566,15 +566,20 @@ function unitStats(jobs, includeJobs = false) {
 
 function renderHome() {
   const jobs = orderedActiveJobs();
-  const pinned = jobs.filter(job => app.stars.has(job.id));
+  // Starred jobs are shown together with the other selected jobs.
   const selected = selectedJobs(), done = selected.filter(finished).length;
-  $('homeJobStats').innerHTML = stat('งานที่เลือกตรวจ', selected.length, 'list') + stat('เสร็จแล้ว', done, 'check') + stat('กำลังดำเนินการ', selected.length - done, 'clock');
+  $('homeJobStats').innerHTML = `<div class="home-progress-cell all"><span class="home-progress-label">${icon('list')} งานที่เลือกตรวจ</span><strong>${selected.length}</strong><small>ทั้งหมดที่เริ่มตรวจแล้ว</small></div>
+  <div class="home-progress-cell ongoing"><span class="home-progress-label">${icon('clock')} กำลังดำเนินการ</span><strong>${selected.length-done}</strong><small>งานที่ยังตรวจไม่เสร็จ</small></div>
+  <div class="home-progress-cell finished"><span class="home-progress-label">${icon('check')} เสร็จแล้ว</span><strong>${done}</strong><small>งานที่ปิดการตรวจแล้ว</small></div>`;
 
   $('pendingBanner').hidden = !app.pending.size;
   $('openJobsLabel').textContent = 'ดูงานที่เลือกตรวจแล้ว' + (app.loaded ? ' (' + selected.length + ')' : '');
-  $('recentJobs').innerHTML = pinned.length ? pinned.map(jobCard).join('') : blank('แตะดาวที่งานกำลังตรวจเพื่อปักไว้ตรงนี้');
+  $('recentJobs').innerHTML = ''; // Pinned jobs are sorted into the same selected-jobs list to avoid duplicate cards.
   syncSearch('home');
-  const shown = filterJobs(selected).sort((a,b) => Number(b.status === 'progress') - Number(a.status === 'progress') || text(b.updated).localeCompare(text(a.updated))).slice(0, 6);
+  const shown = filterJobs(selected).sort((a,b) =>
+    Number(b.status === 'progress') - Number(a.status === 'progress') ||
+    Number(app.stars.has(b.id)) - Number(app.stars.has(a.id)) ||
+    text(b.updated).localeCompare(text(a.updated))).slice(0, 10);
   $('homeJobs').innerHTML = shown.length ? shown.map(jobCard).join('') : blank('ไม่พบงานที่ตรงกับตัวกรอง');
   const key = dateValue(new Date()).slice(0, 7), buckets = jobsByMonth();
   $('homeMonth').innerHTML = monthCard(key, buckets.get(key) || [], true);
@@ -911,8 +916,16 @@ function auditHistoryMarkup(job,record){
  return `<details class="panel audit-history"><summary>ประวัติการแก้ไข (${history.length})</summary>${MOCK?'<p class="hint">ประวัติจำลอง ไม่ใช่ audit ของบริษัท</p>':''}${history.length?[...history].reverse().map(entry=>`<article class="audit-entry"><h3>${html(entry.actor||'—')} · ${niceDate(entry.at)}</h3><small class="hint">Version ${html(entry.version)} · Request ${html(entry.requestId)}</small>${(entry.changes||[]).map(change=>`<p>${html(DOMAIN.criteria(job,record).find(c=>c.id===change.criterionId)?.label||change.criterionId)}: ${html(change.result||'กำลังดำเนินการ')}${change.note?' · '+html(change.note):''}${change.ngDetail?' · NG: '+html(change.ngDetail):''}</p>`).join('')}</article>`).join(''):'<p class="hint">ยังไม่มีประวัติจากบริการอ่านข้อมูล</p>'}</details>`;
 }
 function groupedVehicles(job,records,active,completed){
- const groups=new Map();for(const record of records){const key=[record.product||'—',record.model||'—'].join(' · ');if(!groups.has(key))groups.set(key,[]);groups.get(key).push(record)}
- return [...groups.entries()].map(([model,rows])=>`<section class="vehicle-model-group"><h3>${icon('truck')} ${html(model)} <span class="pill">${rows.length} คัน</span></h3>${rows.map(record=>completed?reportRecord(job,record):recordLine(job,record,active)).join('')}</section>`).join('');
+ // One unified list: unfinished inspections come first even across different Models.
+ const sorted=[...records].sort((a,b)=>
+   Number(!vehicleInspection(job,b).complete)-Number(!vehicleInspection(job,a).complete) ||
+   text(b.checkedAt).localeCompare(text(a.checkedAt)) ||
+   (Number(b.sharePointItemId)||0)-(Number(a.sharePointItemId)||0));
+ const pending=sorted.filter(r=>!vehicleInspection(job,r).complete);
+ const done=sorted.filter(r=>vehicleInspection(job,r).complete);
+ const output=rows=>rows.map(record=>completed?reportRecord(job,record):recordLine(job,record,active)).join('');
+ return (pending.length?`<section class="vehicle-priority-group"><h3>${icon('clock')} กำลังดำเนินการ <span class="pill">${pending.length} คัน</span></h3>${output(pending)}</section>`:'')+
+ (done.length?`<section class="vehicle-priority-group"><h3>${icon('check')} ตรวจครบแล้ว <span class="pill">${done.length} คัน</span></h3>${output(done)}</section>`:'');
 }
 
 
@@ -965,7 +978,9 @@ function renderDetail() {
     const { status } = vehicleInspection(job, record);
     if (status) counts[status]++;
     return app.recordFilter === 'all' || status === app.recordFilter;
-  }).sort((a, b) => text(b.checkedAt).localeCompare(text(a.checkedAt)) ||
+  }).sort((a, b) =>
+    Number(!vehicleInspection(job,b).complete) - Number(!vehicleInspection(job,a).complete) ||
+    text(b.checkedAt).localeCompare(text(a.checkedAt)) ||
     (Number(b.sharePointItemId) || 0) - (Number(a.sharePointItemId) || 0));
   if (app.recordFilter === 'NA') app.recordFilter = 'pending';
   const filters = [['all', 'รถในรายการทั้งหมด'], ['OK', 'OK'], ['NG', 'NG']];
@@ -993,14 +1008,16 @@ function renderDetail() {
       ${completed && openedDate(job) ? `<div class="info"><small>Start Date</small><span>${niceDate(openedDate(job))}</span></div>` : ''}
       ${completed && dateValue(job.closedAt) ? `<div class="info"><small>Completion Date</small><span>${niceDate(job.closedAt)}</span></div>` : ''}
     </div>
+    ${job.checkingMethod || active ? `<section class="inspection-info-section">
+      <h2>${icon('clipboard')} วิธีการตรวจ</h2>
+      <p class="inspection-intro">${html(job.checkingMethod||'ยังไม่ระบุวิธีตรวจ')}</p>
+    </section>` : ''}
+    ${criteria.length || active ? `<section class="inspection-info-section criteria-visible">
+      <h2>${icon('check')} เกณฑ์การตรวจ</h2>
+      ${criteria.length ? `<ol>${criteria.map(slot => `<li>${html(criterionLabel(job,slot))}</li>`).join('')}</ol>` : '<p class="hint">ยังไม่มีเกณฑ์ตรวจ</p>'}
+    </section>` : ''}
     ${referencePictures(job)}
-    ${job.checkingMethod || criteria.length || active ? `<details open class="details-toggle job-criteria">
-      <summary>วิธีและเกณฑ์ตรวจ</summary>
-      ${job.checkingMethod ? `<p class="inspection-intro">${html(job.checkingMethod)}</p>` : ''}
-      ${criteria.length ? `<ul>${criteria.map(slot => `<li>${html(criterionLabel(job, slot))}</li>`).join('')}</ul>` :
-        '<p class="hint">ยังไม่มีเกณฑ์ตรวจ</p>'}
-    </details>` : ''}
-    ${job.notes ? `<details class="details-toggle"><summary>หมายเหตุงาน</summary><p class="detail-desc">${html(job.notes)}</p></details>` : ''}
+    ${job.notes ? `<section class="inspection-info-section notes-visible"><h2>หมายเหตุงาน</h2><p class="detail-desc">${html(job.notes)}</p></section>` : ''}
     ${action && !active ? `<div class="detail-actions">${action}</div>` : ''}
   </section>
   ${detailNotice(job)}${transferMarkup(job)}
@@ -1171,20 +1188,23 @@ function renderInspection() {
       ${field('insDate','วันที่ตรวจ',dateValue(record?.checkedAt)||dateValue(new Date()),{type:'date',required:true})}
     </div>
     <p class="hint">${html(app.modelMasterSource||'ยังไม่พบ Model Master · ตัวเลือกอ้างอิงจากขอบเขต Job')} · ไม่อนุมาน Model จาก PIN</p>
-    <details class="optional-detail"><summary>สถานที่ / Lot</summary><div class="two-col optional-body">${field('insLocation','สถานที่ตรวจ',record?.location||job.inspectionLocation||'',{max:160})}${field('insLot','Lot No.',record?.lotNo,{max:100})}</div></details>
-    <details class="inspection-method" open><summary>${icon('clipboard')} วิธีการตรวจ</summary><p>${html(job.checkingMethod||'ยังไม่ระบุวิธีตรวจ')}</p><details><summary>รูปอ้างอิงร่วมของงาน</summary>${referencePictures(job)}</details></details>
-    <div class="inspection-title"><h2>ผลรายเกณฑ์</h2><small class="hint">${criteria.length} ข้อ</small></div>
+    <div class="two-col location-fields">${field('insLocation','สถานที่ตรวจ (ไม่บังคับ)',record?.location||job.inspectionLocation||'',{max:160})}${field('insLot','Lot No. (ไม่บังคับ)',record?.lotNo,{max:100})}</div>
+    <section class="inspection-info-section method-visible"><h2>${icon('clipboard')} วิธีการตรวจ</h2><p class="inspection-intro">${html(job.checkingMethod||'ยังไม่ระบุวิธีตรวจ')}</p></section>
+    <section class="inspection-info-section criteria-visible"><h2>${icon('check')} เกณฑ์การตรวจ</h2>
+    <ol>${criteria.map(c=>`<li>${html(c.label)}</li>`).join('')}</ol></section>
+    <section class="inspection-reference-group"><h3>รูปอ้างอิงการตรวจ</h3>${referencePictures(job)}</section>
+    <div class="inspection-title"><h2>ผลตรวจรายเกณฑ์</h2><small class="hint">${criteria.length} ข้อ</small></div>
     <p class="hint">ไม่ต้องเลือก OK/NG ทุกข้อก็สามารถบันทึกได้ · ช่องที่ยังไม่เลือกเป็นกำลังดำเนินการ · กดผลที่เลือกซ้ำเพื่อยกเลิก</p>
     <div class="check-table">${criteria.map(c=>{
       const detail=DOMAIN.criterionValue(record||{},c),chosen=detail.result;
       return `<article class="check-row" data-state="${chosen.toLowerCase()||'pending'}"><div class="check-description" id="checkLabel${c.slot}">${html(c.label)}</div>
         <div class="check-choices" role="group" aria-labelledby="checkLabel${c.slot}">${['OK','NG'].map(value=>`<button class="pick-result ${chosen===value?'selected '+value.toLowerCase():''}" type="button" data-result-slot="${c.slot}" data-result-value="${value}" aria-pressed="${chosen===value}">${value}</button>`).join('')}</div>
         <input id="insR${c.slot}" type="hidden" value="${html(chosen)}">
-        <details class="criterion-notes" ${detail.note||detail.ngDetail?'open':''}><summary>หมายเหตุ / รายละเอียด NG</summary><div class="optional-body">${area('insNote'+c.slot,'หมายเหตุเกณฑ์นี้',detail.note,{max:500})}${area('insNG'+c.slot,'รายละเอียด NG',detail.ngDetail,{max:500})}</div></details>
+        <div class="criterion-notes inline-notes"><div class="optional-body">${area('insNote'+c.slot,'หมายเหตุเกณฑ์นี้ (ไม่บังคับ)',detail.note,{max:500})}${area('insNG'+c.slot,'รายละเอียด NG (หากพบปัญหา)',detail.ngDetail,{max:500})}</div></div>
         ${detail.updatedAt?`<small class="hint">แก้ล่าสุด ${html(niceDate(detail.updatedAt))} · ${html(detail.inspector||'—')}</small>`:''}</article>`;
     }).join('')}</div>
     <div id="liveOverallResult" class="live-result" aria-live="polite"></div>
-    <details class="optional-detail" id="inspectionNotes" ${record?.note?'open':''}><summary id="inspectionNotesLabel">หมายเหตุรวม</summary><div class="optional-body">${area('insRemarks','หมายเหตุรวม',record?.note)}</div></details>
+    <div class="inspection-global-notes" id="inspectionNotes">${area('insRemarks','หมายเหตุรวม (ไม่บังคับ)',record?.note)}</div>
     <details class="optional-detail" id="optionalPhotos" ${record?.photoSlots?.some(Boolean)?'open':''}><summary>รูป Label / PIN <span>ไม่บังคับ</span></summary><div class="optional-body">${photoConnectionHint()}${photoInput(1,record?.photoSlots?.[0],'รูป Label / PIN ของรถคันนี้')}</div></details>
     <p class="hint">ผู้ตรวจ ${html(memberName())}</p></fieldset>${formFoot('บันทึกผลตรวจ',jobScope(job))}</form>`;
   $('insProduct').addEventListener('change',()=>{const choices=modelChoices(job,val('insProduct'));$('inspectionModels').innerHTML=choices.map(m=>`<option value="${html(m)}"></option>`).join('');$('insModel').value='';app.dirty=true;persistDraft()});
@@ -1752,8 +1772,8 @@ async function deleteRecord(id) {
   if (!await confirmAction('ลบผลตรวจ', 'นำผลตรวจ ' + record.serial + ' ออกจากยอดตรวจของงานนี้', 'ลบผลตรวจ')) return;
   await withWrite(() => trackWrite(jobScope(job), 'deleteInspection',
     { ...jobData(job), recordItemId: Number(record.sharePointItemId), serial: record.serial },
-    () => (current, response) => !response.partial && current.id === job.id &&
-      !liveRecords(current).some(item => item.sharePointItemId === record.sharePointItemId),
+    () => current => current.id === job.id &&
+      !liveRecords(current).some(item => Number(item.sharePointItemId) === Number(record.sharePointItemId)),
     () => showFeedback('ลบผลตรวจ ' + record.serial + ' แล้ว', 'success')));
 }
 
