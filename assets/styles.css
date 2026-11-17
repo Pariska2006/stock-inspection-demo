@@ -160,3 +160,44 @@ html { scroll-padding-bottom:100px }
 .report-serial-evidence img{display:block;max-width:118px;width:100%;max-height:88px;object-fit:contain;border-radius:5px;border:1px solid #dce5e1;background:#fff}
 .report-serial-evidence small,.report-photo-pending{display:block;color:#64748b;font-size:10px;margin-top:4px}
 @media print{.report-serial-evidence{break-inside:avoid;margin-top:2mm}.report-serial-evidence img{max-width:26mm;max-height:19mm;object-fit:contain}.report-serial-evidence small,.report-photo-pending{font-size:7pt}}
+
+/* Selected work overview — unified summary instead of three separate cards */
+.home-work-overview{border:1px solid #d9e6dc;background:#f8fbf9;border-radius:16px;padding:18px 20px;margin-bottom:18px}
+.home-overview-heading{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:15px}
+.home-overview-heading h2{font-size:18px;font-weight:650;color:#22382d}
+.home-overview-heading span{font-size:12px;color:#617168}
+.home-progress-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0}
+.home-progress-cell{display:grid;gap:5px;padding:4px 18px;border-right:1px solid #dce8df;min-width:0}
+.home-progress-cell:first-child{padding-left:0}.home-progress-cell:last-child{border-right:0}
+.home-progress-label{display:flex;gap:7px;align-items:center;font-size:12px;color:#536b5b;font-weight:600}
+.home-progress-label .ico{width:16px;height:16px}
+.home-progress-cell strong{font-size:32px;line-height:1.2;letter-spacing:-.03em;color:#263238}
+.home-progress-cell.ongoing strong{color:#9b6509}.home-progress-cell.finished strong{color:#147447}
+.home-progress-cell small{font-size:11px;color:#718079}
+.inspection-info-section{border:1px solid #dfe7e2;border-radius:12px;padding:16px 18px;background:#fff;margin:14px 0}
+.inspection-info-section h2{font-size:15px;color:#206443;display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.inspection-info-section .inspection-intro,.inspection-info-section .detail-desc{white-space:pre-wrap;font-size:14px;line-height:1.8;color:#344740}
+.inspection-info-section.criteria-visible{background:#f8fbf9;border-color:#dce9e0}
+.inspection-info-section ol{margin:0;padding-left:24px;display:grid;gap:8px;line-height:1.7}
+.inspection-reference-group{margin:14px 0}
+.inspection-reference-group h3{margin-bottom:8px}
+.check-row .inline-notes{width:100%;border-top:1px solid #e9eef0;padding-top:10px}
+.inline-notes .optional-body{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:0}
+.inline-notes textarea{min-height:65px}
+.inspection-global-notes{border-top:1px solid var(--line);padding-top:14px}
+.location-fields{border:1px solid #e7ece8;border-radius:10px;padding:14px}
+.vehicle-priority-group{margin-top:18px}
+.vehicle-priority-group>h3{font-size:14px;font-weight:650;display:flex;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid #dce8df;color:#475b4d}
+.vehicle-priority-group:first-of-type>h3{color:#946019}
+.vehicle-priority-group .pill{margin-left:auto}
+@media(max-width:550px){
+ .home-work-overview{padding:14px}
+ .home-overview-heading span{font-size:11px}
+ .home-progress-cell{padding:3px 8px}
+ .home-progress-cell strong{font-size:26px}
+ .home-progress-label{font-size:10px;gap:4px}
+ .home-progress-label .ico{width:14px;height:14px}
+ .home-progress-cell small{font-size:9px}
+ .inline-notes .optional-body{grid-template-columns:1fr}
+ .inspection-info-section{padding:14px}
+}
