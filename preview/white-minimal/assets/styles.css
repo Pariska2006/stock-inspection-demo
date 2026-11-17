@@ -106,3 +106,7 @@ html { scroll-padding-bottom:100px }
 
 #homeJobStats{grid-template-columns:repeat(3,minmax(0,1fr))}.dashboard-stats .stat{gap:8px;min-height:88px}.scope-products{border:1px solid var(--line);border-radius:8px;padding:12px}.upload-state{padding:12px 0;border-bottom:1px solid var(--line)}.upload-state>strong{margin-right:10px}.upload-state.failed .result-tag{color:var(--red-ink);background:var(--red)}.upload-state.uploaded .result-tag{color:var(--ok);background:var(--teal)}
 @media(max-width:550px){#homeJobStats{grid-template-columns:repeat(2,minmax(0,1fr))}.dashboard-stats .stat:first-child{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;min-height:60px}.dashboard-stats .stat{min-height:76px}.reference-grid{grid-template-columns:1fr}}
+
+/* Searchable report picker and simplified two-filter jobs view */
+.search-panel .filter-row { grid-template-columns: repeat(2,minmax(0,1fr)); }
+#reportJob { width:100%; }
