@@ -1640,9 +1640,15 @@ async function finishJob() {
   if (job.status !== 'progress') return showFeedback('กรุณาตั้งค่าและเริ่มตรวจงานก่อนจบการตรวจ', 'warning');
   if (app.pending.has(jobScope(job))) return showFeedback('ยังมีคำขอบันทึกค้างอยู่ กรุณากดตรวจสอบผลบันทึกก่อนจบงาน', 'warning');
   const recordsNow = liveRecords(job);
-  if (!recordsNow.length) return showFeedback('ยังไม่มีรถที่บันทึกผล กรุณาตรวจอย่างน้อย 1 คันก่อนจบงาน', 'warning');
+  if (!recordsNow.length) {
+    const message = 'ยังจบการตรวจไม่ได้\\n\\nยังไม่มีรถที่บันทึกผล กรุณาตรวจอย่างน้อย 1 คันก่อน';
+    window.alert(message);
+    return showFeedback('ยังไม่มีรถที่บันทึกผล กรุณาตรวจอย่างน้อย 1 คันก่อนจบงาน', 'warning');
+  }
   const unfinished = recordsNow.filter(record => !vehicleInspection(job, record).complete);
   if (unfinished.length) {
+    const message = 'ยังจบการตรวจไม่ได้\\n\\nเหลือรถที่ตรวจไม่ครบ ' + unfinished.length + ' คัน\\nกรุณากลับไปตรวจเกณฑ์ที่ค้างให้ครบก่อน แล้วจึงกดจบการตรวจอีกครั้ง';
+    window.alert(message);
     return showFeedback('ยังจบงานไม่ได้: รถอีก ' + unfinished.length + ' คันตรวจเกณฑ์ไม่ครบ · เปิดรถที่กำลังดำเนินการเพื่อตรวจให้ครบก่อน', 'warning');
   }
   if (!await confirmAction('จบการตรวจ', 'งานจะย้ายไปหน้ารายงานและปิดการแก้ผลตรวจรายคัน', 'จบการตรวจ')) return;
