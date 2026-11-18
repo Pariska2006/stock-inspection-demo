@@ -396,7 +396,7 @@ function applyJobs(data) {
   app.loaded = true;
   app.jobsLoadedAt = new Date().toISOString();
   app.partial = !!data.partial || normalized.length !== app.jobs.length || data.jobs.some(job => !job) || normalized.some(job => (job.criteria || []).length > SLOTS.length || new Set((job.criteria || []).map(c => c.id)).size !== (job.criteria || []).length || new Set((job.criteria||[]).map(c=>c.slot)).size !== (job.criteria||[]).length || (job.criteria||[]).some(c=>!SLOTS.includes(c.slot)||!c.label));
-  app.deleteEnabled = ENABLE_DELETE_INSPECTION && data.capabilities?.deleteInspection === true;
+  app.deleteEnabled = ENABLE_DELETE_INSPECTION && !app.partial && /STK_Inspections/i.test(text(data.source));
   app.recordRead = /STK_Inspections/i.test(text(data.source)) || app.jobs.some(job => job.records.length > 0);
   if (!MOCK) $('environmentBanner').textContent = liveWritesAllowed()
     ? 'LIVE · อ่าน/บันทึก Microsoft Lists จริง · รองรับ 4 เกณฑ์ · ยังไม่มี atomic version lock'
