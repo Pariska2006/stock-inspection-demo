@@ -41,12 +41,12 @@ const PHOTOS = [1]; // One serial-number evidence photo per inspected vehicle
 const ENABLE_DELETE_INSPECTION = true; // Display deletion only if STK_07 advertises supported safe delete workflow.
 const MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
 const STATUS = {
-  unknown: 'ไม่ทราบสถานะ', new: 'รอเริ่มตรวจ', progress: 'กำลังดำเนินการ', completed: 'รอรายงาน',
-  'waiting-report': 'รอรายงาน', 'report-ready': 'เสร็จสมบูรณ์', closed: 'เสร็จสมบูรณ์'
+  unknown: 'ไม่ทราบสถานะ', new: 'รอเริ่มตรวจ', progress: 'กำลังดำเนินการ', completed: 'เสร็จแล้ว',
+  'waiting-report': 'เสร็จแล้ว', 'report-ready': 'เสร็จแล้ว', closed: 'เสร็จแล้ว'
 };
 const TITLES = {
   reportpreview: 'Report Preview', home: 'Stock Inspection', choose: 'เลือกงานตรวจ', jobs: 'งานตรวจ', overview: 'Monthly Overview', monthdetail: 'Monthly Overview', reports: 'Reports',
-  profile: 'Profile', myjobs: 'งานของฉัน', members: 'สมาชิก', recorddetail: 'ผลตรวจรายคัน', jobdetail: 'รายละเอียดงาน', jobform: 'จัดการงานตรวจ', inspection: 'ผลตรวจรายคัน'
+  profile: 'Profile', members: 'สมาชิก', recorddetail: 'ผลตรวจรายคัน', jobdetail: 'รายละเอียดงาน', jobform: 'จัดการงานตรวจ', inspection: 'ผลตรวจรายคัน'
 };
 const GATES = ['gateLoading', 'gateLogin', 'gateRegister', 'gatePending', 'gateBlocked', 'gateError'];
 const TIME_ZONE = 'Asia/Bangkok';
@@ -710,7 +710,7 @@ function unitStats(jobs, includeJobs = false) {
 
 function renderHome() {
   const jobs = orderedActiveJobs();
-  // Starred jobs are shown together with the other selected jobs.
+  // Personal work is assigned work or work the current inspector started/recorded.
   const selected = selectedJobs(), done = selected.filter(finished).length;
   const donePercent = selected.length ? Math.round(done / selected.length * 100) : 0;
   $('homeJobStats').innerHTML = `<div class="home-progress-cell all"><span class="home-progress-label">${icon('list')} งานที่เลือกตรวจ</span><strong>${selected.length}</strong><small>ทั้งหมดที่เริ่มตรวจแล้ว</small></div>
@@ -718,12 +718,11 @@ function renderHome() {
   <div class="home-progress-cell finished"><span class="home-progress-label">${icon('check')} เสร็จแล้ว</span><strong>${donePercent}%</strong><small>ปิดการตรวจแล้ว ${done} จาก ${selected.length} งาน</small></div>`;
 
   // Pending writes remain protected and accessible within their original jobs.
-  // Pinned work is prioritized in homeJobs; no duplicate pinned container.
+  // Starred work is only pinned first. It never changes job status or assignment.
   syncSearch('home');
-  const shown = filterJobs(selected).sort((a,b) =>
-    Number(b.status === 'progress') - Number(a.status === 'progress') ||
+  const shown = filterJobs(myJobs().filter(job=>job.status==='progress')).sort((a,b) =>
     Number(app.stars.has(b.id)) - Number(app.stars.has(a.id)) ||
-    text(b.updated).localeCompare(text(a.updated))).slice(0, 10);
+    text(b.updated).localeCompare(text(a.updated)));
   $('homeJobs').innerHTML = shown.length ? shown.map(jobCard).join('') : blank('ไม่พบงานที่ตรงกับตัวกรอง');
   const key = dateValue(new Date()).slice(0, 7), buckets = jobsByMonth();
   $('homeMonth').innerHTML = monthCard(key, buckets.get(key) || [], true);
@@ -1621,7 +1620,7 @@ function renderMembers() {
 
 function renderCurrent() {
   const render = {
-    home: renderHome, myjobs: renderMyJobs, members: renderMembers, overview: renderOverview, monthdetail: renderMonthDetail, jobs: renderJobs, choose: renderChoose,
+    home: renderHome, members: renderMembers, overview: renderOverview, monthdetail: renderMonthDetail, jobs: renderJobs, choose: renderChoose,
     reports: renderReports, reportpreview: renderReportPreview, jobdetail: renderDetail, recorddetail: renderRecordDetail
   }[app.page];
   render?.();
@@ -1663,7 +1662,7 @@ function navigate(page, focus = false) {
   for (const view of document.querySelectorAll('.view')) view.classList.toggle('active', view.id === page);
   const related = ['jobdetail', 'recorddetail'].includes(page);
   const current = page === 'inspection' ? 'inspection' : page === 'reportpreview' ? 'reports' : page === 'monthdetail' || related && app.detailOrigin === 'monthdetail' ? 'overview' :
-    related && app.detailOrigin === 'reports' ? 'reports' : related && app.detailOrigin === 'myjobs' ? 'myjobs' : detailPages.includes(page) ? 'jobs' : page;
+    related && app.detailOrigin === 'reports' ? 'reports' : related && (app.detailOrigin === 'myjobs' || app.detailOrigin === 'home') ? 'home' : detailPages.includes(page) ? 'jobs' : page;
   for (const button of document.querySelectorAll('.nav-btn[data-nav]')) {
     button.classList.toggle('active', button.dataset.nav === current);
     if (button.dataset.nav === current) button.setAttribute('aria-current', 'page');
@@ -1690,7 +1689,7 @@ function back() {
   if (app.page === 'reportpreview') navigate('reports', true);
   else if (app.page === 'monthdetail') navigate('overview', true);
   else if (app.page === 'choose') navigate(app.chooseOrigin, true);
-  else if (app.page === 'jobdetail') navigate(app.detailOrigin, true);
+  else if (app.page === 'jobdetail') navigate(app.detailOrigin==='myjobs'?'home':app.detailOrigin, true);
   else if (['recorddetail', 'inspection'].includes(app.page) || app.editJob) navigate('jobdetail', true);
   else navigate(app.detailOrigin, true);
 }
