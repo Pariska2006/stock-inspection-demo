@@ -780,10 +780,9 @@ function reportDocument(job) {
  const period=dates.length?niceDate(dates[0])+(dates[0]!==dates[dates.length-1]?' – '+niceDate(dates[dates.length-1]):''):'—';
  const inspectors=[...new Set(records.map(r=>text(r.inspector||r.checkedBy)).filter(Boolean))].join(', ')||'—';
  const criteria=DOMAIN.criteria(job);
- const perCriterion=criteria.map(c=>{let yes=0,no=0;for(const r of records){const v=DOMAIN.criterionValue(r,c).result;if(v==='OK')yes++;if(v==='NG')no++}return {label:c.label,ok:yes,ng:no}});
  const maxShown=8;
  // Prioritize NG examples, then fill remaining rows with OK vehicles. The
- // headline totals and per-criterion counts still use ALL saved records.
+ // headline totals still use ALL saved records.
  const sampleRecords=[...records].sort((a,b)=>{
    const ar=vehicleInspection(job,a).status==='NG'?0:1;
    const br=vehicleInspection(job,b).status==='NG'?0:1;
@@ -811,7 +810,7 @@ function reportDocument(job) {
    <div class="reference-report-heading"><div><h1>Confirm Tractor in Stock Report</h1><p>รายงานสรุปผลการตรวจสต็อก · STOCK INSPECTION SUMMARY</p></div><div class="reference-report-count"><small>INSPECTION</small><b>${total}</b><small>UNITS</small></div></div>
    <p class="reference-report-number">JOB REF: ${html(job.id)} · ${html(claimNumber(job))}</p>
   </header>
-  <section class="reference-report-section"><h2><span>01</span> CLAIM INFORMATION</h2>
+  <section class="reference-report-section"><h2><span>01</span> ข้อมูลปัญหา</h2>
    <div class="reference-report-info">
     <div class="wide"><small>Problem / ชื่อปัญหา</small><strong>${html(job.title)}</strong></div>
     <div><small>Product</small><strong>${html(product)}</strong></div>
@@ -821,12 +820,12 @@ function reportDocument(job) {
     <div><small>Checking Date</small><strong>${html(period)}</strong></div>
    </div>
   </section>
-  <section class="reference-report-section"><h2><span>02</span> VISUAL REFERENCE &amp; INSPECTION METHOD</h2>
+  <section class="reference-report-section"><h2><span>02</span> รูปตัวอย่างและวิธีการตรวจสอบ</h2>
    <div class="reference-report-images">${reference.map(refPhoto).join('')}</div>
    <div class="reference-report-method"><small>Checking Method</small><p>${html(checkingMethod||'—')}</p></div>
    <div class="reference-report-method"><small>Acceptance Criteria</small><p>${html(criteria.map((c,i)=>(i+1)+'. '+c.label).join('  |  ')||'—')}</p></div>
   </section>
-  <section class="reference-report-section reference-report-results"><h2><span>03</span> TRACTOR INSPECTION RESULTS</h2>
+  <section class="reference-report-section reference-report-results"><h2><span>03</span> ผลการตรวจสต็อก</h2>
    <div class="reference-report-table-wrap"><table class="reference-report-vehicles">
     <thead><tr><th>#</th><th>Date</th><th>Model</th><th>Serial Number</th><th>Lot No.</th><th>Result 1</th><th>Result 2</th><th>Result 3</th><th>Result 4</th></tr></thead>
     <tbody>${reportRows||'<tr><td colspan="9">ไม่มีข้อมูลรถที่บันทึก</td></tr>'}</tbody>
@@ -839,9 +838,6 @@ function reportDocument(job) {
     <div><small>% NG</small><strong class="ng-text">${percent(ng)}</strong><small>NG / Total</small></div>
    </div>
    <p class="reference-report-summary-text">สรุปผลตรวจ ${total} คัน · OK ${ok} คัน · NG ${ng} คัน (${percent(ng)})${missing?' · อยู่ระหว่างตรวจ '+missing+' คัน':''}</p>
-   <table class="reference-report-criteria"><thead><tr><th>Inspection Criteria</th><th>OK (Units)</th><th>NG (Units)</th></tr></thead>
-   <tbody>${perCriterion.map(c=>`<tr><td>${html(c.label)}</td><td>${c.ok}</td><td>${c.ng}</td></tr>`).join('')||'<tr><td colspan="3">ไม่มีเกณฑ์</td></tr>'}</tbody></table>
-   <p class="reference-report-note">NG 1 คันนับเพียงครั้งเดียว แม้พบ NG หลายเกณฑ์ · ตารางด้านบนเป็นรายการตัวอย่างไม่เกิน ${maxShown} คันเท่านั้น</p>
   </section>
   <section class="reference-report-approval"><div><small>Inspector / ผู้ตรวจ</small><strong>${html(inspectors)}</strong></div><div><small>Report Generated</small><strong>${html(made)}</strong></div><div><small>Review / Approval</small><span class="reference-report-sign-line"></span></div></section>
   <footer class="reference-report-footer"><span>KUBOTA · STOCK INSPECTION</span><span>${html(job.id)}</span></footer>
