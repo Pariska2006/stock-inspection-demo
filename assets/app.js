@@ -767,7 +767,7 @@ function renderReports() {
     const url = reportLink(job), counts = StockDomain.summary([job]);
     return `<article class="report-row"><span class="report-icon">${icon('file')}</span><div><h3>${html(job.title)}</h3>
       <p>${html(groupLabel(job))} · ${html(claimNumber(job))}</p><p>${counts.total} คัน · OK ${counts.OK} · NG ${counts.NG} · กำลังดำเนินการ ${counts.incomplete}</p></div>
-      <div class="report-actions"><button class="btn secondary sm" type="button" data-preview-job="${html(job.id)}">${icon('eye')} ดูรายงาน</button>
+      <div class="report-actions"><button class="btn secondary sm" type="button" data-report-details="${html(job.id)}">${icon('clipboard-list')} ดูรายละเอียดการตรวจ</button><button class="btn secondary sm" type="button" data-preview-job="${html(job.id)}">${icon('eye')} ดูรายงาน</button>
       <button class="btn primary sm" type="button" data-export-job="${html(job.id)}">${icon('download')} ดาวน์โหลด PDF</button>
       ${url ? `<a class="btn ghost sm" href="${html(url)}" target="_blank" rel="noopener noreferrer">ไฟล์รายงานเดิม</a>` : ''}</div></article>`;
   }).join('') : blank('ยังไม่มีงานที่จบการตรวจ เมื่อกดจบการตรวจสำเร็จ งานจะมาแสดงที่นี่');
@@ -1250,6 +1250,7 @@ function renderDetail() {
   ${detailNotice(job)}${transferMarkup(job)}
 
   ${completed ? `<div class="report-actions no-print"><button class="btn secondary" type="button" data-preview-job="${html(job.id)}">${icon('eye')} ดูรายงาน</button><button class="btn primary" type="button" data-export-job="${html(job.id)}">${icon('download')} ดาวน์โหลด PDF</button></div>` : ''}
+  ${completed ? `<section class="panel completed-work-records-intro"><h2>${icon('clipboard-check')} ประวัติการตรวจทั้งหมด</h2><p>เปิดดูเลขรถ รุ่น Lot No. วันที่ ผู้ตรวจ ผล OK/NG รายเกณฑ์ รูป PIN และประวัติแก้ไขของรถทุกคันได้จากรายการด้านล่าง · แสดงข้อมูลจริงจาก Microsoft Lists</p></section>` : ''}
   ${isNew ? '' : `<div class="vehicle-board-layout"><section class="panel vehicle-records-panel">
     <div class="panel-head"><div><h2>รถในรายการ</h2><span class="muted">${records.length} คัน${target > 0 ? ' จาก ' + target : ''}</span></div>
       ${active && !app.loadError ? `<button class="btn ghost sm" type="button" data-action="refresh-jobs">${icon('refresh')} รีเฟรช</button>` : ''}</div>
@@ -2339,6 +2340,14 @@ async function handleClick(event) {
   if (button.dataset.slideCopy || button.dataset.slideDownload) {
     await renderSlideImage(button.dataset.slideCopy||button.dataset.slideDownload,button.dataset.slideCopy?'copy':'download',button);
   } else if (button.dataset.photoCheck) { await checkPhotoTransfer(button.dataset.photoCheck);
+  } else if (button.dataset.reportDetails) {
+    const target=selectedJobs().find(item=>item.id===button.dataset.reportDetails);
+    if(target && finished(target)){
+      app.selected=target.id;
+      app.detailOrigin='reports';
+      app.recordFilter='all';
+      navigate('jobdetail',true);
+    }else showFeedback('ไม่พบงานที่ตรวจเสร็จแล้ว กรุณารีเฟรชรายการ','warning');
   } else if (button.dataset.exportJob) {
     await exportReportPdf(button.dataset.exportJob);
   } else if (button.dataset.previewJob) {
