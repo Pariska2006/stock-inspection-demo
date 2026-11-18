@@ -424,7 +424,7 @@ async function loadTeamAssignments(){
  if(data.status!=='OK'||!Array.isArray(data.assignments))throw Error('อ่านทีมตรวจไม่สำเร็จ');
  app.teamAssignments=data.assignments.filter(x=>x&&text(x.jobKey)&&/^U[0-9a-f]{32}$/i.test(text(x.userId)));
  app.teamReady=true;
- if(['myjobs','jobdetail','home'].includes(app.page))renderCurrent();
+ if(['jobdetail','home'].includes(app.page))renderCurrent();
 }
 function teamIds(job){return app.teamAssignments.filter(x=>x.jobKey===job.id).map(x=>x.userId)}
 function myJobs(){
@@ -709,13 +709,11 @@ function unitStats(jobs, includeJobs = false) {
 }
 
 function renderHome() {
-  const jobs = orderedActiveJobs();
-  // Personal work is assigned work or work the current inspector started/recorded.
-  const selected = selectedJobs(), done = selected.filter(finished).length;
-  const donePercent = selected.length ? Math.round(done / selected.length * 100) : 0;
-  $('homeJobStats').innerHTML = `<div class="home-progress-cell all"><span class="home-progress-label">${icon('list')} งานที่เลือกตรวจ</span><strong>${selected.length}</strong><small>ทั้งหมดที่เริ่มตรวจแล้ว</small></div>
-  <div class="home-progress-cell ongoing"><span class="home-progress-label">${icon('clock')} กำลังดำเนินการ</span><strong>${selected.length-done}</strong><small>งานที่ยังตรวจไม่เสร็จ</small></div>
-  <div class="home-progress-cell finished"><span class="home-progress-label">${icon('check')} เสร็จแล้ว</span><strong>${donePercent}%</strong><small>ปิดการตรวจแล้ว ${done} จาก ${selected.length} งาน</small></div>`;
+  // Scope this summary to the same personal assignments as the job list below.
+  const personal = myJobs(), active = personal.filter(job=>job.status==='progress'), done = personal.filter(finished);
+  $('homeJobStats').innerHTML = `<div class="home-progress-cell all"><span class="home-progress-label">${icon('list')} งานของฉัน</span><strong>${personal.length}</strong><small>งานที่เกี่ยวข้องกับฉันทั้งหมด</small></div>
+  <div class="home-progress-cell ongoing"><span class="home-progress-label">${icon('clock')} กำลังดำเนินการ</span><strong>${active.length}</strong><small>แสดงในรายการด้านล่าง</small></div>
+  <div class="home-progress-cell finished"><span class="home-progress-label">${icon('check')} เสร็จแล้ว</span><strong>${done.length}</strong><small>ดูรายงานได้ใน Reports</small></div>`;
 
   // Pending writes remain protected and accessible within their original jobs.
   // Starred work is only pinned first. It never changes job status or assignment.
@@ -723,7 +721,7 @@ function renderHome() {
   const shown = filterJobs(myJobs().filter(job=>job.status==='progress')).sort((a,b) =>
     Number(app.stars.has(b.id)) - Number(app.stars.has(a.id)) ||
     text(b.updated).localeCompare(text(a.updated)));
-  $('homeJobs').innerHTML = shown.length ? shown.map(jobCard).join('') : blank('ไม่พบงานที่ตรงกับตัวกรอง');
+  $('homeJobs').innerHTML = shown.length ? shown.map(jobCard).join('') : blank('ไม่มีงานที่กำลังดำเนินการตามตัวกรอง');
   const key = dateValue(new Date()).slice(0, 7), buckets = jobsByMonth();
   $('homeMonth').innerHTML = monthCard(key, buckets.get(key) || [], true);
 }
