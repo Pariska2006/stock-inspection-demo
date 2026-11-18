@@ -1449,7 +1449,7 @@ async function confirmPending(scope, attempts = 7) {
       continue;
     }
     if (epoch !== sessionEpoch || !app.member) return false;
-    if (newest.partial) continue;
+    if (newest.partial || newest.status !== 'OK') continue;
     const jobs = newest.jobs.filter(Boolean).map(normalizeJob);
     const deletingJob = pending.descriptor.action === 'deleteJob';
     const match = deletingJob
@@ -2262,7 +2262,12 @@ function operationIdentity(operation,job){
   if (operation.action === 'selectJob') return job.id === operation.payload.jobKey &&
     job.status === 'progress' && text(job.version) !== text(operation.payload.expectedJobVersion);
   if (operation.action === 'finishJob') return job.id === operation.payload.jobKey &&
-    finished(job) && text(job.version) !== text(operation.payload.expectedJobVersion);
+    Number(job.sharePointItemId) === Number(operation.payload.itemId) &&
+    finished(job) && liveRecords(job).length > 0 &&
+    liveRecords(job).every(record => vehicleInspection(job,record).complete);
+  // Completion is a durable state transition (Progress -> Completed). STK_07
+  // may not expose a changed SharePoint ETag for a completed job, so require
+  // the exact List item, persisted finished state and complete records instead.
   if (operation.action === 'createJob') {
     const requestId = text(operation.response?.requestId);
     // STK_06 may generate a separate JobKey; the import key can carry the
