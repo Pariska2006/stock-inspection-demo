@@ -718,3 +718,15 @@ html { scroll-padding-bottom:100px }
 .report-download-spinner{width:38px;height:38px;border:3px solid #dceee2;border-top-color:#16803c;border-radius:50%;margin:0 auto;animation:report-download-spin .8s linear infinite}
 @keyframes report-download-spin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){.report-download-spinner{animation:none;border-top-color:#16803c}}
+
+/* Report revision: left-aligned, number-free headings and compact two-row claim info. */
+.reference-report-section h2{display:block!important;padding:0 0 7px!important;margin:0 0 9px!important;text-align:left!important}
+.reference-report-info{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:10px 15px!important}
+.reference-report-info>div{grid-column:auto!important;min-width:0}
+.report-reference-cell .report-photo-loading{position:absolute;inset:26px 4px 4px;display:grid;place-items:center;text-align:center;font-size:10px;color:#64796d;background:#fafcfb;z-index:1}
+.report-reference-cell .report-photo-loading[hidden]{display:none!important}
+@media(max-width:600px){
+ .reference-report-info{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:7px!important}
+ .reference-report-info strong{font-size:10px!important;overflow-wrap:anywhere}
+ .reference-report-info small{font-size:8px!important}
+}
