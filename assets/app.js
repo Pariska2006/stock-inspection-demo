@@ -767,8 +767,9 @@ function renderReports() {
     const url = reportLink(job), counts = StockDomain.summary([job]);
     return `<article class="report-row"><span class="report-icon">${icon('file')}</span><div><h3>${html(job.title)}</h3>
       <p>${html(groupLabel(job))} · ${html(claimNumber(job))}</p><p>${counts.total} คัน · OK ${counts.OK} · NG ${counts.NG} · กำลังดำเนินการ ${counts.incomplete}</p></div>
-      <div class="report-actions"><button class="btn secondary sm" type="button" data-preview-job="${html(job.id)}" ${finished(job)?'':'disabled'}>${finished(job)?'เปิดรายงานสรุป':'รอจบการตรวจ'}</button>
-      ${url ? `<a class="btn ghost sm" href="${html(url)}" target="_blank" rel="noopener noreferrer">${icon('download')} PDF จากระบบ (ทั้งงาน)</a>` : ''}</div></article>`;
+      <div class="report-actions"><button class="btn secondary sm" type="button" data-preview-job="${html(job.id)}">${icon('eye')} ดูรายงาน</button>
+      <button class="btn primary sm" type="button" data-export-job="${html(job.id)}">${icon('download')} ดาวน์โหลด PDF</button>
+      ${url ? `<a class="btn ghost sm" href="${html(url)}" target="_blank" rel="noopener noreferrer">ไฟล์รายงานเดิม</a>` : ''}</div></article>`;
   }).join('') : blank('ยังไม่มีงานที่จบการตรวจ เมื่อกดจบการตรวจสำเร็จ งานจะมาแสดงที่นี่');
 }
 function reportDocument(job) {
@@ -1131,8 +1132,8 @@ function renderDetail() {
     ${action && !active ? `<div class="detail-actions">${action}</div>` : ''}
   </section>
   ${detailNotice(job)}${transferMarkup(job)}
-  ${completed && !url ? '<div class="notice warning">รอไฟล์ PDF · เปิดดูผลในแอปได้</div>' : ''}
-  <button type="button" class="btn secondary" data-preview-job="${html(job.id)}" ${completed?'':'disabled'}>${icon('file')} ${completed?'เปิดรายงานสรุป':'รายงานพร้อมเมื่อจบการตรวจ'}</button>
+
+  ${completed ? `<div class="report-actions no-print"><button class="btn secondary" type="button" data-preview-job="${html(job.id)}">${icon('eye')} ดูรายงาน</button><button class="btn primary" type="button" data-export-job="${html(job.id)}">${icon('download')} ดาวน์โหลด PDF</button></div>` : ''}
   ${isNew ? '' : `<div class="vehicle-board-layout"><section class="panel vehicle-records-panel">
     <div class="panel-head"><div><h2>รถในรายการ</h2><span class="muted">${records.length} คัน${target > 0 ? ' จาก ' + target : ''}</span></div>
       ${active && !app.loadError ? `<button class="btn ghost sm" type="button" data-action="refresh-jobs">${icon('refresh')} รีเฟรช</button>` : ''}</div>
@@ -2220,6 +2221,8 @@ async function handleClick(event) {
   }
   if (action === 'close-mobile-nav') { closeMobileNav(true); return; }
   if (button.dataset.photoCheck) { await checkPhotoTransfer(button.dataset.photoCheck);
+  } else if (button.dataset.exportJob) {
+    await exportReportPdf(button.dataset.exportJob);
   } else if (button.dataset.previewJob) {
     app.reportJob = button.dataset.previewJob;
     navigate('reportpreview', true);
