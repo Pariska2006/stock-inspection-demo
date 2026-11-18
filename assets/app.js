@@ -147,7 +147,7 @@ async function fetchJson(url, options, timeout = 14000) {
 
 function idToken() {
   const token = app.ready && window.liff?.isLoggedIn() && liff.getIDToken();
-  if (!token) throw Error('กรุณาเข้าสู่ระบบ LINE ใหม่');
+  if (!token) {const error=Error('กรุณาเข้าสู่ระบบ LINE ใหม่');error.sessionExpired=true;throw error;}
   return token;
 }
 
@@ -191,10 +191,13 @@ async function checkAccess() {
       $('gateRegisterButton').disabled = !registrationAllowed();
       return gate('gateRegister', registrationAllowed() ? '' : 'ยังไม่เปิดระบบลงทะเบียนจริง');
     }
+    if (['TOKEN_REQUIRED','INVALID_TOKEN','TOKEN_EXPIRED','UNAUTHORIZED'].includes(text(data.status).toUpperCase())) {
+      const error=Error('กรุณาเข้าสู่ระบบ LINE ใหม่');error.sessionExpired=true;throw error;
+    }
     throw Error(friendlyMessage(data.message || 'เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'));
   } catch (error) {
     console.warn('Login check failed', error);
-    if (!MOCK && [400,401].includes(error.httpStatus)) {
+    if (!MOCK && (error.sessionExpired || [400,401].includes(error.httpStatus))) {
       try { if(liff.isLoggedIn())liff.logout(); } catch(e) { console.warn('LINE logout failed',e); }
       resetSession();
       return gate('gateLogin','กรุณาเข้าสู่ระบบ LINE อีกครั้ง',true);
@@ -349,7 +352,7 @@ async function loadJobPhotos(key,refresh=false){
  const epoch=sessionEpoch;
  const work=(async()=>{
   const data=await photoRequest({action:'list',jobKey:key},30000);
-  if(data.status!=='OK'||!Array.isArray(data.photos))throw Error('Supabase photo index unavailable');
+  if(data.status!=='OK'||!Array.isArray(data.photos))throw Error('ยังโหลดรูปภาพไม่ได้ กรุณาลองใหม่อีกครั้ง');
   if(epoch!==sessionEpoch)return null;
   const rows=data.photos.filter(p=>Number.isSafeInteger(p.itemId)&&['SERIAL','JOB_OK','JOB_NG','JOB_METHOD'].includes(p.photoType)&&safeLink(p.url));
   const index={loadedAt:Date.now(),rows};app.photoAssets.set(key,index);overlayPhotos(job);
@@ -1298,7 +1301,7 @@ function renderDetail() {
   </section>
   ${recordedInspectorTeam(job)}
   ${completed ? completedSlideCards(job) : ''}
-  ${job.status !== 'new' ? `<section class="panel delete-job-section"><h2>จัดการงานตรวจ</h2><p class="hint">เปลี่ยนสถานะใน Lists เป็น Deleted และซ่อนจากหน้าเว็บ โดยไม่ลบรถ รูป หรือประวัติ</p><button class="btn secondary sm danger" type="button" data-action="archive-job">${icon('archive')} นำงานออกจากระบบ</button></section>` : ''}
+  ${job.status !== 'new' ? `<section class="panel delete-job-section"><h2>จัดการงานตรวจ</h2><p class="hint">นำงานออกจากหน้ารายการ โดยเก็บผลตรวจรถ รูปภาพ และประวัติทั้งหมดไว้</p><button class="btn secondary sm danger" type="button" data-action="archive-job">${icon('archive')} นำงานออกจากระบบ</button></section>` : ''}
   ${detailNotice(job)}${transferMarkup(job)}
 
   ${completed ? `<div class="report-actions no-print"><button class="btn secondary" type="button" data-preview-job="${html(job.id)}">${icon('eye')} ดูรายงาน</button><button class="btn primary" type="button" data-export-job="${html(job.id)}">${icon('download')} ดาวน์โหลด PDF</button></div>` : ''}
@@ -1414,7 +1417,7 @@ function renderJobForm() {
       ${formFoot(manual ? 'สร้างงานและเริ่มตรวจ' : starting ? 'บันทึกและเริ่มตรวจ' : 'บันทึกรายละเอียดงาน', scope)}
     </form>
     ${job ? `<section class="panel delete-job-section"><h2>จัดการงานตรวจ</h2>
-      <p class="hint">นำงานออกจากเว็บ โดยเปลี่ยนสถานะใน Microsoft Lists เป็น Deleted · เก็บผลตรวจรถ รูปภาพ และประวัติทั้งหมดไว้</p>
+      <p class="hint">นำงานออกจากหน้ารายการ โดยยังเก็บข้อมูลการตรวจไว้ทั้งหมด</p>
       <button class="btn secondary sm danger" type="button" data-action="archive-job">${icon('archive')} นำงานออกจากระบบ</button>
     </section>` : ''}`;
   syncFormControls();
@@ -1439,7 +1442,7 @@ function photoInput(slot, value, label) {
 }
 
 function photoConnectionHint() {
- return PHOTO_UPLOAD_API_URL ? '<p class="hint">หลังบันทึกผลตรวจ รูปจะส่งเข้า Supabase Private Storage และโหลดกลับมาแสดงในงาน/รายงาน</p>' : '<p class="hint">ยังไม่เชื่อมระบบอัปโหลดรูปภาพ</p>';
+ return PHOTO_UPLOAD_API_URL ? '<p class="hint">รูปภาพจะถูกบันทึกหลังจากบันทึกผลตรวจสำเร็จ</p>' : '<p class="hint">ยังไม่เชื่อมระบบอัปโหลดรูปภาพ</p>';
 }
 
 function renderInspectionSetup(job) {
@@ -1984,7 +1987,7 @@ async function archiveJobFromWeb() {
  if(app.pending.has(jobScope(job)))return showFeedback('งานนี้ยังมีคำขอบันทึกค้าง กรุณาตรวจสอบผลก่อน','warning');
  if(app.dirty)return showFeedback('มีแบบฟอร์มแก้ไขค้างอยู่ กรุณาออกจากแบบฟอร์มก่อน','warning');
  if(!await confirmAction('นำงานออกจากระบบ',
-  'นำงาน "'+job.title+'" ('+job.id+') ออกจากหน้าเว็บหรือไม่?\n\nระบบจะเปลี่ยน JobStatus ใน Microsoft Lists เป็น Deleted และเก็บผลตรวจรถ รูปภาพ รวมถึงประวัติไว้ทั้งหมด\n\nจะซ่อนงานเมื่อ Lists ยืนยันผลแล้วเท่านั้น',
+  'ต้องการนำงาน "'+job.title+'" ออกจากหน้ารายการหรือไม่?\n\nระบบจะเก็บผลตรวจรถ รูปภาพ และประวัติทั้งหมดไว้ งานจะถูกซ่อนหลังยืนยันการบันทึกสำเร็จ',
   'นำงานออก','danger'))return;
  await withWrite(async()=>{
   const data=await readJobs();
@@ -2001,7 +2004,7 @@ async function archiveJobFromWeb() {
    ()=>{
     app.selected='';app.reportJob='';app.editJob=false;app.dirty=false;
     navigate('jobs',true);
-    showFeedback('ซ่อนงานแล้ว · Microsoft Lists เก็บสถานะ Deleted และข้อมูลเดิมทั้งหมด','success');
+    showFeedback('นำงานออกจากหน้ารายการแล้ว และยังเก็บข้อมูลเดิมไว้','success');
    });
  });
 }
@@ -2237,11 +2240,11 @@ async function deleteRecord(id) {
   if (!app.deleteEnabled || !job || !record || job.status !== 'progress') return;
   if (app.pending.has(jobScope(job))) return showFeedback('ยังมีคำขอก่อนหน้าค้างอยู่ กรุณาตรวจสอบผลก่อน', 'warning');
   if (!app.jobsLive || app.loadError || app.partial || !/STK_Inspections/i.test(text(app.lastReadSource || ''))) {
-    return showFeedback('ยังไม่สามารถยืนยันข้อมูลรายการตรวจจาก STK_07 ได้ครบ กรุณารีเฟรชข้อมูลก่อนลบ', 'warning');
+    return showFeedback('ยังโหลดข้อมูลรายการตรวจได้ไม่ครบ กรุณาโหลดใหม่ก่อนลบ', 'warning');
   }
   const recordItemId = Number(record.sharePointItemId);
   if (!Number.isSafeInteger(recordItemId) || recordItemId < 1) {
-    return showFeedback('รายการนี้ไม่มี Microsoft Lists Item ID จึงยังลบไม่ได้ กรุณารีเฟรชข้อมูล', 'error');
+    return showFeedback('ยังไม่พบข้อมูลที่ใช้ลบรายการนี้ กรุณาโหลดใหม่อีกครั้ง', 'error');
   }
   if (!await confirmAction('ลบผลตรวจ', 'นำผลตรวจ ' + record.serial + ' ออกจากยอดตรวจของงานนี้', 'ลบผลตรวจ', 'danger')) return;
   await withWrite(() => trackWrite(jobScope(job), 'deleteInspection',
@@ -2297,7 +2300,7 @@ async function checkPhotoTransfer(requestId){
  try{
   const index=await loadJobPhotos(entry.jobId,true);
   const found=index?.rows.find(p=>p.requestId===requestId&&p.photoType===entry.photoType&&p.itemId===entry.itemId);
-  if(found){entry.state='Uploaded';entry.message='ยืนยันรูปจาก Supabase Private Storage แล้ว'}
+  if(found){entry.state='Uploaded';entry.message='บันทึกรูปภาพเรียบร้อยแล้ว'}
   else{entry.state='Pending';entry.message='ยังอ่านยืนยันรูปไม่ได้ · ไม่ส่งรูปซ้ำ'}
  }catch(e){entry.state='Pending';entry.message='อ่านยืนยันรูปไม่ได้: '+e.message}
  saveTransfers();if(app.page==='jobdetail')renderDetail();
@@ -2723,10 +2726,10 @@ function restorePending() {
         onSaved: job => {
           if (descriptor.action === 'archiveJob') {
             app.selected='';app.reportJob='';app.editJob=false;navigate('jobs',true);
-            showFeedback('Lists ยืนยัน Deleted · งานถูกซ่อน และข้อมูลเดิมยังเก็บอยู่','success');
+            showFeedback('นำงานออกจากหน้ารายการแล้ว และยังเก็บข้อมูลเดิมไว้','success');
           } else if (descriptor.action === 'deleteJob') {
             app.selected = ''; app.editJob = false; navigate('jobs', true);
-            showFeedback('ไม่พบงานในผลอ่านกลับแล้ว กรุณาตรวจ STK_Jobs อีกครั้ง', 'success');
+            showFeedback('นำงานออกจากหน้ารายการแล้ว','success');
           } else if (descriptor.action === 'finishJob') {
             app.reportJob = job.id;
             app.detailOrigin = 'reports';
