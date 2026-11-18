@@ -549,3 +549,20 @@ html { scroll-padding-bottom:100px }
 .slide-image-export .slide-tile-image{max-height:330px}
 @media(max-width:850px){.slide-tile-grid{grid-template-columns:1fr}.slide-tile-content{min-height:175px}}
 @media(max-width:560px){.completed-slide-section{padding:12px}.slide-tile-content{padding:16px}.slide-tile-numbers strong{font-size:20px}.slide-tile-actions button{min-width:0}}
+
+/* Report: last column summarizes each tractor's result across criteria. */
+.reference-report-vehicles th:nth-child(1){width:4%}
+.reference-report-vehicles th:nth-child(2){width:12%}
+.reference-report-vehicles th:nth-child(3){width:10%}
+.reference-report-vehicles th:nth-child(4){width:23%}
+.reference-report-vehicles th:nth-child(5){width:9%}
+.reference-report-vehicles th:nth-child(n+6):nth-child(-n+9){width:8%;text-align:center}
+.reference-report-vehicles th:nth-child(10){width:10%;text-align:center}
+.reference-report-vehicles td:nth-child(10){text-align:center}
+.reference-report-vehicles .report-overall{font-weight:750}
+.reference-report-vehicles .report-overall.ok{color:#147c42;background:#f0faf3}
+.reference-report-vehicles .report-overall.ng{color:#b91c1c;background:#fff2f2}
+.reference-report-vehicles .report-overall.pending{color:#a16207;background:#fffbeb}
+@media print{
+ .reference-report-vehicles .report-overall.ok,.reference-report-vehicles .report-overall.ng,.reference-report-vehicles .report-overall.pending{print-color-adjust:exact;-webkit-print-color-adjust:exact}
+}
