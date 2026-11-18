@@ -1384,8 +1384,7 @@ function confirmAction(title, message, label = 'ยืนยัน', variant = '
 
 async function leaveForm() {
   if (!app.dirty || !isForm(app.page)) return true;
-  persistDraft();
-  return confirmAction('ออกจากหน้านี้', 'เก็บข้อความร่างไว้ในอุปกรณ์นี้แล้ว รูปที่ยังไม่ส่งต้องเลือกใหม่' , 'ออกจากหน้า');
+  return confirmAction('ออกจากหน้านี้', 'ข้อมูลที่ยังไม่บันทึกจะถูกล้างเมื่อออกจากหน้านี้', 'ออกจากหน้า');
 }
 
 async function withWrite(operation) {
@@ -2267,13 +2266,14 @@ function restorePending() {
   } catch { /* Unusable journal is not evidence of a successful write. */ }
 }
 function purgeExpiredDrafts() {
+  // Draft recovery has been disabled: discard all legacy unsaved form drafts.
+  // Do not touch stock-pending-v2 write confirmations or upload transfer state.
   try {
     const prefix = 'stock-draft-v3:' + storageIdentity() + ':';
     for (const key of Object.keys(localStorage).filter(key => key.startsWith(prefix))) {
-      try { if (JSON.parse(localStorage.getItem(key)).expires < Date.now()) localStorage.removeItem(key); }
-      catch { localStorage.removeItem(key); }
+      localStorage.removeItem(key);
     }
-  } catch { /* Storage errors are reported when attempting to save a draft/write. */ }
+  } catch { /* Browser storage may be unavailable; forms still start fresh. */ }
 }
 function draftKey() { return 'stock-draft-v3:' + storageIdentity() + ':' + currentScope() + ':' + (app.editRecord || app.page); }
 function draftSource() {
@@ -2283,40 +2283,11 @@ function draftSource() {
     SLOTS.map(slot => text(job['result' + slot + 'Criteria'])),
     app.page === 'jobform' ? Object.keys(jobFields).map(key => job[key]) : null]);
 }
-function persistDraft() {
-  if (!isForm(app.page) || !app.dirty || !$('formFields')) return;
-  const values = {};
-  for (const input of $('formFields').querySelectorAll('input[id],textarea[id],select[id]')) {
-    if (input.type === 'file' || input.id.startsWith('photoValue')) continue;
-    values[input.id] = input.value;
-  }
-  try { localStorage.setItem(draftKey(), JSON.stringify({ values, source:draftSource(), baseline:app.inspectionBaseline, expires:Date.now() + 8*60*60*1000 })); }
-  catch { showFeedback('เก็บร่างไม่ได้ โปรดเปิดหน้านี้ไว้จนบันทึกเสร็จ', 'warning'); }
-}
-function restoreDraft() {
-  try {
-    const key = draftKey(), saved = JSON.parse(localStorage.getItem(key) || 'null');
-    if (!saved) return;
-    if (saved.expires < Date.now()) { localStorage.removeItem(key); return; }
-    if (saved.source !== draftSource() || saved.baseline && saved.baseline !== app.inspectionBaseline) {
-      showFeedback('มีร่างเก่าแต่ข้อมูลต้นฉบับเปลี่ยนแล้ว กรุณาตรวจสอบผลล่าสุด', 'warning'); return;
-    }
-    for (const [id, value] of Object.entries(saved.values || {})) {
-      const input = $(id);
-      if (input && !input.readOnly && !input.disabled && !input.id.startsWith('photoValue')) input.value = value;
-    }
-    for (const button of document.querySelectorAll('[data-result-slot]')) {
-      const selected = val('insR' + button.dataset.resultSlot) === button.dataset.resultValue;
-      button.classList.toggle('selected', selected);
-      button.classList.toggle('ok', selected && button.dataset.resultValue === 'OK');
-      button.classList.toggle('ng', selected && button.dataset.resultValue === 'NG');
-      button.setAttribute('aria-pressed', String(selected));
-    }
-    app.dirty = true;
-    if ($('liveOverallResult')) { refreshCriterionColors(); updateQuickResult(); }
-    showFeedback('กู้ข้อความร่างจากอุปกรณ์นี้แล้ว · รูปภาพต้องเลือกใหม่', 'warning');
-  } catch { /* Invalid local draft never changes server data. */ }
-}
+// Incomplete form entries are session-only and are intentionally not restored after reload.
+// This does not clear or affect pending requests that may already have reached STK_06.
+function persistDraft() {}
+function restoreDraft() {}
+
 function clearSavedDraft(scope) {
   try {
     const prefix = 'stock-draft-v3:' + storageIdentity() + ':' + scope + ':';
@@ -2325,10 +2296,10 @@ function clearSavedDraft(scope) {
   app.dirty = false;
 }
 window.addEventListener('beforeunload', event => {
-  if (app.dirty || app.busy || app.pending.size) { persistDraft(); event.preventDefault(); event.returnValue = ''; }
+  // Unsaved inputs may be discarded on refresh without a browser warning.
+  // Warn only when a write is in flight; keep the persisted pending journal intact.
+  if (app.busy) { event.preventDefault(); event.returnValue = ''; }
 });
-window.addEventListener('pagehide', persistDraft);
-document.addEventListener('visibilitychange', () => { if (document.hidden) persistDraft(); });
 for (const prefix of ['home', 'jobs']) {
   $(prefix + 'Search').addEventListener('input', event => { app.search = event.target.value; renderCurrent(); });
   for (const [suffix, field] of [['Claim','claimFilter'],['Product','group'],['Model','modelFilter']]) {
