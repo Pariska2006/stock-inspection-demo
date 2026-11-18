@@ -738,16 +738,16 @@ function renderMonthDetail() {
 }
 
 function reportJobs() {
-  return selectedJobs().filter(job => (!app.reportJob || job.id === app.reportJob));
+  return selectedJobs().filter(job => finished(job) && (!app.reportJob || job.id === app.reportJob));
 }
 function scopedReportJobs() {
- return selectedJobs().filter(job => job.id === app.reportJob).map(job => ({...job,records:liveRecords(job)}));
+ return reportJobs().filter(job => job.id === app.reportJob).map(job => ({...job,records:liveRecords(job)}));
 }
 function reportOption(job) {
   return [job.title, claimNumber(job), job.id].filter(Boolean).join(' · ');
 }
 function renderReports() {
-  const selected = selectedJobs();
+  const selected = selectedJobs().filter(finished);
   if (app.reportJob && !selected.some(job => job.id === app.reportJob)) { app.reportJob = ''; app.reportQuery = ''; }
   $('reportJobOptions').innerHTML = selected.map(job => `<option value="${html(reportOption(job))}"></option>`).join('');
   if (app.reportJob) {
@@ -761,19 +761,18 @@ function renderReports() {
   const jobs = reportJobs().filter(job => app.reportJob || !query ||
     [job.title, claimNumber(job), job.id, ...selectedModels(job)].join(' ').toLocaleLowerCase().includes(query))
     .map(job => ({...job,records:liveRecords(job)}));
-  setPressed($('reportFilters'), 'report-filter', app.reportFilter);
-  const filtered = jobs.filter(job =>
-    (app.reportFilter === 'ready' ? finished(job) : app.reportFilter === 'waiting' ? !finished(job) : true));
+  if ($('reportFilters')) setPressed($('reportFilters'), 'report-filter', app.reportFilter);
+  const filtered = jobs;
   $('reportList').innerHTML = filtered.length ? filtered.map(job => {
     const url = reportLink(job), counts = StockDomain.summary([job]);
     return `<article class="report-row"><span class="report-icon">${icon('file')}</span><div><h3>${html(job.title)}</h3>
       <p>${html(groupLabel(job))} · ${html(claimNumber(job))}</p><p>${counts.total} คัน · OK ${counts.OK} · NG ${counts.NG} · กำลังดำเนินการ ${counts.incomplete}</p></div>
       <div class="report-actions"><button class="btn secondary sm" type="button" data-preview-job="${html(job.id)}" ${finished(job)?'':'disabled'}>${finished(job)?'เปิดรายงานสรุป':'รอจบการตรวจ'}</button>
       ${url ? `<a class="btn ghost sm" href="${html(url)}" target="_blank" rel="noopener noreferrer">${icon('download')} PDF จากระบบ (ทั้งงาน)</a>` : ''}</div></article>`;
-  }).join('') : blank('ไม่มีข้อมูลตามตัวกรอง');
+  }).join('') : blank('ยังไม่มีงานที่จบการตรวจ เมื่อกดจบการตรวจสำเร็จ งานจะมาแสดงที่นี่');
 }
 function renderReportPreview(){
- const job=selectedJobs().find(j=>j.id===app.reportJob);
+ const job=reportJobs().find(j=>j.id===app.reportJob);
  const root=$('previewContent');
  if(!job){root.innerHTML='<p class="empty">เลือกงานตรวจที่เสร็จแล้วจาก Reports</p>';return}
  if(!finished(job)){root.innerHTML='<div class="notice warning">กรุณาจบการตรวจก่อนเปิดรายงานฉบับสมบูรณ์</div>';return}
@@ -1060,7 +1059,7 @@ function renderDetail() {
   ${active ? `<div class="finish-actions">
     ${!records.length ? '<p class="hint">บันทึกผลอย่างน้อย 1 คันเพื่อจบการตรวจ</p>' : ''}
     ${incomplete ? `<p class="hint">ตรวจรถที่ค้างอีก ${incomplete} คันให้ครบก่อนจบงาน</p>` : ''}
-    <button class="btn finish" type="button" data-action="finish-job" ${records.length && !incomplete ? '' : 'disabled'}>${icon('check')} จบการตรวจ</button>
+    <button class="btn finish" type="button" data-action="finish-job">${icon('check')} จบการตรวจ</button>
   </div>` : ''}`;
 }
 
@@ -1636,24 +1635,31 @@ async function deleteJobFromWeb() {
 
 async function finishJob() {
   const job = findJob();
-  if (!job || job.status !== 'progress' || !liveRecords(job).length || app.pending.has(jobScope(job))) return;
-  if (liveRecords(job).some(record => !vehicleInspection(job, record).complete)) {
-    return showFeedback('ยังมีรถกำลังดำเนินการ กรุณาตรวจให้ครบก่อนจบงาน', 'warning');
+  if (!job) return showFeedback('ไม่พบงานตรวจ กรุณาเปิดรายการงานอีกครั้ง', 'warning');
+  if (finished(job)) { app.reportJob = job.id; navigate('reports', true); return; }
+  if (job.status !== 'progress') return showFeedback('กรุณาตั้งค่าและเริ่มตรวจงานก่อนจบการตรวจ', 'warning');
+  if (app.pending.has(jobScope(job))) return showFeedback('ยังมีคำขอบันทึกค้างอยู่ กรุณากดตรวจสอบผลบันทึกก่อนจบงาน', 'warning');
+  const recordsNow = liveRecords(job);
+  if (!recordsNow.length) return showFeedback('ยังไม่มีรถที่บันทึกผล กรุณาตรวจอย่างน้อย 1 คันก่อนจบงาน', 'warning');
+  const unfinished = recordsNow.filter(record => !vehicleInspection(job, record).complete);
+  if (unfinished.length) {
+    return showFeedback('ยังจบงานไม่ได้: รถอีก ' + unfinished.length + ' คันตรวจเกณฑ์ไม่ครบ · เปิดรถที่กำลังดำเนินการเพื่อตรวจให้ครบก่อน', 'warning');
   }
   if (!await confirmAction('จบการตรวจ', 'งานจะย้ายไปหน้ารายงานและปิดการแก้ผลตรวจรายคัน', 'จบการตรวจ')) return;
   await withWrite(async () => {
     const { data, current } = await latestActiveJob(job);
     const records = liveRecords(current);
     applyJobs(data);
+    if (data.partial || data.status !== 'OK') return showFeedback('อ่าน Lists ได้ไม่ครบ จึงยังไม่จบงาน กรุณาลองรีเฟรช', 'warning');
     if (!records.length || records.some(record => !vehicleInspection(current, record).complete)) {
-      return showFeedback('กรุณาตรวจรถที่ค้างให้ครบก่อนจบงาน', 'warning');
+      return showFeedback('ข้อมูลล่าสุดยังมีรถตรวจไม่ครบ กรุณาเปิดรถที่ค้างตรวจให้เสร็จก่อนจบงาน', 'warning');
     }
     await trackWrite(jobScope(job), 'finishJob', jobData(current),
       () => item => item.id === job.id && finished(item),
       () => {
         app.detailOrigin = 'reports';
         app.reportJob = job.id;
-        navigate('reportpreview', true);
+        navigate('reports', true);
       });
   });
 }
