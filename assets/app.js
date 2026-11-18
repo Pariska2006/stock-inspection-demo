@@ -397,7 +397,7 @@ function applyJobs(data) {
   app.jobsLive = true;
   app.loaded = true;
   app.jobsLoadedAt = new Date().toISOString();
-  app.partial = !!data.partial || normalized.length !== app.jobs.length || data.jobs.some(job => !job) || normalized.some(job => (job.criteria || []).length > SLOTS.length || new Set((job.criteria || []).map(c => c.id)).size !== (job.criteria || []).length || new Set((job.criteria||[]).map(c=>c.slot)).size !== (job.criteria||[]).length || (job.criteria||[]).some(c=>!SLOTS.includes(c.slot)||!c.label));
+  app.partial = !!data.partial || data.jobs.some(job => !job) || normalized.some(job => (job.criteria || []).length > SLOTS.length || new Set((job.criteria || []).map(c => c.id)).size !== (job.criteria || []).length || new Set((job.criteria||[]).map(c=>c.slot)).size !== (job.criteria||[]).length || (job.criteria||[]).some(c=>!SLOTS.includes(c.slot)||!c.label));
   app.deleteEnabled = ENABLE_DELETE_INSPECTION; // Show the delete control; validate live data and record ownership on click.
   app.lastReadSource = text(data.source);
   app.recordRead = /STK_Inspections/i.test(app.lastReadSource) || app.jobs.some(job => job.records.length > 0);
@@ -2622,6 +2622,8 @@ function operationMatches(operation, job) {
     if (operation.action === 'createJob') return job.clientRequestId === operation.clientRequestId;
     if (operation.action === 'saveInspection') return job.id === payload.jobKey && liveRecords(job).some(record =>
       record.clientRequestId === operation.clientRequestId && recordMatches(record, payload, payload.overallResult));
+    if (operation.action === 'archiveJob') return job.id === payload.jobKey &&
+      Number(job.sharePointItemId) === Number(payload.itemId) && job.status === 'deleted';
     return job.id === payload.jobKey && job.clientRequestId === operation.clientRequestId && (operation.action === 'updateJob' ? persistedJobUpdateMatches(job, payload) : operation.action === 'finishJob' ? finished(job) : operation.action === 'selectJob' && job.status === 'progress');
   }
   if (operation.action === 'createJob') return [job.id,job.importKey].some(value => text(value).endsWith(text(operation.response.requestId))) &&
@@ -2634,6 +2636,8 @@ function operationMatches(operation, job) {
   if (operation.action === 'updateJob') return persistedJobUpdateMatches(job, payload);
   if (operation.action === 'selectJob') return job.status === 'progress';
   if (operation.action === 'finishJob') return finished(job);
+  if (operation.action === 'archiveJob') return job.status === 'deleted' &&
+    Number(job.sharePointItemId) === Number(payload.itemId);
   return false;
 }
 function restorePending() {
