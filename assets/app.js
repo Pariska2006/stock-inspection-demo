@@ -808,12 +808,27 @@ const jobScope = job => 'job:' + job.id;
 const manualScope = 'manual-job';
 const criteriaSlots = job => DOMAIN.criteria(job).map(c => c.slot);
 
-const pendingControls = scope => app.pending.has(scope) ? `<div class="section-actions">
-  <button class="btn secondary" type="button" data-action="check-save">${icon('refresh')} ตรวจสอบผลบันทึก</button>
-  ${app.page === 'jobdetail' && app.pending.get(scope)?.descriptor.action === 'finishJob'
-    ? `<button class="btn ghost" type="button" data-action="recover-finish">${icon('shield-check')} ตรวจสอบและปลดคำขอจบงานที่ค้าง</button>`
-    : ''}
-</div>` : '';
+const pendingControls = scope => app.pending.has(scope) ? (() => {
+  const descriptor = app.pending.get(scope).descriptor;
+  const status = text(descriptor.response?.status);
+  const statusText = status === 'WRITE_REQUEST_ACCEPTED' ? 'STK_08 ตอบรับคำขอแล้ว แต่ Lists ยังไม่ยืนยันการจบงาน' :
+    status ? 'STK_08 ตอบกลับ: ' + status :
+    'ยังไม่มีคำตอบรับที่บันทึกไว้จาก STK_08 (อาจส่งไม่ถึงหรือเกิดข้อผิดพลาดระหว่างเชื่อมต่อ)';
+  const received = text(descriptor.response?.requestId);
+  const sent = text(descriptor.createdAt);
+  return `<div class="section-actions">
+    <button class="btn secondary" type="button" data-action="check-save">${icon('refresh')} ตรวจสอบผลบันทึก</button>
+    ${app.page === 'jobdetail' && descriptor.action === 'finishJob'
+      ? `<button class="btn ghost" type="button" data-action="recover-finish">${icon('shield-check')} ตรวจสอบและปลดคำขอจบงานที่ค้าง</button>
+         <div class="finish-pending-diagnostic" role="status"><strong>รายละเอียดคำขอจบงาน</strong>
+         <span>${html(statusText)}</span>
+         <span>รหัสคำขอ: <code>${html(text(descriptor.clientRequestId))}</code></span>
+         ${received ? `<span>STK_08 Request ID: <code>${html(received)}</code></span>` : ''}
+         ${sent ? `<span>สร้างคำขอ: ${html(niceDate(sent))}</span>` : ''}
+         <small>ตรวจเทียบรหัสกับ STK_08 Executions และ STK_06 Run History ก่อนส่งใหม่</small></div>`
+      : ''}
+   </div>`;
+})() : '';
 
 function recordPictures(record) {
   const images = record.photoSlots.slice(0, 1).map(url => url ? `<a class="evidence-photo" href="${html(url)}" target="_blank" rel="noopener noreferrer">
@@ -1496,7 +1511,7 @@ async function confirmPending(scope, attempts = 7) {
 
 async function trackWrite(scope, action, payload, makeMatcher, onSaved) {
   if (app.pending.has(scope)) { showFeedback('คำขอก่อนหน้ายังไม่ยืนยัน กรุณาตรวจสอบผลก่อน', 'warning'); return false; }
-  const descriptor = { scope, action, payload, clientRequestId: crypto.randomUUID(), response: null };
+  const descriptor = { scope, action, payload, clientRequestId: crypto.randomUUID(), createdAt: new Date().toISOString(), response: null };
   const pending = { descriptor, matches: () => false, onSaved };
   app.pending.set(scope, pending);
   if (!persistPending()) {
@@ -1513,6 +1528,9 @@ async function trackWrite(scope, action, payload, makeMatcher, onSaved) {
   }
   const code = text(response?.status || response?.code || 'UNKNOWN_RESPONSE');
   const detail = text(response?.message).slice(0, 260);
+  // Preserve the transport result for diagnostics without storing LINE tokens.
+  descriptor.response = { requestId: text(response?.requestId), status: code };
+  persistPending();
   // These states are explicit server-side rejections: STK_08 has not handed
   // anything to STK_06. Other states could have side effects; keep the journal.
   const definitelyNotSubmitted = new Set([
@@ -1529,13 +1547,10 @@ async function trackWrite(scope, action, payload, makeMatcher, onSaved) {
     return false;
   }
   if (code !== 'WRITE_REQUEST_ACCEPTED') {
-    descriptor.response = { requestId: text(response?.requestId), status: code };
-    persistPending();
     showFeedback('STK_08 ตอบกลับ ' + code + (detail ? ': ' + detail : '') +
       ' · ยังไม่ยืนยันว่าข้อมูลลง Lists แล้ว กดตรวจสอบผลบันทึกหรือดู STK_08 > Executions ห้ามส่งซ้ำ', 'warning');
     return false;
   }
-  descriptor.response = { requestId: text(response.requestId), status: response.status };
   const matches = makeMatcher(response);
   pending.matches = job => operationIdentity(descriptor,job) && matches(job);
   persistPending();
