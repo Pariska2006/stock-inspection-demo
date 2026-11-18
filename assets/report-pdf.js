@@ -63,19 +63,37 @@ function imageCell(label,image){
  ]},layout:{hLineColor:()=>BORDER,vLineColor:()=>BORDER,
   paddingLeft:()=>0,paddingRight:()=>0,paddingTop:()=>0,paddingBottom:()=>0}};
 }
+function bodyCell(value,options={}){
+ return {
+  text:str(value),fontSize:options.fontSize||7.5,color:options.color||DARK,
+  bold:Boolean(options.bold),alignment:options.align||'left',
+  noWrap:Boolean(options.noWrap),margin:[0,1,0,1],
+  characterSpacing:0
+ };
+}
 function cleanResult(v){return v==='NG'?'NG':v==='OK'?'OK':v==='NA'?'NA':str(v)}
-function resultCell(value){return {text:cleanResult(value),color:value==='NG'?'#b42333':value==='OK'?GREEN:DARK,bold:value==='NG'||value==='OK',alignment:'center'}}
+function resultCell(value){
+ return bodyCell(cleanResult(value),{
+  align:'center',color:value==='NG'?'#b42333':value==='OK'?GREEN:DARK,
+  bold:value==='NG'||value==='OK',noWrap:true,fontSize:8
+ });
+}
 function tableRows(data){
- const head=['#','Date','Model','Serial Number','Lot','1','2','3','4','Result'];
- return [[...head.map(text=>({text,bold:true,color:'#255b39',fillColor:'#edf5f0',fontSize:7}))],
- ...data.rows.map((r,i)=>[
-  {text:String(i+1),fontSize:7},
-  {text:str(r.date),fontSize:7},
-  {text:str(r.model),fontSize:7},
-  {text:str(r.serial),fontSize:7},
-  {text:str(r.lot),fontSize:7},
-  ...[0,1,2,3].map(n=>resultCell(r.results[n])),
-  resultCell(r.overall)
+ const head=['#','Date','Model','Serial Number','Lot No.','1','2','3','4','Result'];
+ const aligned=new Set([0,5,6,7,8,9]);
+ const header=head.map((label,i)=>({
+  text:label,fontSize:7.3,bold:true,color:'#255b39',
+  fillColor:'#eaf4ee',alignment:aligned.has(i)?'center':'left',
+  noWrap:true,margin:[0,2,0,2]
+ }));
+ return [header,...data.rows.map((record,index)=>[
+  bodyCell(index+1,{align:'center',bold:true,fontSize:8,noWrap:true}),
+  bodyCell(record.date,{fontSize:7.5,noWrap:true}),
+  bodyCell(record.model,{fontSize:7.5}),
+  bodyCell(record.serial,{fontSize:7.6,bold:true}),
+  bodyCell(record.lot,{fontSize:7.4}),
+  ...[0,1,2,3].map(i=>resultCell(record.results?.[i])),
+  resultCell(record.overall)
  ])];
 }
 async function download(data){
@@ -129,9 +147,14 @@ async function download(data){
    ]}
   ],columnGap:10,margin:[0,5,0,1]},
   section('03','ผลการตรวจสต็อก'),
-  {table:{headerRows:1,dontBreakRows:true,widths:[16,42,37,'*',30,21,21,21,21,34],body:tableRows(data)},
-   layout:{hLineColor:()=>BORDER,vLineColor:()=>BORDER,
-    paddingLeft:()=>3,paddingRight:()=>3,paddingTop:()=>3,paddingBottom:()=>3}},
+  {table:{headerRows:1,dontBreakRows:true,keepWithHeaderRows:1,
+   widths:[18,62,55,140,34,27,27,27,27,38],body:tableRows(data)},
+   layout:{
+    hLineColor:()=>BORDER,vLineColor:()=>BORDER,
+    hLineWidth:()=>0.55,vLineWidth:()=>0.55,
+    paddingLeft:()=>4,paddingRight:()=>4,
+    paddingTop:()=>5,paddingBottom:()=>5
+   }},
   {text:'แสดง '+data.rows.length+' จาก '+total+' คัน · ยอดรวมคำนวณจากข้อมูลรถทั้งหมด',fontSize:7.5,color:MUTED,margin:[0,4,0,5]},
   {table:{widths:['*','*','*','*'],body:[[
    {stack:[{text:'TOTAL',fontSize:8,color:MUTED,alignment:'center'},
