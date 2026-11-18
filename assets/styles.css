@@ -221,3 +221,9 @@ html { scroll-padding-bottom:100px }
   .inspector-banner{align-items:flex-start;gap:5px 10px}
   .inspector-banner small{flex-basis:100%;margin-left:0}
 }
+
+/* 18 Nov — unified OK/NG summary badges */
+.result-summary{margin-top:14px}
+.result-summary-badge{display:inline-flex;align-items:center;justify-content:center;min-width:68px;padding:7px 16px;border-radius:9px;border:1px solid transparent;font-size:16px;font-weight:800;line-height:1.2}
+.result-summary-badge.ng{background:#fee2e2;border-color:#fecaca;color:#b91c1c}
+.result-summary-badge.ok{background:#e8f7ed;border-color:#bbebcd;color:#147d42}
