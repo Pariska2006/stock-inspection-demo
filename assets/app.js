@@ -2347,7 +2347,19 @@ function restorePending() {
     for (const descriptor of stored) {
       if (!descriptor.scope || !descriptor.action || !descriptor.payload || !descriptor.clientRequestId) continue;
       app.pending.set(descriptor.scope, { descriptor, matches: job => operationMatches(descriptor, job),
-        onSaved: job => { if (descriptor.action === 'deleteJob') { app.selected = ''; app.editJob = false; navigate('jobs', true); showFeedback('ไม่พบงานในผลอ่านกลับแล้ว กรุณาตรวจ STK_Jobs อีกครั้ง', 'success'); } else { selectJob(job.id); showFeedback('ตรวจสอบพบผลบันทึกแล้ว', 'success'); } } });
+        onSaved: job => {
+          if (descriptor.action === 'deleteJob') {
+            app.selected = ''; app.editJob = false; navigate('jobs', true);
+            showFeedback('ไม่พบงานในผลอ่านกลับแล้ว กรุณาตรวจ STK_Jobs อีกครั้ง', 'success');
+          } else if (descriptor.action === 'finishJob') {
+            app.reportJob = job.id;
+            app.detailOrigin = 'reports';
+            navigate('reports', true);
+          } else {
+            selectJob(job.id);
+            showFeedback('ตรวจสอบพบผลบันทึกแล้ว', 'success');
+          }
+        } });
     }
   } catch { /* Unusable journal is not evidence of a successful write. */ }
 }
