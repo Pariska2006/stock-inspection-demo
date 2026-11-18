@@ -60,9 +60,12 @@ window.StockQR = (() => {
     input.dispatchEvent(new Event('change', { bubbles: true }));
     if (found.model) {
       const model = el('insModel');
-      if (model && !model.value.trim()) {
+      if (model && !model.readOnly) {
+        // The scanned plate's Model takes priority over the job's default Model.
+        // Inspectors can still edit the text field after scanning.
         model.value = found.model;
         model.dispatchEvent(new Event('input', { bubbles: true }));
+        model.dispatchEvent(new Event('change', { bubbles: true }));
       }
     }
     stop();
