@@ -1207,7 +1207,7 @@ function renderInspection() {
       return `<article class="check-row" data-state="${chosen.toLowerCase()||'pending'}"><div class="check-description" id="checkLabel${c.slot}">${html(c.label)}</div>
         <div class="check-choices" role="group" aria-labelledby="checkLabel${c.slot}">${['OK','NG'].map(value=>`<button class="pick-result ${chosen===value?'selected '+value.toLowerCase():''}" type="button" data-result-slot="${c.slot}" data-result-value="${value}" aria-pressed="${chosen===value}">${value}</button>`).join('')}</div>
         <input id="insR${c.slot}" type="hidden" value="${html(chosen)}">
-        <div class="criterion-notes inline-notes"><div class="optional-body">${area('insNote'+c.slot,'หมายเหตุ (ไม่บังคับ)',detail.note||detail.ngDetail,{max:500})}</div></div>
+        <div class="criterion-notes inline-notes"><div class="optional-body">${area('insNote'+c.slot,'หมายเหตุ (กรณี NG ต้องระบุ)',detail.note||detail.ngDetail,{max:500})}</div></div>
         ${(detail.updatedAt || detail.inspector || record?.inspector || record?.checkedBy)?`<small class="hint">${detail.updatedAt?'แก้ล่าสุด '+html(niceDate(detail.updatedAt))+' · ':''}ผู้ตรวจ ${html(detail.inspector || record?.inspector || record?.checkedBy || '—')}</small>`:''}</article>`;
     }).join('')}</div>
     <div id="liveOverallResult" class="live-result" aria-live="polite"></div>
@@ -1791,6 +1791,7 @@ async function submitInspection(event){
  if(!existing&&liveRecords(job).some(r=>r.serial.toUpperCase()===serial))return validationError('มีเลขตัวรถนี้ในงานแล้ว เปิดรายการเดิมเพื่อตรวจต่อ','insSerial');
  const record=formRecord(),cs=DOMAIN.criteria(job);if(!cs.length)return showFeedback('ต้องมีเกณฑ์ตรวจอย่างน้อยหนึ่งข้อ','error');
  const ng=record.criterionResults.filter(c=>c.result==='NG');
+ if(ng.some(c=>!text(c.ngDetail)))return showFeedback('กรุณากรอกหมายเหตุสำหรับเกณฑ์ที่เลือก NG ก่อนบันทึก','warning');
  const aggregate=DOMAIN.inspection(job,record),changes=DOMAIN.changes(job,existing,record);
  const payload={...jobData(job),schemaVersion:2,recordItemId,serial,product,model,location:val('insLocation'),expectedVersion:existing?.version??null,
   criteria:cs,criterionResults:record.criterionResults,changes,overallResult:aggregate.overallResult,isComplete:aggregate.isComplete,
