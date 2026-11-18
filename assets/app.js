@@ -1129,7 +1129,11 @@ function renderJobForm() {
         ${area('jfNotes', 'หมายเหตุงาน', job?.notes, { max: 700 })}
       </fieldset>
       ${formFoot(manual ? 'สร้างงานและเริ่มตรวจ' : starting ? 'บันทึกและเริ่มตรวจ' : 'บันทึกรายละเอียดงาน', scope)}
-    </form>`;
+    </form>
+    ${job && !finished(job) ? `<section class="panel delete-job-section"><h2>จัดการงานตรวจ</h2>
+      <p class="hint">${liveRecords(job).length ? 'งานนี้มีรถที่บันทึกผลแล้ว จึงไม่อนุญาตให้ลบงาน' : 'ลบได้เฉพาะงานที่ยังไม่มีผลตรวจรถ ระบบจะตรวจ Microsoft Lists อีกครั้งก่อนลบ'}</p>
+      <button class="btn secondary sm danger" type="button" data-action="delete-job" ${liveRecords(job).length ? 'disabled' : ''}>${icon('trash')} ลบงานตรวจนี้</button>
+    </section>` : ''}`;
   syncFormControls();
 }
 
@@ -1427,13 +1431,18 @@ async function confirmPending(scope, attempts = 7) {
     if (epoch !== sessionEpoch || !app.member) return false;
     if (newest.partial) continue;
     const jobs = newest.jobs.filter(Boolean).map(normalizeJob);
-    const match = jobs.find(job => pending.matches(job, newest));
+    const deletingJob = pending.descriptor.action === 'deleteJob';
+    const match = deletingJob
+      ? (pending.descriptor.response?.status === 'WRITE_REQUEST_ACCEPTED' &&
+         newest.status === 'OK' &&
+         !jobs.some(job => job.id === pending.descriptor.payload.jobKey))
+      : jobs.find(job => pending.matches(job, newest));
     if (match) {
       app.pending.delete(scope);
       persistPending();
       clearSavedDraft(scope);
       applyJobs(newest);
-      await pending.onSaved(match);
+      await pending.onSaved(deletingJob ? null : match);
       return true;
     }
   }
@@ -1560,6 +1569,53 @@ function encodeJobNotes({ notes, claimCategory, startedBy, startedAt, defaultIns
   if (!fields.length) return notes;
   const metadata = fields.map(([label, value]) => label + ': ' + text(value).replace(/[\r\n]+/g, ' '));
   return [notesHeader, ...metadata].join('\n') + (notes ? '\n\n' + notes : '');
+}
+
+async function deleteJobFromWeb() {
+  const job = findJob();
+  if (!job || !['new', 'progress'].includes(job.status)) {
+    return showFeedback('ลบได้เฉพาะงานใหม่หรืองานที่กำลังดำเนินการ', 'warning');
+  }
+  if (app.pending.has(jobScope(job))) {
+    return showFeedback('งานนี้มีคำขอค้างอยู่ กรุณาตรวจสอบผลก่อน', 'warning');
+  }
+  if (liveRecords(job).length) {
+    return showFeedback('งานนี้มีรถที่บันทึกผลแล้ว จึงไม่อนุญาตให้ลบทั้งงาน', 'warning');
+  }
+  if (app.dirty) {
+    return showFeedback('มีการแก้ไขที่ยังไม่บันทึก กรุณาออกจากฟอร์มก่อนเริ่มลบ', 'warning');
+  }
+  if (!await confirmAction(
+    'ลบงานตรวจ',
+    'ต้องการลบงาน "' + job.title + '" (' + job.id + ') หรือไม่?\nลบได้เฉพาะงานที่ยังไม่มีรถตรวจ และรูปที่เก็บแยกไว้อาจยังอยู่',
+    'ลบงาน', 'danger'
+  )) return;
+  const typed = window.prompt('เพื่อยืนยันงานที่ถูกต้อง ให้พิมพ์ Job Key ตามนี้:\n' + job.id);
+  if (typed === null) return;
+  if (text(typed) !== job.id) return showFeedback('Job Key ไม่ตรง ยกเลิกการลบ', 'warning');
+
+  await withWrite(async () => {
+    const latest = await readJobs();
+    if (latest.partial || latest.status !== 'OK') {
+      return showFeedback('อ่านรายการงานจาก Lists ได้ไม่ครบ จึงไม่ส่งคำสั่งลบ', 'warning');
+    }
+    const current = latest.jobs.filter(Boolean).map(normalizeJob).find(item => item.id === job.id);
+    if (!current || current.sharePointItemId !== job.sharePointItemId ||
+        !['new','progress'].includes(current.status) || liveRecords(current).length) {
+      applyJobs(latest);
+      return showFeedback('งานเปลี่ยนไปหรือมีรายการรถแล้ว จึงยกเลิกการลบ', 'warning');
+    }
+    const payload = { ...jobData(current), schemaVersion: 2 };
+    await trackWrite(jobScope(current), 'deleteJob', payload,
+      () => () => false,
+      () => {
+        app.editJob = false;
+        app.selected = '';
+        app.dirty = false;
+        navigate('jobs', true);
+        showFeedback('ไม่พบงานในรายการอ่านกลับแล้ว กรุณาตรวจ STK_Jobs เพื่อยืนยันผลลบ', 'success');
+      });
+  });
 }
 
 async function finishJob() {
@@ -1999,6 +2055,8 @@ async function handleClick(event) {
   } else if (action === 'select-job') {
     app.editJob = true;
     navigate('jobform', true);
+  } else if (action === 'delete-job') {
+    await deleteJobFromWeb();
   } else if (action === 'finish-job') {
     await finishJob();
   } else if (action === 'check-save') {
@@ -2208,7 +2266,7 @@ function restorePending() {
     for (const descriptor of stored) {
       if (!descriptor.scope || !descriptor.action || !descriptor.payload || !descriptor.clientRequestId) continue;
       app.pending.set(descriptor.scope, { descriptor, matches: job => operationMatches(descriptor, job),
-        onSaved: job => { selectJob(job.id); showFeedback('ตรวจสอบพบผลบันทึกแล้ว', 'success'); } });
+        onSaved: job => { if (descriptor.action === 'deleteJob') { app.selected = ''; app.editJob = false; navigate('jobs', true); showFeedback('ไม่พบงานในผลอ่านกลับแล้ว กรุณาตรวจ STK_Jobs อีกครั้ง', 'success'); } else { selectJob(job.id); showFeedback('ตรวจสอบพบผลบันทึกแล้ว', 'success'); } } });
     }
   } catch { /* Unusable journal is not evidence of a successful write. */ }
 }
