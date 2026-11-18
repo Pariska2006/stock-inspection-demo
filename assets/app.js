@@ -86,11 +86,27 @@ function safeLink(value) {
   }
 }
 
+function friendlyMessage(value) {
+ const raw=text(value);
+ if(!raw)return '';
+ if(/(?:คำขอ|บันทึก).*(?:ค้าง|ยังไม่ยืนยัน|รอยืนยัน|ห้ามส่งซ้ำ|ห้ามกดส่งซ้ำ)/i.test(raw))
+   return 'ยังตรวจสอบผลบันทึกไม่เสร็จ กรุณากด “ตรวจสอบผลบันทึก” และอย่ากดส่งซ้ำ';
+ if(/(?:TOKEN_REQUIRED|INVALID_TOKEN|ID_TOKEN|token expired|unauthorized|expired token|login required|HTTP\s*(?:400|401)|\b401\b)/i.test(raw))
+   return 'การเข้าสู่ระบบหมดอายุ กรุณาเข้าสู่ระบบ LINE อีกครั้ง';
+ if(/(?:HTTP\s*403|PERMISSION_DENIED|NOT_APPROVED|\b403\b)/i.test(raw))
+   return 'บัญชีนี้ยังไม่มีสิทธิ์ใช้งาน กรุณาติดต่อผู้ดูแล';
+ if(/(?:HTTP\s*(?:429|500|502|503|504)|network|fetch|timeout|abort|cors)/i.test(raw))
+   return 'ไม่สามารถเชื่อมต่อได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง';
+ if(/(?:STK[_-]\d+|n8n|Webhook|Graph|SharePoint|Microsoft Lists|\bLists\b|\bFlow\b|\bJSON\b|\bHTTP\b|\bERROR\b|\bBAD_ACTION\b|\bINVALID_INPUT\b|\bWRITE_[A-Z_]+\b|\bUNKNOWN_RESPONSE\b|Supabase|FourSlotBridge|\bETag\b|\bRun History\b|\bExecutions\b)/i.test(raw))
+   return 'ยังดำเนินการไม่สำเร็จ กรุณาลองใหม่อีกครั้ง หากยังพบปัญหาให้ติดต่อผู้ดูแล';
+ return raw;
+}
+
 function gate(which, message = '', error = false) {
   $('accessGate').hidden = false;
   $('appMain').hidden = true;
   GATES.forEach(id => $(id).hidden = id !== which);
-  $('gateMessage').textContent = message;
+  $('gateMessage').textContent = friendlyMessage(message);
   $('gateMessage').className = 'gate-state' + (error ? ' error' : '');
 }
 
@@ -104,15 +120,21 @@ async function fetchJson(url, options, timeout = 14000) {
       return null;
     });
     if (response.status === 401 || response.status === 403) {
-      app.jobsLive = false;
-      app.member = null;
-      gate(response.status === 401 ? 'gateLogin' : 'gateBlocked', 'สิทธิ์ใช้งานหมดอายุหรือถูกระงับ กรุณาตรวจสอบบัญชีใหม่', true);
-      const error = Error('สิทธิ์ใช้งานหมดอายุหรือถูกระงับ');
-      error.auth = true;
+      const error = Error(response.status === 401
+        ? 'การเข้าสู่ระบบหมดอายุ กรุณาเข้าสู่ระบบ LINE อีกครั้ง'
+        : 'บัญชีนี้ยังไม่มีสิทธิ์ใช้งาน กรุณาติดต่อผู้ดูแล');
+      error.httpStatus = response.status;
       throw error;
     }
-    if (!response.ok) throw Error('เชื่อมต่อไม่สำเร็จ (HTTP ' + response.status + ')');
-    if (!data) throw Error('ระบบตอบกลับในรูปแบบที่อ่านไม่ได้');
+    if (!response.ok) {
+      console.warn('Request failed', {status:response.status,details:text(data?.status || data?.message).slice(0,160)});
+      const error = Error(response.status === 400
+        ? 'เชื่อมต่อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'
+        : 'ไม่สามารถเชื่อมต่อได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง');
+      error.httpStatus = response.status;
+      throw error;
+    }
+    if (!data) throw Error('ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่อีกครั้ง');
     return data;
   } catch (error) {
     if (error.name === 'AbortError') throw Error('การเชื่อมต่อใช้เวลานานเกินไป');
@@ -131,15 +153,15 @@ function idToken() {
 
 async function post(url, action, values = {}, timeout) {
   const read = ['status', 'jobs', 'requestStatus', 'modelMaster'].includes(action);
-  if (!read && !(action==='register'?registrationAllowed():liveWritesAllowed())) throw Error('ระบบบันทึกยังไม่พร้อม: ต้องอ่าน STK_07 V4 ให้ครบและได้รับ fourSlotBridge');
+  if (!read && !(action==='register'?registrationAllowed():liveWritesAllowed())) throw Error('ยังบันทึกไม่ได้ กรุณาโหลดข้อมูลใหม่แล้วลองอีกครั้ง');
   if (!read && action !== 'register' && CONFIG.fourSlotBridgeEnabled === true && !MOCK) {
     const payload = values?.payload || {};
     const criteria = Array.isArray(payload.criteria) ? payload.criteria : [];
     if (criteria.length > 4 || criteria.some(c => Number(c.slot) > 4 || Number(c.slot) < 1) ||
         Object.keys(payload).some(k => /^result(?:[5-9]|1[0-9]|20)(?:Criteria)?$/.test(k) && text(payload[k])))
-      throw Error('Lists ปัจจุบันรองรับ 4 เกณฑ์เท่านั้น กรุณาลดจำนวนเกณฑ์ก่อนบันทึก');
+      throw Error('เพิ่มเกณฑ์ตรวจได้ไม่เกิน 4 ข้อ กรุณาปรับก่อนบันทึก');
     if (action === 'saveInspection' && (!criteria.length || Number(payload.schemaVersion) !== 2))
-      throw Error('รูปแบบผลตรวจไม่ตรง STK_08 V2 กรุณารีเฟรชงาน');
+      throw Error('ข้อมูลการตรวจไม่ตรงกับงานล่าสุด กรุณาเปิดงานใหม่อีกครั้ง');
   }
   if (MOCK) { await delay(120); return mockAdapter.request(action, values); }
   if (!safeLink(url)) throw Error('ยังไม่ตั้งค่าบริการที่ได้รับอนุญาต');
@@ -169,10 +191,19 @@ async function checkAccess() {
       $('gateRegisterButton').disabled = !registrationAllowed();
       return gate('gateRegister', registrationAllowed() ? '' : 'ยังไม่เปิดระบบลงทะเบียนจริง');
     }
-    throw Error(data.message || 'ตรวจสอบสิทธิ์ไม่สำเร็จ');
+    throw Error(friendlyMessage(data.message || 'เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'));
   } catch (error) {
-    if (error.auth) return;
-    gate('gateError', error.message, true);
+    console.warn('Login check failed', error);
+    if (!MOCK && [400,401].includes(error.httpStatus)) {
+      try { if(liff.isLoggedIn())liff.logout(); } catch(e) { console.warn('LINE logout failed',e); }
+      resetSession();
+      return gate('gateLogin','กรุณาเข้าสู่ระบบ LINE อีกครั้ง',true);
+    }
+    if (error.httpStatus === 403) {
+      resetSession();
+      return gate('gateBlocked','บัญชีนี้ยังไม่มีสิทธิ์ใช้งาน กรุณาติดต่อผู้ดูแล',true);
+    }
+    gate('gateError','เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',true);
   }
 }
 
@@ -225,9 +256,10 @@ async function register(event) {
       $('gateRegisterForm').reset();
       gate('gatePending', 'ส่งคำขอแล้ว');
     } else if (data.registered) await checkAccess();
-    else throw Error(data.message || 'ส่งคำขอไม่สำเร็จ');
+    else throw Error(friendlyMessage(data.message || 'ส่งคำขอไม่สำเร็จ กรุณาลองอีกครั้ง'));
   } catch (error) {
-    gate('gateRegister', error.message, true);
+    console.warn('Registration failed',error);
+    gate('gateRegister', friendlyMessage(error.message), true);
   } finally {
     registering = false;
     $('gateRegisterButton').disabled = false;
@@ -293,7 +325,7 @@ async function photoRequest(body,timeout=45000){
  try{
   const response=await fetch(PHOTO_UPLOAD_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,idToken:idToken()}),signal:controller.signal,cache:'no-store'});
   const data=await response.json().catch(()=>null);
-  if(!response.ok||!data||data.status==='ERROR')throw Error(data?.message||'เชื่อม Supabase ไม่สำเร็จ (HTTP '+response.status+')');
+  if(!response.ok||!data||data.status==='ERROR'){console.warn('Image service failed',{status:response.status,code:data?.status});throw Error('จัดการรูปภาพไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')}
   return data;
  }finally{clearTimeout(timer)}
 }
