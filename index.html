@@ -7,7 +7,7 @@
   <meta name="description" content="Stock Inspection — Confirm Tractor in Stock">
   <title>Stock Inspection | KUBOTA — White Minimal Search Update</title>
 <link rel="stylesheet" href="assets/fonts.css?v=20261117-search2">
-<link rel="stylesheet" href="assets/styles.css?v=20261118-a4-report-top-fix">
+<link rel="stylesheet" href="assets/styles.css?v=20261118-month-overview-photo-sync">
 
 </head>
 <body>
@@ -251,7 +251,7 @@
  <div class="field"><label for="homeModel">Model</label><select class="control" id="homeModel"></select></div></div>
  </section>
         <div class="section-title"><h2>งานของฉัน · กำลังดำเนินการ</h2><button type="button" class="btn ghost" data-nav="jobs">งานทั้งหมด</button></div><div id="homeJobs" class="job-grid"></div>
-        <section class="panel monthly-panel"><div><p class="eyebrow">MONTHLY OVERVIEW</p><h2>ความคืบหน้าประจำเดือน</h2><p class="hint">ตามเดือนที่เริ่มงานตรวจ</p><button class="btn ghost" data-nav="overview" type="button">ดูภาพรวมทั้งหมด</button></div><div id="homeMonth"></div></section>
+
       </section>
 
       <section class="view" id="jobs">
@@ -282,6 +282,7 @@
         <div class="page-head"><div><h1 tabindex="-1">Monthly Overview</h1></div></div>
         <div id="overviewLiveBanner" class="notice" role="status" hidden><span></span><button class="btn secondary sm" type="button" data-action="refresh-jobs" hidden>ลองอีกครั้ง</button></div>
         <div id="systemOverview"></div>
+        <section class="panel monthly-panel overview-monthly-panel"><div><p class="eyebrow">MONTHLY OVERVIEW</p><h2>ความคืบหน้าประจำเดือน</h2><p class="hint">ตามเดือนที่เริ่มงานตรวจ</p></div><div id="overviewMonth"></div></section>
         <div id="monthGrid"></div>
         <button class="btn secondary older-months" type="button" id="olderMonths" data-action="older-months" hidden>ดูประวัติเดือนก่อนหน้า</button>
       </section>
@@ -358,7 +359,7 @@
 <script defer src="assets/mock.js?v=20261117-search2"></script>
 <script defer src="assets/vendor/jsQR.js?v=20261117-search2"></script>
 <script defer src="assets/scanner.js?v=20261118-ui-note-model-board"></script>
-<script defer src="assets/app.js?v=20261118-a4-report-photo-refresh"></script>
+<script defer src="assets/app.js?v=20261118-unified-download-month-overview"></script>
 </body>
 </html>
 
