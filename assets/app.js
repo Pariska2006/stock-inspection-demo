@@ -445,8 +445,8 @@ function applyJobs(data) {
   app.lastReadSource = text(data.source);
   app.recordRead = /STK_Inspections/i.test(app.lastReadSource) || app.jobs.some(job => job.records.length > 0);
   if (!MOCK) $('environmentBanner').textContent = liveWritesAllowed()
-    ? 'LIVE · อ่าน/บันทึก Microsoft Lists จริง · รองรับ 4 เกณฑ์ · ยังไม่มี atomic version lock'
-    : 'LIVE · อ่าน Microsoft Lists จริง · บันทึกปิดอัตโนมัติเมื่อข้อมูลไม่ครบหรือ Flow ไม่รองรับ';
+    ? 'พร้อมบันทึกผลการตรวจ'
+    : 'กำลังตรวจสอบข้อมูล · กรุณารีเฟรชหากยังบันทึกไม่ได้';
   syncFormControls();
   app.loadError = '';
   if (text(data.memberNickname)) renameProfile(data.memberNickname);
@@ -1533,7 +1533,7 @@ function renderMembers() {
  const root=$('membersContent');
  if(!root)return;
  if(!app.membersReady){
-  root.innerHTML='<div class="notice warning">รายชื่อสมาชิกส่วนกลางยังไม่พร้อม ต้องนำเข้า STK_07 V8 ก่อนจึงจะแสดงสมาชิกที่อนุมัติทั้งหมดได้</div>';
+  root.innerHTML='<div class="notice warning">ยังแสดงรายชื่อสมาชิกไม่ได้ กรุณาลองใหม่อีกครั้ง</div>';
   return;
  }
  const people=[...app.members].sort((a,b)=>a.fullName.localeCompare(b.fullName,'th'));
@@ -1541,7 +1541,7 @@ function renderMembers() {
   ? '<img class="member-photo" src="'+html(person.avatarUrl)+'" alt="" loading="lazy" referrerpolicy="no-referrer">'
   : '<span class="member-photo member-initial">'+html(Array.from(person.fullName)[0]||'?')+'</span>';
  root.innerHTML='<div class="member-directory-top"><h2>สมาชิกที่ใช้งานระบบ</h2><span>'+people.length+' คน</span></div>'+
-  '<p class="hint">แสดงเฉพาะสมาชิกที่ได้รับอนุมัติจาก STK_Users · ชื่อจริงและชื่อเล่นจากฐานข้อมูลกลาง</p>'+
+  '<p class="hint">รายชื่อสมาชิกที่ได้รับอนุมัติให้ใช้งาน</p>'+
   (people.length?'<div class="member-directory-grid">'+people.map(person=>
    '<article class="member-directory-card">'+picture(person)+'<div><strong>'+html(person.fullName)+'</strong>'+
    '<span>'+html(person.nickname||'ไม่มีชื่อเล่น')+'</span><small>'+html(person.role||'Inspector')+'</small></div>'+
@@ -1645,6 +1645,7 @@ function syncFormControls() {
 }
 
 function showFeedback(message, kind = '') {
+  message=friendlyMessage(message);
   if (app.busy && $('writeProgressMessage')) {
     // The overlay follows the actual write/confirmation stage, not a timer.
     const note = text(message);
@@ -1681,7 +1682,7 @@ function setBusy(busy) {
   const overlay = $('writeProgressOverlay');
   if (overlay) {
     overlay.hidden = !busy;
-    if (busy) $('writeProgressMessage').textContent = 'กำลังส่งคำสั่งและตรวจสอบผลบันทึกจาก Microsoft Lists…';
+    if (busy) $('writeProgressMessage').textContent = 'กำลังบันทึกข้อมูล กรุณาอย่าปิดหน้านี้…';
   }
   syncFormControls();
   showReadState();
@@ -1719,7 +1720,8 @@ async function withWrite(operation) {
   try {
     await operation();
   } catch (error) {
-    showFeedback(error.message || 'ส่งคำขอไม่สำเร็จ', 'error');
+    console.warn('Write failed',error);
+    showFeedback(friendlyMessage(error.message || 'ส่งคำขอไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), 'error');
   } finally {
     releaseWrite();
   }
@@ -2543,7 +2545,7 @@ document.addEventListener('error', event => {
 }, true);
 document.addEventListener('submit', event => {
   const submit = { jobForm: submitJob, inspectionSetupForm: submitInspectionSetup, inspectionForm: submitInspection }[event.target.id];
-  if (submit) submit(event).catch(error => showFeedback(error.message || 'บันทึกไม่ได้ กรุณาตรวจสอบข้อมูล', 'error'));
+  if (submit) submit(event).catch(error => {console.warn('Form submit failed',error);showFeedback(friendlyMessage(error.message || 'บันทึกไม่ได้ กรุณาตรวจสอบข้อมูล'), 'error')});
 });
 document.addEventListener('invalid', event => {
   const details = event.target.closest('#inspectionForm details');
@@ -2594,7 +2596,7 @@ async function init() {
   app.initializing = true;
   gate('gateLoading');
   try {
-    $('environmentBanner').textContent = MOCK ? 'DEMO / MOCK · ข้อมูลจำลองในหน่วยความจำ · ไม่เชื่อม Microsoft 365 · รีเฟรชเพื่อเริ่มใหม่' : 'LIVE · เชื่อม LINE / Microsoft Lists · โหมดบันทึก 4 เกณฑ์ (รอการอ่านข้อมูลให้ครบ)';
+    $('environmentBanner').textContent = MOCK ? 'โหมดทดลองใช้งาน' : 'กำลังเตรียมข้อมูลสำหรับการตรวจ…';
     if (MOCK) {
       app.ready = true;
       app.line = { userId: 'mock-inspector', displayName: 'ผู้ตรวจตัวอย่าง' };
@@ -2624,7 +2626,8 @@ async function init() {
     }
     await checkAccess();
   } catch (error) {
-    gate('gateError', error.message || 'เชื่อม LINE ไม่สำเร็จ', true);
+    console.warn('LINE initialization failed',error);
+    gate('gateError', 'เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง', true);
   } finally {
     app.initializing = false;
   }
