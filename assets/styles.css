@@ -263,3 +263,24 @@ html { scroll-padding-bottom:100px }
     position:static; max-height:none; overflow:visible;
   }
 }
+
+/* Job detail: vehicle list left, compact completion summary right */
+#detailContent.detail-with-vehicle-sidebar {display:block;}
+.vehicle-board-layout {display:grid;grid-template-columns:minmax(0,1fr) 220px;align-items:start;gap:16px;margin-top:16px}
+.vehicle-board-layout .vehicle-records-panel {min-width:0;margin:0}
+.vehicle-status-sidebar {display:grid;gap:12px;position:sticky;top:16px}
+.vehicle-status-mini {display:grid;gap:8px;border:1px solid #dbe5e0;border-radius:13px;padding:16px;background:#fff;min-width:0}
+.vehicle-status-mini-label {display:flex;align-items:center;gap:8px;font-size:13px;font-weight:650;color:#40534a}
+.vehicle-status-mini-label .ico {width:17px;height:17px}
+.vehicle-status-mini strong {font-size:34px;line-height:1.1;letter-spacing:-.03em}
+.vehicle-status-mini small {font-size:11px;color:#64748b}
+.vehicle-status-mini.done {background:#f2faf5;border-color:#cde9d5}
+.vehicle-status-mini.done strong {color:#147a43}
+.vehicle-status-mini.progress {background:#fffaf0;border-color:#f1dfba}
+.vehicle-status-mini.progress strong {color:#a7670b}
+@media(max-width:760px){
+ .vehicle-board-layout {grid-template-columns:1fr}
+ .vehicle-status-sidebar {position:static;grid-row:1;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .vehicle-status-mini {padding:12px}
+ .vehicle-status-mini strong {font-size:27px}
+}
