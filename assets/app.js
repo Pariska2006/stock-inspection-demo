@@ -1033,72 +1033,48 @@ function renderReportPreview(){
  if(!app.jobsLive||app.partial||!app.recordRead||app.loadError){root.innerHTML='<div class="notice warning">ข้อมูลยังไม่ครบ กรุณารีเฟรชก่อนเปิดรายงาน</div>';return}
  const photoPending=Boolean(PHOTO_UPLOAD_API_URL&&!MOCK&&!app.photoAssets.has(job.id));
  root.innerHTML=`<div class="report-toolbar no-print"><div><strong>ตัวอย่างรายงาน · A4</strong>${photoPending?'<small class="report-photo-sync" role="status">กำลังซิงค์รูปภาพ…</small>':''}</div>
-  <div class="report-toolbar-actions"><button class="btn secondary" type="button" data-action="print-report">${icon('printer')} พิมพ์ / บันทึก PDF คมชัด</button>
-  <button class="btn primary" type="button" data-export-job="${html(job.id)}">${icon('download')} ดาวน์โหลด PDF</button></div>
+  <div class="report-toolbar-actions"><button class="btn primary" type="button" data-export-job="${html(job.id)}">${icon('download')} ดาวน์โหลด PDF</button></div>
  </div>${reportDocument(job)}`;
  requestAnimationFrame(()=>{ root.scrollTop=0; window.scrollTo(0,0); });
 }
 async function exportReportPdf(jobId) {
  const job=selectedJobs().find(j=>j.id===jobId&&finished(j));
  if(!job)return showFeedback('เปิดดาวน์โหลดได้เฉพาะงานที่จบการตรวจแล้ว','warning');
- if(!app.jobsLive||app.partial||!app.recordRead||app.loadError)return showFeedback('ข้อมูลยังไม่ครบ กรุณาโหลดใหม่ก่อนดาวน์โหลดรายงาน','warning');
+ if(!app.jobsLive||app.partial||!app.recordRead||app.loadError)
+  return showFeedback('ข้อมูลยังไม่ครบ กรุณาโหลดใหม่ก่อนดาวน์โหลดรายงาน','warning');
+ if(!window.StockReportPdf?.download)
+  return showFeedback('เครื่องมือดาวน์โหลด PDF ยังโหลดไม่สำเร็จ กรุณารีเฟรชหน้า','error');
  if(PHOTO_UPLOAD_API_URL&&!MOCK){
   try{await loadJobPhotos(job.id,true);overlayPhotos(job)}
-  catch(error){console.warn('Report photos could not be refreshed',error)}
+  catch(error){console.warn('Photo sync unavailable',error);return showFeedback('ซิงค์รูปภาพไม่สำเร็จ กรุณาลองอีกครั้ง','warning')}
  }
- const original=document.getElementById('reportPdfExport');
- if(original)original.remove();
- const root=document.createElement('div');
- root.id='reportPdfExport';root.className='pdf-export-canvas';
- root.innerHTML=reportDocument(job);
- document.body.append(root);
- const filename='Stock_Inspection_'+job.id.replace(/[^A-Za-z0-9_-]/g,'_')+'.pdf';
- const target=root.querySelector('.reference-report');
- let done=false;
- try{
-  // Load the two standalone browser libraries explicitly: html2pdf's bundle
-  // does not reliably expose its internal jsPDF or html2canvas globally.
-  async function ensurePdfLibrary(check,src,label){
-   if(check())return;
-   await new Promise((resolve,reject)=>{
-    const script=document.createElement('script');
-    script.src=src;script.async=true;
-    script.onload=resolve;
-    script.onerror=()=>reject(Error('โหลด '+label+' ไม่สำเร็จ'));
-    document.head.append(script);
-   });
-   if(!check())throw Error(label+' ไม่พร้อมทำงาน');
-  }
-  await ensurePdfLibrary(()=>typeof window.html2canvas==='function',
-   'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js','html2canvas');
-  await ensurePdfLibrary(()=>typeof window.jspdf?.jsPDF==='function',
-   'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js','jsPDF');
-  const unavailable=await prepareReportImages(root);
-  if(unavailable.length)showFeedback('รูปภาพบางรายการยังเปิดไม่ได้ กรุณาตรวจสอบรูปที่บันทึกไว้','warning');
-  await document.fonts.ready;
-  // Render the fixed A4 layout directly; avoid html2pdf's extra blank space.
-  const render=window.html2canvas,JsPDF=window.jspdf?.jsPDF;
-  if(typeof render!=='function'||typeof JsPDF!=='function')throw Error('เครื่องมือ PDF ยังไม่พร้อม');
-  const canvas=await render(target,{scale:3,useCORS:true,allowTaint:false,backgroundColor:'#ffffff',logging:false,scrollX:0,scrollY:0,windowWidth:794});
-  if(!canvas.width||!canvas.height)throw Error('สร้างหน้ารายงานไม่ได้');
-  const pdf=new JsPDF({unit:'mm',format:'a4',orientation:'portrait',compress:true});
-  const pageWidth=210,pageHeight=297,pxPerPage=Math.floor(canvas.width*pageHeight/pageWidth);
-  for(let top=0,page=0;top<canvas.height;top+=pxPerPage,page++){
-   const height=Math.min(pxPerPage,canvas.height-top);
-   const slice=document.createElement('canvas');slice.width=canvas.width;slice.height=height;
-   slice.getContext('2d').drawImage(canvas,0,top,canvas.width,height,0,0,canvas.width,height);
-   if(page>0)pdf.addPage();
-   pdf.addImage(slice.toDataURL('image/png'),'PNG',0,0,pageWidth,height*pageWidth/canvas.width,undefined,'FAST');
-  }
-  pdf.save(filename);
-  done=true;
- }catch(error){
-  console.warn('PDF export unavailable',error);
-  showFeedback('สร้าง PDF ไม่สำเร็จ: '+(error?.message||'ไม่ทราบสาเหตุ')+' · กรุณาลองอีกครั้ง','error');
- }finally{
-  root.remove();
- }
- return done;
+ const records=liveRecords(job),summary=DOMAIN.summary([{...job,records}]),criteria=DOMAIN.criteria(job);
+ const dates=records.map(r=>dateValue(r.checkedAt)).filter(Boolean).sort();
+ const sorted=[...records].sort((a,b)=>Number(vehicleInspection(job,b).status==='NG')-Number(vehicleInspection(job,a).status==='NG'));
+ const data={
+  id:job.id,title:job.title,docNo2:job.docNo2,claimType:job.claimCategory||job.claimType,
+  product:selectedProducts(job).join(', ')||job.product,
+  model:selectedModels(job).join(', ')||job.model,
+  location:job.inspectionLocation,
+  date:dates.length?niceDate(dates[0])+(dates[0]!==dates[dates.length-1]?' – '+niceDate(dates[dates.length-1]):''):'—',
+  method:job.checkingMethod,criteria:criteria.map((x,i)=>(i+1)+'. '+x.label).join(' | '),
+  total:summary.total,ok:summary.OK,ng:summary.NG,pending:summary.pending,
+  inspector:[...new Set(records.map(r=>text(r.inspector||r.checkedBy)).filter(Boolean))].join(', ')||'—',
+  generated:new Intl.DateTimeFormat('th-TH',{timeZone:TIME_ZONE,dateStyle:'medium',timeStyle:'short'}).format(new Date()),
+  logo:'assets/kubota.png',okPhoto:safeLink(job.okPictureUrl),ngPhoto:safeLink(job.ngPictureUrl),
+  rows:sorted.slice(0,8).map(record=>{
+   const status=vehicleInspection(job,record).status;
+   return {date:niceDate(dateValue(record.checkedAt))||'—',model:record.model||job.model,
+    serial:record.serial,lot:record.lotNo,
+    results:Array.from({length:4},(_,i)=>{
+     const criterion=criteria.find(c=>c.slot===i+1);
+     return criterion?DOMAIN.criterionValue(record,criterion).result:'';
+    }),overall:status==='pending'?'ยังไม่ครบ':status};
+  })
+ };
+ try{await window.StockReportPdf.download(data);showFeedback('ดาวน์โหลด PDF เรียบร้อยแล้ว','success');return true}
+ catch(error){console.warn('Vector PDF export failed',error);
+  showFeedback('ดาวน์โหลด PDF ไม่สำเร็จ: '+(error?.message||'ไม่ทราบสาเหตุ'),'error');return false}
 }
 
 const jobScope = job => 'job:' + job.id;
