@@ -2627,6 +2627,11 @@ $('copyLineID').addEventListener('click', async () => {
   }
 });
 
+$('profilePhotoSelect').addEventListener('click',()=>$('profilePhotoFile').click());
+$('profilePhotoFile').addEventListener('change',event=>{
+  const file=event.target.files?.[0];event.target.value='';
+  if(file)uploadMemberProfile(file).catch(error=>console.warn('Profile photo change failed',error));
+});
 $('gateLoginButton').addEventListener('click', loginLine);
 $('gateRegisterForm').addEventListener('submit', register);
 for (const id of ['gateRefresh', 'gateBlockedRefresh', 'gateRetry', 'appRefresh']) {
