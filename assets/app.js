@@ -1932,27 +1932,47 @@ function removePhoto(slot) {
   app.dirty = true;
 }
 
+function attachInspectionPhoto(file, slot = '1') {
+  if (!file || app.busy || app.page !== 'inspection') return false;
+  const previewRoot = $('cameraPreview' + slot);
+  const state = $('cameraState' + slot);
+  if (!previewRoot || !state || !file.type.startsWith('image/') || file.size > 15 * 1024 * 1024) return false;
+  const savedUrl = val('photoValue' + slot);
+  removePhoto(slot);
+  $('photoValue' + slot).value = savedUrl; // Keep confirmed image until new photo is stored.
+  const preview = URL.createObjectURL(file);
+  app.photos.set(String(slot), {file, preview});
+  const img = new Image();
+  img.src = preview;
+  img.alt = 'ภาพป้ายรถที่เตรียมบันทึก';
+  previewRoot.replaceChildren(img);
+  state.textContent = 'แนบรูปแล้ว · จะอัปโหลดหลังบันทึกผลตรวจ';
+  document.querySelector('[data-photo-remove="' + slot + '"]').hidden = false;
+  const optional = $('optionalPhotos');
+  if (optional) optional.open = true;
+  app.dirty = true;
+  return true;
+}
 function selectPhoto(input) {
   const file = input.files?.[0];
   const slot = input.dataset.photoSlot;
   input.value = '';
   if (!file || app.busy) return;
   if (!file.type.startsWith('image/') || file.size > 15 * 1024 * 1024) {
-    $('cameraState' + slot).textContent = 'เลือกไฟล์รูปขนาดไม่เกิน 15 MB';
+    const state = $('cameraState' + slot);
+    if (state) state.textContent = 'เลือกไฟล์รูปขนาดไม่เกิน 15 MB';
     return;
   }
-  const savedUrl = val('photoValue' + slot);
-  removePhoto(slot);
-  $('photoValue' + slot).value = savedUrl; // Preserve confirmed image until replacement is linked.
-  const preview = URL.createObjectURL(file);
-  app.photos.set(slot, { file, preview });
-  const img = new Image();
-  img.src = preview;
-  img.alt = 'ภาพตัวอย่างที่เลือก';
-  $('cameraPreview' + slot).replaceChildren(img);
-  $('cameraState' + slot).textContent = file.name;
-  document.querySelector(`[data-photo-remove="${slot}"]`).hidden = false;
+  attachInspectionPhoto(file, slot);
 }
+document.addEventListener('stock-qr-photo', event => {
+  const file = event.detail?.file;
+  const serial = String(event.detail?.serial || '');
+  if (!file || !serial || app.page !== 'inspection' || app.editRecord) return;
+  // Do not attach a photo from a different scan/vehicle.
+  // The PIN field is populated just after this event by StockQR.
+  attachInspectionPhoto(file, '1');
+});
 
 async function handleClick(event) {
   const button = event.target.closest('button');
