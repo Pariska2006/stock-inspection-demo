@@ -981,6 +981,15 @@ async function exportReportPdf(jobId) {
   }
   await Promise.all([...root.querySelectorAll('img')].map(img=>
    img.complete?Promise.resolve():new Promise(resolve=>{img.addEventListener('load',resolve,{once:true});img.addEventListener('error',resolve,{once:true});setTimeout(resolve,7000)})));
+  // Explicit image dimensions prevent html2canvas from stretching portrait/circular reference photos.
+  for(const img of target.querySelectorAll('.report-reference-cell img')){
+   if(!img.naturalWidth||!img.naturalHeight)continue;
+   const cell=img.closest('.report-reference-cell');
+   const widthLimit=Math.max(1,cell.clientWidth-12),heightLimit=Math.max(1,cell.clientHeight-29);
+   const ratio=Math.min(widthLimit/img.naturalWidth,heightLimit/img.naturalHeight);
+   const width=Math.max(1,Math.round(img.naturalWidth*ratio)),height=Math.max(1,Math.round(img.naturalHeight*ratio));
+   Object.assign(img.style,{position:'absolute',width:width+'px',height:height+'px',maxWidth:'none',maxHeight:'none',padding:'0',top:(25+(heightLimit-height)/2)+'px',left:((cell.clientWidth-width)/2)+'px',objectFit:'fill'});
+  }
   await window.html2pdf().set({
    margin:0,filename,image:{type:'jpeg',quality:0.94},
    html2canvas:{scale:2,useCORS:true,allowTaint:false,backgroundColor:'#fff',logging:false},
@@ -1074,9 +1083,9 @@ function jobDetailsCapture(job) {
  return `<section class="inspection-capture-section" data-slide-capture="job-details">
    <h2>รายละเอียด</h2>
    <div class="inspection-detail-block"><h3>วิธีการตรวจสอบ</h3>
-    <p class="inspection-intro">${html(job.checkingMethod||'ยังไม่ระบุวิธีการตรวจสอบ')}</p></div>
+    <p class="inspection-intro">${html(text(job.checkingMethod)||'ยังไม่ระบุวิธีการตรวจสอบ')}</p></div>
    <div class="inspection-detail-block"><h3>เกณฑ์การตรวจสอบ</h3>
-    ${criteria.length?`<ol>${criteria.map(c=>`<li>${html(c.label)}</li>`).join('')}</ol>`:'<p class="hint">ยังไม่มีเกณฑ์การตรวจสอบ</p>'}</div>
+    ${criteria.length?`<ol>${criteria.map(c=>`<li>${html(text(c.label))}</li>`).join('')}</ol>`:'<p class="hint">ยังไม่มีเกณฑ์การตรวจสอบ</p>'}</div>
    ${referencePictures(job)}
  </section>
  <div class="detail-copy-actions no-print"><button class="btn secondary sm" data-slide-copy="job-details" type="button">${icon('copy')} คัดลอกรายละเอียดเป็นภาพ</button>
