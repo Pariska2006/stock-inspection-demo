@@ -44,7 +44,7 @@ const STATUS = {
 };
 const TITLES = {
   reportpreview: 'Report Preview', home: 'Stock Inspection', choose: 'เลือกงานตรวจ', jobs: 'งานตรวจ', overview: 'Monthly Overview', monthdetail: 'Monthly Overview', reports: 'Reports',
-  profile: 'Profile', recorddetail: 'ผลตรวจรายคัน', jobdetail: 'รายละเอียดงาน', jobform: 'จัดการงานตรวจ', inspection: 'ผลตรวจรายคัน'
+  profile: 'Profile', members: 'สมาชิก', recorddetail: 'ผลตรวจรายคัน', jobdetail: 'รายละเอียดงาน', jobform: 'จัดการงานตรวจ', inspection: 'ผลตรวจรายคัน'
 };
 const GATES = ['gateLoading', 'gateLogin', 'gateRegister', 'gatePending', 'gateBlocked', 'gateError'];
 const TIME_ZONE = 'Asia/Bangkok';
@@ -68,7 +68,7 @@ const app = {
   capabilities: {}, modelMaster: [], modelMasterSource: '', transfers: [], photoAssets: new Map(), vehicleGroup: true,
   ready: false, initializing: false, deleteEnabled: false, member: null, line: null, nickname: '', jobs: [], page: 'home',
   group: '', claimFilter: '', modelFilter: '', jobState: '', claimTypes: KNOWN_CLAIM_TYPES, products: GROUPS, search: '', selected: '', editJob: false, editRecord: '', viewRecord: '',
-  stars: new Set(),
+  stars: new Set(), members: [], membersReady: false,
   jobsLoading: false, jobsLive: false, recordRead: false, loaded: false, loadError: '', partial: false,
   yearsVisible: 1, jobsLoadedAt: '', month: '', monthFilter: 'all',
   reportJob: '', reportQuery: '', reportFilter: 'all', recordFilter: 'all', detailOrigin: 'jobs', detailMessage: null,
@@ -188,7 +188,7 @@ function resetSession() {
   StockQR.stop();
   clearPhotoDraft();
   Object.assign(app, {
-    member: null, jobs: [], jobsLive: false, loaded: false, recordRead: false, partial: false, loadError: '',
+    member: null, jobs: [], members: [], membersReady: false, jobsLive: false, loaded: false, recordRead: false, partial: false, loadError: '',
     selected: '', editJob: false, editRecord: '', deleteEnabled: false, inspectionBaseline: '', jobsLoading: false, photoAssets: new Map(),
     detailMessage: null, dirty: false, busy: false, group: '', claimFilter: '', search: '', stars: new Set(),
     claimTypes: KNOWN_CLAIM_TYPES, products: GROUPS, month: '', monthFilter: 'all', yearsVisible: 1, jobsLoadedAt: ''
@@ -383,6 +383,17 @@ function applyJobs(data) {
   const normalized = data.jobs.filter(Boolean).map(normalizeJob);
   // Soft-deleted jobs remain in Lists but are hidden from every workspace.
   app.jobs = normalized.filter(job => job.id && job.status !== 'deleted').sort(sortJobs);
+  app.membersReady = Array.isArray(data.members);
+  app.members = app.membersReady ? data.members.filter(person=>person && /^U[0-9a-f]{32}$/i.test(text(person.userId)) && text(person.fullName)).map(person=>({
+    userId:text(person.userId),fullName:text(person.fullName),nickname:text(person.nickname),role:text(person.role),avatarUrl:safeLink(person.avatarUrl)
+  })) : [];
+  const self = app.members.find(person=>person.userId===app.line?.userId);
+  if(self){
+    // Prefer a saved, centralized profile photograph over a LINE snapshot.
+    const avatar=self.avatarUrl||safeLink(app.line?.pictureUrl);
+    for(const [img,fallback] of [['topAvatar','topAvatarFallback'],['profileAvatar','profileFallback'],['greetingAvatar','greetingAvatarFallback']])setAvatar(img,fallback,avatar);
+    $('memberFullName').textContent=self.fullName;
+  }
   const listChoices = data.choices?.claimCategory ?? data.choices?.claimType ?? data.claimCategories;
   const categories = Array.isArray(listChoices) ? listChoices.map(claimCategory).filter(Boolean) : [];
   app.claimTypes = [...new Set([...KNOWN_CLAIM_TYPES, ...categories, ...app.jobs.map(job => job.claimCategory)].filter(Boolean))];
@@ -1469,9 +1480,29 @@ function updateQuickResult(){
 }
 
 
+function renderMembers() {
+ const root=$('membersContent');
+ if(!root)return;
+ if(!app.membersReady){
+  root.innerHTML='<div class="notice warning">รายชื่อสมาชิกส่วนกลางยังไม่พร้อม ต้องนำเข้า STK_07 V8 ก่อนจึงจะแสดงสมาชิกที่อนุมัติทั้งหมดได้</div>';
+  return;
+ }
+ const people=[...app.members].sort((a,b)=>a.fullName.localeCompare(b.fullName,'th'));
+ const picture=person=>person.avatarUrl
+  ? '<img class="member-photo" src="'+html(person.avatarUrl)+'" alt="" loading="lazy" referrerpolicy="no-referrer">'
+  : '<span class="member-photo member-initial">'+html(Array.from(person.fullName)[0]||'?')+'</span>';
+ root.innerHTML='<div class="member-directory-top"><h2>สมาชิกที่ใช้งานระบบ</h2><span>'+people.length+' คน</span></div>'+
+  '<p class="hint">แสดงเฉพาะสมาชิกที่ได้รับอนุมัติจาก STK_Users · ชื่อจริงและชื่อเล่นจากฐานข้อมูลกลาง</p>'+
+  (people.length?'<div class="member-directory-grid">'+people.map(person=>
+   '<article class="member-directory-card">'+picture(person)+'<div><strong>'+html(person.fullName)+'</strong>'+
+   '<span>'+html(person.nickname||'ไม่มีชื่อเล่น')+'</span><small>'+html(person.role||'Inspector')+'</small></div>'+
+   (person.userId===app.line?.userId?'<span class="member-self">คุณ</span>':'')+'</article>'
+  ).join('')+'</div>':'<p class="empty">ยังไม่มีสมาชิกที่ได้รับอนุมัติ</p>');
+}
+
 function renderCurrent() {
   const render = {
-    home: renderHome, overview: renderOverview, monthdetail: renderMonthDetail, jobs: renderJobs, choose: renderChoose,
+    home: renderHome, members: renderMembers, overview: renderOverview, monthdetail: renderMonthDetail, jobs: renderJobs, choose: renderChoose,
     reports: renderReports, reportpreview: renderReportPreview, jobdetail: renderDetail, recorddetail: renderRecordDetail
   }[app.page];
   render?.();
