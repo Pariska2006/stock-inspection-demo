@@ -631,7 +631,7 @@ function jobCard(job) {
     <button class="job-tile" type="button" data-job="${html(job.id)}">
       <span class="tile-top"><span class="tile-model">${html(groupLabel(job))}</span>${active ? '' : statusBadge(job.status)}</span>
       <span class="tile-title">${html(job.title)}</span>
-      <span class="tile-desc">${html([job.claimCategory, claimNumber(job)].filter(Boolean).join(' · '))}</span>
+      <span class="tile-desc">${html([job.claimCategory, 'DocNo2: '+(job.docNo2||'—')].filter(Boolean).join(' · '))}</span>
       ${active ? `<span class="tile-meta"><span>ตรวจแล้ว <strong>${progress}</strong> คัน</span>
         ${pending ? `<span class="pending-count">กำลังดำเนินการ ${pending} คัน</span>` : ''}</span>` : ''}
     </button>${active ? starButton(job) : ''}</article>`;
@@ -863,7 +863,7 @@ function renderReports() {
   $('reportList').innerHTML = filtered.length ? filtered.map(job => {
     const url = reportLink(job), counts = StockDomain.summary([job]);
     return `<article class="report-row"><span class="report-icon">${icon('file')}</span><div><h3>${html(job.title)}</h3>
-      <p>${html(groupLabel(job))} · ${html(claimNumber(job))}</p><p>${counts.total} คัน · OK ${counts.OK} · NG ${counts.NG} · กำลังดำเนินการ ${counts.incomplete}</p></div>
+      <p>${html(groupLabel(job))} · DocNo2: ${html(job.docNo2||'—')}</p><p>${counts.total} คัน · OK ${counts.OK} · NG ${counts.NG} · กำลังดำเนินการ ${counts.incomplete}</p></div>
       <div class="report-actions"><button class="btn secondary sm" type="button" data-report-details="${html(job.id)}">${icon('clipboard-list')} ดูรายละเอียดการตรวจ</button><button class="btn secondary sm" type="button" data-preview-job="${html(job.id)}">${icon('eye')} ดูรายงาน</button>
       <button class="btn primary sm" type="button" data-export-job="${html(job.id)}">${icon('download')} ดาวน์โหลด PDF</button>
       ${url ? `<a class="btn ghost sm" href="${html(url)}" target="_blank" rel="noopener noreferrer">ไฟล์รายงานเดิม</a>` : ''}</div></article>`;
