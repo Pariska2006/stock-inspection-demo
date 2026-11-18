@@ -1786,7 +1786,7 @@ async function trackWrite(scope, action, payload, makeMatcher, onSaved) {
   app.pending.set(scope, pending);
   if (!persistPending()) {
     app.pending.delete(scope);
-    throw Error('เก็บสถานะคำขอในอุปกรณ์ไม่ได้ กรุณาเปิด local storage ก่อนบันทึก');
+    throw Error('บันทึกข้อมูลชั่วคราวไม่ได้ กรุณาตรวจสอบพื้นที่เก็บข้อมูลของอุปกรณ์');
   }
   showFeedback('กำลังส่งคำขอ…');
   let response;
@@ -1840,7 +1840,7 @@ async function recoverPendingFinish() {
   if(app.busy || app.jobsLoading) return;
   if(!await confirmAction(
     'ตรวจสอบคำขอจบงานที่ค้าง',
-    'ระบบจะอ่าน Microsoft Lists ใหม่ก่อนปลดคำขอเดิม\n\nโปรดยืนยันว่าตรวจ STK_08 Executions และ STK_06 Run History แล้วว่าไม่มีการประมวลผลคำขอจบงานนี้\n\nการปลดนี้ไม่ใช่การจบงาน และจะยังไม่ส่งคำสั่งใหม่',
+    'ระบบจะตรวจสอบผลการบันทึกล่าสุดก่อน\n\nหากต้องการปลดรายการที่ค้าง ต้องให้ผู้ดูแลตรวจสอบก่อนว่าการส่งครั้งเดิมไม่ได้กำลังทำงานอยู่\n\nขั้นตอนนี้จะยังไม่จบงานหรือส่งคำสั่งใหม่',
     'อ่านสถานะล่าสุด'
   )) return;
   setBusy(true);
@@ -1877,12 +1877,11 @@ async function recoverPendingFinish() {
     if(app.pending.get(scope)!==pending) return showFeedback('คำขอค้างเปลี่ยนระหว่างตรวจสอบ กรุณาโหลดใหม่','warning');
     const request=String(pending.descriptor.clientRequestId||'');
     const approved=await confirmAction(
-      'ปลดคำขอจบงานเก่า',
-      'ยืนยันว่าตรวจ STK_08 และ STK_06 แล้ว ไม่พบ Run ของคำขอนี้\n\nJob: '+job.id+'\nRequest ID: '+request+
-      '\n\nLists ยังเป็น In Progress ระบบจะปลดเฉพาะคำขอจบงานค้างในเบราว์เซอร์ โดยไม่ลบข้อมูลรถหรือรูป และจะไม่ส่งคำสั่งใหม่จนกว่าจะกด “จบการตรวจ” อีกครั้ง\n\nหากยังไม่แน่ใจว่าคำขอเดิมถูกประมวลผลหรือไม่ ให้กดยกเลิก',
-      'ยืนยันปลดคำขอ',
-      'danger'
-    );
+       'ตรวจสอบรายการค้าง',
+       'โปรดยืนยันว่าผู้ดูแลตรวจสอบแล้วว่าไม่มีการบันทึกเดิมกำลังดำเนินการ\n\nรายการนี้ยังไม่จบ ระบบจะปลดเฉพาะคำขอที่ค้างในอุปกรณ์ ไม่ลบข้อมูลรถหรือรูป และไม่ส่งคำสั่งใหม่\n\nหากไม่แน่ใจ ให้กดยกเลิกและติดต่อผู้ดูแล',
+       'ยืนยัน',
+       'danger'
+     );
     if(!approved) return;
     if(app.pending.get(scope)!==pending) return;
     // Keep a local recovery audit separate from the write journal. If storage
@@ -1902,9 +1901,10 @@ async function recoverPendingFinish() {
       return showFeedback('เก็บสถานะคำขอใหม่ไม่ได้ ระบบคงคำขอเดิมไว้','error');
     }
     applyJobs(data);
-    showFeedback('ปลดเฉพาะคำขอจบงานที่ค้างแล้ว · งานยังเป็น In Progress และยังไม่ส่งคำสั่งใหม่ · กดจบการตรวจอีกครั้งเมื่อต้องการส่งใหม่','success');
+    showFeedback('ตรวจสอบรายการค้างเรียบร้อยแล้ว · งานยังไม่จบ หากต้องการจบงานให้กด “จบการตรวจ” อีกครั้ง','success');
   } catch(error) {
-    showFeedback('ตรวจสอบคำขอไม่ได้: '+String(error?.message||'ไม่ทราบสาเหตุ')+' · ระบบยังคงคำขอเดิมไว้','warning');
+    console.warn('Pending finish recovery failed',error);
+    showFeedback('ยังตรวจสอบรายการค้างไม่ได้ กรุณาติดต่อผู้ดูแล และอย่ากดส่งซ้ำ','warning');
   } finally {
     releaseWrite();
   }
