@@ -986,6 +986,44 @@ function reportDocument(job) {
   <footer class="reference-report-footer"><span>KUBOTA · STOCK INSPECTION</span><span>${html(job.id)}</span></footer>
  </article>`;
 }
+// Inline readable private photos before PDF capture; no Lists data is modified.
+async function prepareReportImages(root){
+ const unavailable=[];
+ await Promise.all([...root.querySelectorAll('img')].map(async img=>{
+  const url=img.getAttribute('src');
+  if(!url||url.startsWith('data:'))return;
+  try{
+   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),12000);
+   let response;
+   try{response=await fetch(url,{mode:'cors',cache:'no-store',signal:controller.signal})}
+   finally{clearTimeout(timer)}
+   if(!response.ok)throw Error('HTTP '+response.status);
+   const blob=await response.blob();
+   if(!blob.type.startsWith('image/'))throw Error('Not an image');
+   const dataUrl=await new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(reader.result);
+    reader.onerror=()=>reject(Error('Image read failed'));
+    reader.readAsDataURL(blob);
+   });
+   img.src=dataUrl;await img.decode();
+  }catch(error){
+   if(!img.complete)await Promise.race([
+    new Promise(resolve=>{img.addEventListener('load',resolve,{once:true});img.addEventListener('error',resolve,{once:true})}),
+    new Promise(resolve=>setTimeout(resolve,4000))
+   ]);
+   if(!img.naturalWidth||!img.naturalHeight){
+    unavailable.push(img);
+    const cell=img.closest('.report-reference-cell');
+    if(cell){
+     const note=document.createElement('span');note.className='report-reference-empty';
+     note.textContent='รูปภาพยังเปิดไม่ได้ · ตรวจสอบสิทธิ์หรือลิงก์รูป';img.replaceWith(note);
+    }
+   }
+  }
+ }));
+ return unavailable;
+}
 function renderReportPreview(){
  const job=reportJobs().find(j=>j.id===app.reportJob);
  const root=$('previewContent');
@@ -1002,6 +1040,10 @@ async function exportReportPdf(jobId) {
  const job=selectedJobs().find(j=>j.id===jobId&&finished(j));
  if(!job)return showFeedback('เปิดดาวน์โหลดได้เฉพาะงานที่จบการตรวจแล้ว','warning');
  if(!app.jobsLive||app.partial||!app.recordRead||app.loadError)return showFeedback('ข้อมูลยังไม่ครบ กรุณาโหลดใหม่ก่อนดาวน์โหลดรายงาน','warning');
+ if(PHOTO_UPLOAD_API_URL&&!MOCK){
+  try{await loadJobPhotos(job.id,true);overlayPhotos(job)}
+  catch(error){console.warn('Report photos could not be refreshed',error)}
+ }
  const original=document.getElementById('reportPdfExport');
  if(original)original.remove();
  const root=document.createElement('div');
@@ -1023,8 +1065,8 @@ async function exportReportPdf(jobId) {
     document.head.append(script);
    });
   }
-  await Promise.all([...root.querySelectorAll('img')].map(img=>
-   img.complete?Promise.resolve():new Promise(resolve=>{img.addEventListener('load',resolve,{once:true});img.addEventListener('error',resolve,{once:true});setTimeout(resolve,7000)})));
+  const unavailable=await prepareReportImages(root);
+  if(unavailable.length)showFeedback('รูปภาพบางรายการยังเปิดไม่ได้ กรุณาตรวจสอบรูปที่บันทึกไว้','warning');
   await document.fonts.ready;
   // Explicit image dimensions prevent html2canvas from stretching portrait/circular reference photos.
   for(const img of target.querySelectorAll('.report-reference-cell img')){
@@ -1036,10 +1078,10 @@ async function exportReportPdf(jobId) {
    Object.assign(img.style,{position:'absolute',width:width+'px',height:height+'px',maxWidth:'none',maxHeight:'none',padding:'0',top:(25+(heightLimit-height)/2)+'px',left:((cell.clientWidth-width)/2)+'px',objectFit:'fill'});
   }
   await window.html2pdf().set({
-   margin:0,filename,image:{type:'jpeg',quality:0.94},
-   html2canvas:{scale:3,useCORS:true,allowTaint:false,backgroundColor:'#fff',logging:false},
-   jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
-   pagebreak:{mode:['css','legacy']}
+   margin:0,filename,image:{type:'png',quality:1},
+   html2canvas:{scale:3,useCORS:true,allowTaint:false,backgroundColor:'#fff',logging:false,scrollY:0,windowWidth:794},
+   jsPDF:{unit:'mm',format:'a4',orientation:'portrait',compress:true},
+   pagebreak:{mode:['legacy']}
   }).from(target).save();
   done=true;
  }catch(error){
