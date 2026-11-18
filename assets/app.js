@@ -996,6 +996,7 @@ function renderReportPreview(){
   <div class="report-toolbar-actions"><button class="btn secondary" type="button" data-action="print-report">${icon('printer')} พิมพ์</button>
   <button class="btn primary" type="button" data-export-job="${html(job.id)}">${icon('download')} ดาวน์โหลด PDF</button></div>
  </div>${reportDocument(job)}`;
+ requestAnimationFrame(()=>{ root.scrollTop=0; window.scrollTo(0,0); });
 }
 async function exportReportPdf(jobId) {
  const job=selectedJobs().find(j=>j.id===jobId&&finished(j));
