@@ -789,7 +789,7 @@ function renderReportPreview(){
   return `<tr><td data-label="PIN / Model"><strong>${html(record.serial||'— (ไม่ระบุ Serial)')}</strong><br>${html(record.product||'—')} · ${html(record.model||'—')}${serialEvidence}</td>
    <td data-label="วันที่ / สถานที่ / ผู้ตรวจ">${niceDate(record.checkedAt)}<br>${html(record.location||'—')}<br>${html(record.inspector||'—')}</td>
    <td data-label="ผล / ความครบถ้วน">${vehicleBadge(result)}<br>${vehicleProgress(result)}</td>
-   <td data-label="ผลรายเกณฑ์">${DOMAIN.criteria(job,record).map(c=>{const d=DOMAIN.criterionValue(record,c);return `<p>${html(c.label)}: <strong>${html(d.result||'กำลังดำเนินการ')}</strong>${d.note?'<br>'+html(d.note):''}${d.ngDetail?'<br>NG: '+html(d.ngDetail):''}<br><small>${niceDate(d.updatedAt)} · ${html(d.inspector||'—')}</small></p>`}).join('')||'—'}<p>หมายเหตุ: ${html(record.note||'—')}</p></td></tr>`;
+   <td data-label="ผลรายเกณฑ์">${DOMAIN.criteria(job,record).map(c=>{const d=DOMAIN.criterionValue(record,c);return `<p>${html(c.label)}: <strong>${html(d.result||'กำลังดำเนินการ')}</strong>${d.note?'<br>'+html(d.note):''}${d.ngDetail?'<br>NG: '+html(d.ngDetail):''}<br><small>${d.updatedAt?niceDate(d.updatedAt)+' · ':''}ผู้ตรวจ ${html(d.inspector||record.inspector||record.checkedBy||'—')}</small></p>`}).join('')||'—'}<p>หมายเหตุ: ${html(record.note||'—')}</p></td></tr>`;
  }).join('');
  $('previewContent').innerHTML=`<header class="report-heading"><img class="kubota-logo" src="assets/kubota.png" alt="Kubota"><div><p class="eyebrow">STOCK INSPECTION</p><h1 tabindex="-1">${title}</h1></div><span class="status">${reportStatus}</span></header>
   <div class="page-head"><p>${MOCK?'MOCK REPORT · ข้อมูลจำลอง ไม่ใช่ข้อมูลบริษัท':'รายงานจากข้อมูลที่อ่านยืนยันแล้ว'}</p><button class="btn primary no-print" type="button" data-action="print-report">${icon('download')} พิมพ์ / บันทึก PDF</button></div>
@@ -905,11 +905,11 @@ function recordEvidence(job,record){
   const detail=DOMAIN.criterionValue(record,c);
   return `<article class="criterion-evidence"><div class="criterion-result"><span>${html(c.label)}</span>${detail.result?resultBadge(detail.result):'<span class="result-tag pending">กำลังดำเนินการ</span>'}</div>
    ${detail.note?`<p class="record-note">${html(detail.note)}</p>`:''}${detail.ngDetail?`<p class="record-note ng-note">NG: ${html(detail.ngDetail)}</p>`:''}
-   <small class="hint">แก้ล่าสุด ${niceDate(detail.updatedAt)} · ผู้ตรวจ ${html(detail.inspector||'—')}</small></article>`;
+   <small class="hint">${detail.updatedAt ? 'แก้ล่าสุด '+niceDate(detail.updatedAt)+' · ' : ''}ผู้ตรวจ ${html(detail.inspector || record.inspector || record.checkedBy || '—')}</small></article>`;
  }).join('');
  return `${Number(record.schemaVersion)!==2?'<p class="notice warning">ข้อมูลรุ่นเดิมบางรายการยังต้องตรวจยืนยันผล</p>':''}${results||'<p class="hint">ไม่มีผลรายเกณฑ์</p>'}
  ${record.note?`<div class="record-extra"><h3>หมายเหตุรวม</h3><p class="record-note">${html(record.note)}</p></div>`:''}
- ${vehicleInspection(job,record).status==='NG'?`<div class="record-extra ng-summary"><span class="ng-summary-badge" aria-label="พบผล NG">NG</span></div>`:''}
+ ${['OK','NG'].includes(vehicleInspection(job,record).status)?`<div class="record-extra result-summary"><span class="result-summary-badge ${vehicleInspection(job,record).status==='NG'?'ng':'ok'}" aria-label="ผลตรวจรวม ${vehicleInspection(job,record).status}">${vehicleInspection(job,record).status}</span></div>`:''}
  <div class="record-extra"><h3>รูป Label / PIN</h3>${recordPictures(record)}</div>`;
 }
 function auditHistoryMarkup(job,record){
@@ -1203,7 +1203,7 @@ function renderInspection() {
         <div class="check-choices" role="group" aria-labelledby="checkLabel${c.slot}">${['OK','NG'].map(value=>`<button class="pick-result ${chosen===value?'selected '+value.toLowerCase():''}" type="button" data-result-slot="${c.slot}" data-result-value="${value}" aria-pressed="${chosen===value}">${value}</button>`).join('')}</div>
         <input id="insR${c.slot}" type="hidden" value="${html(chosen)}">
         <div class="criterion-notes inline-notes"><div class="optional-body">${area('insNote'+c.slot,'หมายเหตุเกณฑ์นี้ (ไม่บังคับ)',detail.note,{max:500})}${area('insNG'+c.slot,'รายละเอียด NG (หากพบปัญหา)',detail.ngDetail,{max:500})}</div></div>
-        ${detail.updatedAt?`<small class="hint">แก้ล่าสุด ${html(niceDate(detail.updatedAt))} · ${html(detail.inspector||'—')}</small>`:''}</article>`;
+        ${(detail.updatedAt || detail.inspector || record?.inspector || record?.checkedBy)?`<small class="hint">${detail.updatedAt?'แก้ล่าสุด '+html(niceDate(detail.updatedAt))+' · ':''}ผู้ตรวจ ${html(detail.inspector || record?.inspector || record?.checkedBy || '—')}</small>`:''}</article>`;
     }).join('')}</div>
     <div id="liveOverallResult" class="live-result" aria-live="polite"></div>
     <div class="inspection-global-notes" id="inspectionNotes">${area('insRemarks','หมายเหตุรวม (ไม่บังคับ)',record?.note)}</div>
