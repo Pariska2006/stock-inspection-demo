@@ -949,7 +949,7 @@ function renderReportPreview(){
  if(!job){root.innerHTML='<p class="empty">เลือกงานที่ตรวจเสร็จแล้วจากหน้า Reports</p>';return}
  if(!finished(job)){root.innerHTML='<div class="notice warning">รายงานพร้อมหลังจบการตรวจ</div>';return}
  if(!app.jobsLive||app.partial||!app.recordRead||app.loadError){root.innerHTML='<div class="notice warning">ข้อมูลยังไม่ครบ กรุณารีเฟรชก่อนเปิดรายงาน</div>';return}
- root.innerHTML=`<div class="report-toolbar no-print"><div><strong>ตัวอย่างรายงาน · A4 หนึ่งหน้า</strong><p class="hint">อ้างอิงฟอร์ม Confirm Tractor in Stock Report · แสดงข้อมูลสรุปจาก Lists</p></div>
+ root.innerHTML=`<div class="report-toolbar no-print"><div><strong>ตัวอย่างรายงาน · A4 หนึ่งหน้า</strong><p class="hint">อ้างอิงฟอร์ม Confirm Tractor in Stock Report</p></div>
   <div class="report-toolbar-actions"><button class="btn secondary" type="button" data-action="print-report">${icon('printer')} พิมพ์</button>
   <button class="btn primary" type="button" data-export-job="${html(job.id)}">${icon('download')} ดาวน์โหลด PDF</button></div>
  </div>${reportDocument(job)}`;
@@ -1063,15 +1063,25 @@ function recordLine(job, record, editable) {
 }
 
 function referencePictures(job) {
-  const pictures = [['OK', job.okPictureUrl], ['NG', job.ngPictureUrl]].map(([label, value]) => {
-    const url = safeLink(value);
-    return url ? `<a class="reference-photo ${label.toLowerCase()}" href="${html(url)}" target="_blank" rel="noopener noreferrer">
-      <span>${label === 'วิธีตรวจ' ? label : 'ตัวอย่าง ' + label}</span><img src="${html(url)}" alt="" data-reference-photo loading="lazy">
-      <small>เปิดรูป ${icon('arrow')}</small></a>` : `<div class="reference-photo"><span>${label === 'วิธีตรวจ' ? label : 'ตัวอย่าง ' + label}</span><p class="hint">ยังไม่มีรูปตัวอย่าง</p></div>`;
-  }).join('');
-  return pictures ? `<div class="reference-grid">${pictures}</div>` : '';
+ return '<div class="reference-grid">'+[['OK',job.okPictureUrl],['NG',job.ngPictureUrl]].map(([label,value])=>{
+  const url=safeLink(value);
+  return '<div class="reference-photo '+label.toLowerCase()+'"><span>ตัวอย่าง '+label+'</span>'+
+   (url?'<a href="'+html(url)+'" target="_blank" rel="noopener noreferrer" aria-label="เปิดรูปตัวอย่าง '+label+'"><img src="'+html(url)+'" alt="ตัวอย่าง '+label+'" data-reference-photo loading="lazy"></a>':'<p class="hint">ยังไม่มีรูปตัวอย่าง</p>')+'</div>';
+ }).join('')+'</div>';
 }
-
+function jobDetailsCapture(job) {
+ const criteria=DOMAIN.criteria(job);
+ return `<section class="inspection-capture-section" data-slide-capture="job-details">
+   <h2>รายละเอียด</h2>
+   <div class="inspection-detail-block"><h3>วิธีการตรวจสอบ</h3>
+    <p class="inspection-intro">${html(job.checkingMethod||'ยังไม่ระบุวิธีการตรวจสอบ')}</p></div>
+   <div class="inspection-detail-block"><h3>เกณฑ์การตรวจสอบ</h3>
+    ${criteria.length?`<ol>${criteria.map(c=>`<li>${html(c.label)}</li>`).join('')}</ol>`:'<p class="hint">ยังไม่มีเกณฑ์การตรวจสอบ</p>'}</div>
+   ${referencePictures(job)}
+ </section>
+ <div class="detail-copy-actions no-print"><button class="btn secondary sm" data-slide-copy="job-details" type="button">${icon('copy')} คัดลอกรายละเอียดเป็นภาพ</button>
+  <button class="btn secondary sm" data-slide-download="job-details" type="button">${icon('download')} บันทึกรูป PNG</button></div>`;
+}
 function renderRecordDetail() {
   const job = findJob();
   const record = job && liveRecords(job).find(item => item.id === app.viewRecord);
@@ -1174,52 +1184,11 @@ function jobInspectors(job) {
  }
  return [...names];
 }
-function completedSlideCards(job) {
- if(!finished(job))return '';
- const records=liveRecords(job),counts=DOMAIN.summary([{...job,records}]),criteria=DOMAIN.criteria(job);
- const rate=counts.total?(counts.NG*100/counts.total).toFixed(1)+'%':'0.0%';
- const names=jobInspectors(job);
- const card=(key,heading,body)=>`<section class="slide-tile">
-  <div class="slide-tile-content" data-slide-capture="${key}">
-    <div class="slide-tile-brand"><b>KUBOTA</b> / STOCK INSPECTION</div>
-    <h3>${heading}</h3><p class="slide-tile-job">${html(job.title)} · DocNo2: ${html(job.docNo2||'—')}</p>
-    ${body}
-    <footer>JOB: ${html(job.id)}</footer>
-  </div>
-  <div class="slide-tile-actions no-print">
-   <button type="button" class="btn secondary sm" data-slide-copy="${key}">${icon('copy')} คัดลอกภาพ</button>
-   <button type="button" class="btn ghost sm" data-slide-download="${key}">${icon('download')} บันทึก PNG</button>
-  </div>
- </section>`;
- const photo=(label,url)=>url?`<img class="slide-tile-image" src="${html(url)}" crossorigin="anonymous" loading="eager" alt="${label}">`:'<div class="slide-tile-empty">ยังไม่มีรูปอ้างอิง</div>';
- return `<section class="completed-slide-section no-print"><div class="completed-slide-head">
-   <h2>${icon('presentation')} สรุปสำหรับนำไปทำสไลด์</h2>
-   <p>คัดลอกรายละเอียด รูปตัวอย่าง และผลตรวจเป็นภาพได้ · รายชื่อผู้ร่วมตรวจแสดงเพื่อดูข้อมูลเท่านั้น</p>
-  </div><div class="slide-tile-grid">
-  ${card('details','รายละเอียด',`<div class="slide-detail-pair"><h4>วิธีการตรวจสอบ</h4><p class="slide-tile-main">${html(job.checkingMethod||'ยังไม่ระบุวิธีการตรวจสอบ')}</p><h4>เกณฑ์การตรวจสอบ</h4>${criteria.length?`<ol class="slide-tile-criteria">${criteria.map(c=>`<li>${html(c.label)}</li>`).join('')}</ol>`:'<p>ยังไม่มีเกณฑ์การตรวจสอบ</p>'}</div>`)}
-  ${card('ok-photo','รูปตัวอย่าง OK',photo('รูปตัวอย่าง OK',safeLink(job.okPictureUrl)))}
-  ${card('ng-photo','รูปตัวอย่าง NG',photo('รูปตัวอย่าง NG',safeLink(job.ngPictureUrl)))}
-  ${card('results','สรุปผลการตรวจ',`<div class="slide-tile-numbers">
-    <div><small>ตรวจทั้งหมด</small><strong>${counts.total}</strong><span>คัน</span></div>
-    <div class="ok"><small>OK</small><strong>${counts.OK}</strong><span>คัน</span></div>
-    <div class="ng"><small>NG</small><strong>${counts.NG}</strong><span>คัน</span></div>
-    <div class="ng"><small>% NG</small><strong>${rate}</strong><span>ของทั้งหมด</span></div>
-   </div><p class="slide-tile-subtitle">พบ NG ${counts.NG} จาก ${counts.total} คัน · คิดเป็น ${rate}</p>`)}
-  <section class="slide-tile slide-tile-readonly">
-   <div class="slide-tile-content">
-    <div class="slide-tile-brand"><b>KUBOTA</b> / STOCK INSPECTION</div>
-    <h3>ผู้ร่วมตรวจสอบ</h3><p class="slide-tile-job">${html(job.title)}</p>
-    <div class="slide-tile-team">${names.length?names.map(name=>`<span>${html(name)}</span>`).join(''):'<span>ยังไม่มีชื่อผู้ตรวจในข้อมูลที่บันทึก</span>'}</div>
-    <p class="slide-tile-subtitle">${names.length} คน · จากผลตรวจรายคัน</p>
-   </div>
-  </section>
-  </div><p class="slide-tile-help">การคัดลอกภาพขึ้นอยู่กับสิทธิ์คลิปบอร์ดของเบราว์เซอร์ หากคัดลอกไม่ได้ให้เลือกบันทึก PNG · รูปที่ไม่อนุญาต CORS อาจแปลงเป็นภาพไม่ได้</p>
- </section>`;
-}
+
 async function renderSlideImage(key,mode,button) {
  const job=findJob();
- if(app.page!=='jobdetail'||!job||!finished(job))return;
- if(!['details','ok-photo','ng-photo','results'].includes(key))return;
+ if(app.page!=='jobdetail'||!job)return;
+ if(key!=='job-details')return;
  const original=document.querySelector('[data-slide-capture="'+key+'"]');
  if(!original)return;
  const textBefore=button.textContent;
@@ -1343,25 +1312,16 @@ function renderDetail() {
       ${completed && openedDate(job) ? `<div class="info"><small>Start Date</small><span>${niceDate(openedDate(job))}</span></div>` : ''}
       ${completed && dateValue(job.closedAt) ? `<div class="info"><small>Completion Date</small><span>${niceDate(job.closedAt)}</span></div>` : ''}
     </div>
-    ${job.checkingMethod || active ? `<section class="inspection-info-section">
-      <h2>${icon('clipboard')} วิธีการตรวจ</h2>
-      <p class="inspection-intro">${html(job.checkingMethod||'ยังไม่ระบุวิธีตรวจ')}</p>
-    </section>` : ''}
-    ${criteria.length || active ? `<section class="inspection-info-section criteria-visible">
-      <h2>${icon('check')} เกณฑ์การตรวจ</h2>
-      ${criteria.length ? `<ol>${criteria.map(slot => `<li>${html(criterionLabel(job,slot))}</li>`).join('')}</ol>` : '<p class="hint">ยังไม่มีเกณฑ์ตรวจ</p>'}
-    </section>` : ''}
-    ${referencePictures(job)}
+    ${jobDetailsCapture(job)}
     ${job.notes ? `<section class="inspection-info-section notes-visible"><h2>หมายเหตุงาน</h2><p class="detail-desc">${html(job.notes)}</p></section>` : ''}
     ${action && !active ? `<div class="detail-actions">${action}</div>` : ''}
   </section>
   ${recordedInspectorTeam(job)}
-  ${completed ? completedSlideCards(job) : ''}
   ${job.status !== 'new' ? `<section class="panel delete-job-section"><h2>จัดการงานตรวจ</h2><p class="hint">นำงานออกจากหน้ารายการ โดยเก็บผลตรวจรถ รูปภาพ และประวัติทั้งหมดไว้</p><button class="btn secondary sm danger" type="button" data-action="archive-job">${icon('archive')} นำงานออกจากระบบ</button></section>` : ''}
   ${detailNotice(job)}${transferMarkup(job)}
 
   ${completed ? `<div class="report-actions no-print"><button class="btn secondary" type="button" data-preview-job="${html(job.id)}">${icon('eye')} ดูรายงาน</button><button class="btn primary" type="button" data-export-job="${html(job.id)}">${icon('download')} ดาวน์โหลด PDF</button></div>` : ''}
-  ${completed ? `<section class="panel completed-work-records-intro"><h2>${icon('clipboard-check')} ประวัติการตรวจทั้งหมด</h2><p>เปิดดูเลขรถ รุ่น Lot No. วันที่ ผู้ตรวจ ผล OK/NG รายเกณฑ์ รูป PIN และประวัติแก้ไขของรถทุกคันได้จากรายการด้านล่าง · แสดงข้อมูลจริงจาก Microsoft Lists</p></section>` : ''}
+  ${completed ? `<section class="panel completed-work-records-intro"><h2>${icon('clipboard-check')} ประวัติการตรวจทั้งหมด</h2></section>` : ''}
   ${isNew ? '' : `<div class="vehicle-board-layout"><section class="panel vehicle-records-panel">
     <div class="panel-head"><div><h2>รถในรายการ</h2><span class="muted">${records.length} คัน${target > 0 ? ' จาก ' + target : ''}</span></div>
       ${active && !app.loadError ? `<button class="btn ghost sm" type="button" data-action="refresh-jobs">${icon('refresh')} รีเฟรช</button>` : ''}</div>
