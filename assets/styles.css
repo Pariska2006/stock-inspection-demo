@@ -668,3 +668,14 @@ html { scroll-padding-bottom:100px }
  .summary-metric strong{font-size:25px}
  .summary-metric small,.summary-metric span{font-size:11px}
 }
+
+/* The exported A4 is laid out at desktop paper width even when generated on a phone. */
+.pdf-export-canvas .reference-report-info{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+.pdf-export-canvas .reference-report-info .wide{grid-column:span 2!important}
+.pdf-export-canvas .reference-report-images{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important}
+.pdf-export-canvas .reference-report-method{grid-template-columns:116px minmax(0,1fr)!important;gap:12px!important}
+.pdf-export-canvas .reference-report-approval{grid-template-columns:1.4fr 1fr 1fr!important}
+.pdf-export-canvas .reference-report-approval>div:last-child{grid-column:auto!important}
+.pdf-export-canvas .report-reference-cell{height:110px!important}
+.pdf-export-canvas .reference-report-heading h1{font-size:21px!important}
+.pdf-export-canvas .reference-report-summary{grid-template-columns:repeat(4,minmax(0,1fr))!important}
