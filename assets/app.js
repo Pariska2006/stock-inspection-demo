@@ -622,7 +622,7 @@ function renderHome() {
   <div class="home-progress-cell ongoing"><span class="home-progress-label">${icon('clock')} กำลังดำเนินการ</span><strong>${selected.length-done}</strong><small>งานที่ยังตรวจไม่เสร็จ</small></div>
   <div class="home-progress-cell finished"><span class="home-progress-label">${icon('check')} เสร็จแล้ว</span><strong>${donePercent}%</strong><small>ปิดการตรวจแล้ว ${done} จาก ${selected.length} งาน</small></div>`;
 
-  $('pendingBanner').hidden = !app.pending.size;
+  // Pending writes remain protected and accessible within their original jobs.
   // Pinned work is prioritized in homeJobs; no duplicate pinned container.
   syncSearch('home');
   const shown = filterJobs(selected).sort((a,b) =>
