@@ -569,9 +569,10 @@ function renderHome() {
   const jobs = orderedActiveJobs();
   // Starred jobs are shown together with the other selected jobs.
   const selected = selectedJobs(), done = selected.filter(finished).length;
+  const donePercent = selected.length ? Math.round(done / selected.length * 100) : 0;
   $('homeJobStats').innerHTML = `<div class="home-progress-cell all"><span class="home-progress-label">${icon('list')} งานที่เลือกตรวจ</span><strong>${selected.length}</strong><small>ทั้งหมดที่เริ่มตรวจแล้ว</small></div>
   <div class="home-progress-cell ongoing"><span class="home-progress-label">${icon('clock')} กำลังดำเนินการ</span><strong>${selected.length-done}</strong><small>งานที่ยังตรวจไม่เสร็จ</small></div>
-  <div class="home-progress-cell finished"><span class="home-progress-label">${icon('check')} เสร็จแล้ว</span><strong>${done}</strong><small>งานที่ปิดการตรวจแล้ว</small></div>`;
+  <div class="home-progress-cell finished"><span class="home-progress-label">${icon('check')} เสร็จแล้ว</span><strong>${donePercent}%</strong><small>ปิดการตรวจแล้ว ${done} จาก ${selected.length} งาน</small></div>`;
 
   $('pendingBanner').hidden = !app.pending.size;
   // Pinned work is prioritized in homeJobs; no duplicate pinned container.
@@ -908,7 +909,7 @@ function recordEvidence(job,record){
  }).join('');
  return `${Number(record.schemaVersion)!==2?'<p class="notice warning">ข้อมูลรุ่นเดิมบางรายการยังต้องตรวจยืนยันผล</p>':''}${results||'<p class="hint">ไม่มีผลรายเกณฑ์</p>'}
  ${record.note?`<div class="record-extra"><h3>หมายเหตุรวม</h3><p class="record-note">${html(record.note)}</p></div>`:''}
- ${record.ngDetail?`<div class="record-extra"><h3>สรุป NG</h3><p class="record-note">${html(record.ngDetail)}</p></div>`:''}
+ ${record.ngDetail?`<div class="record-extra ng-summary"><span class="ng-summary-badge" aria-label="พบผล NG">NG</span></div>`:''}
  <div class="record-extra"><h3>รูป Label / PIN</h3>${recordPictures(record)}</div>`;
 }
 function auditHistoryMarkup(job,record){
@@ -1180,6 +1181,7 @@ function renderInspection() {
   const model=record?.model||(selectedModels(job).length===1?selectedModels(job)[0]:'');
   $('inspectionContent').innerHTML=`<div class="page-head"><div><p class="eyebrow">VEHICLE INSPECTION</p><h1 tabindex="-1">${record?'ตรวจต่อ / แก้ไขผล':'เพิ่มการตรวจ'}</h1><p>${html(job.title)}</p></div></div>
   <form class="panel wide-form" id="inspectionForm" data-record-slots="${criteria.map(c=>c.slot).join(' ')}"><fieldset class="form-layout" id="formFields">
+    <div class="inspector-banner"><span class="inspector-banner-label">${icon('user')} ผู้ตรวจ</span><strong>${html(memberName() || 'ยังไม่พบชื่อผู้ตรวจ')}</strong><small>${record ? 'ผู้ที่กำลังแก้ไขผลตรวจ' : 'ผู้บันทึกผลตรวจครั้งนี้'}</small></div>
     ${record?'':`<button type="button" class="btn secondary scan-button" data-action="scan-qr">${icon('qr')} สแกน PIN / Serial</button>`}
     <div class="two-col">
       ${field('insSerial','PIN / Serial Number',record?.serial,{required:true,readOnly:!!record,serial:true,max:65,placeholder:'เช่น KBULLCDCHPTD10006'})}
@@ -1206,7 +1208,7 @@ function renderInspection() {
     <div id="liveOverallResult" class="live-result" aria-live="polite"></div>
     <div class="inspection-global-notes" id="inspectionNotes">${area('insRemarks','หมายเหตุรวม (ไม่บังคับ)',record?.note)}</div>
     <details class="optional-detail" id="optionalPhotos" ${record?.photoSlots?.some(Boolean)?'open':''}><summary>รูป Label / PIN <span>ไม่บังคับ</span></summary><div class="optional-body">${photoConnectionHint()}${photoInput(1,record?.photoSlots?.[0],'รูป Label / PIN ของรถคันนี้')}</div></details>
-    <p class="hint">ผู้ตรวจ ${html(memberName())}</p></fieldset>${formFoot('บันทึกผลตรวจ',jobScope(job))}</form>`;
+    </fieldset>${formFoot('บันทึกผลตรวจ',jobScope(job))}</form>`;
   $('insProduct').addEventListener('change',()=>{const choices=modelChoices(job,val('insProduct'));$('inspectionModels').innerHTML=choices.map(m=>`<option value="${html(m)}"></option>`).join('');$('insModel').value='';app.dirty=true;persistDraft()});
   updateQuickResult();syncFormControls();
 }
