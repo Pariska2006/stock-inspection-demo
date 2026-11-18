@@ -1402,7 +1402,7 @@ function renderDetail() {
   </section>
   ${renderJobTeam(job)}
   ${recordedInspectorTeam(job)}
-  ${job.status !== 'new' ? `<section class="panel delete-job-section"><h2>จัดการงานตรวจ</h2><p class="hint">นำงานออกจากหน้ารายการ โดยเก็บผลตรวจรถ รูปภาพ และประวัติทั้งหมดไว้</p><button class="btn secondary sm danger" type="button" data-action="archive-job">${icon('archive')} นำงานออกจากระบบ</button></section>` : ''}
+
   ${detailNotice(job)}${transferMarkup(job)}
 
   ${completed ? `<div class="report-actions no-print"><button class="btn secondary" type="button" data-preview-job="${html(job.id)}">${icon('eye')} ดูรายงาน</button><button class="btn primary" type="button" data-export-job="${html(job.id)}">${icon('download')} ดาวน์โหลด PDF</button></div>` : ''}
@@ -1516,9 +1516,10 @@ function renderJobForm() {
       </fieldset>
       ${formFoot(manual ? 'สร้างงานและเริ่มตรวจ' : starting ? 'บันทึกและเริ่มตรวจ' : 'บันทึกรายละเอียดงาน', scope)}
     </form>
-    ${job ? `<section class="panel delete-job-section"><h2>จัดการงานตรวจ</h2>
-      <p class="hint">นำงานออกจากหน้ารายการ โดยยังเก็บข้อมูลการตรวจไว้ทั้งหมด</p>
-      <button class="btn secondary sm danger" type="button" data-action="archive-job">${icon('archive')} นำงานออกจากระบบ</button>
+    ${job ? `<section class="panel delete-job-section" aria-label="จัดการงาน">
+      <h2>จัดการงาน</h2>
+      <p class="hint">ลบงานนี้ออกจากรายการในระบบ โดยเก็บผลตรวจรถ รูปภาพ และประวัติไว้ ไม่ใช่การลบข้อมูลถาวร</p>
+      <button class="btn secondary sm danger" type="button" data-action="archive-job">${icon('archive')} ลบงานนี้ (นำออกจากระบบ)</button>
     </section>` : ''}`;
   syncFormControls();
 }
