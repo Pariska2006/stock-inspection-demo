@@ -1001,7 +1001,23 @@ function renderDetail() {
       ${active ? `<button class="btn ghost sm edit-job-button" type="button" data-action="edit-job">${icon('edit')} แก้รายละเอียดงาน</button>` : ''}
     </div>
     ${active ? `<div class="detail-actions start-inspection">${action}</div>` : ''}
-    <div class="vehicle-stats-section">${unitStats([job])}</div><p class="hint">ตรวจครบ ${records.length - incomplete}${target > 0 ? ' / ' + target : ''} คัน · กำลังดำเนินการ ${incomplete} คัน</p>
+    <div class="job-inspection-summary" aria-label="สรุปจำนวนรถที่ตรวจ">
+      <article class="job-inspection-summary-card total">
+        <span class="job-inspection-summary-label">${icon('truck')} รถในรายการ</span>
+        <strong>${records.length}</strong>
+        <small>${target > 0 ? 'เป้าหมาย ' + target + ' คัน' : 'จำนวนรถทั้งหมดในงานนี้'}</small>
+      </article>
+      <article class="job-inspection-summary-card done">
+        <span class="job-inspection-summary-label">${icon('check')} เสร็จแล้ว</span>
+        <strong>${records.length - incomplete}</strong>
+        <small>ตรวจครบทุกเกณฑ์ · OK ${counts.OK} / NG ${counts.NG}</small>
+      </article>
+      <article class="job-inspection-summary-card ongoing">
+        <span class="job-inspection-summary-label">${icon('clock')} กำลังดำเนินการ</span>
+        <strong>${incomplete}</strong>
+        <small>ยังตรวจไม่ครบทุกเกณฑ์</small>
+      </article>
+    </div>
     ${job.detail && text(job.detail) !== job.title ? `<p class="detail-desc">${html(job.detail)}</p>` : ''}
     <div class="detail-info">
       <div class="info"><small>ClaimType</small><span>${html(job.claimCategory || '—')}</span></div>
