@@ -8,6 +8,7 @@ const JOBS_API_URL = CONFIG.jobsReadUrl;
 const WRITE_API_URL = CONFIG.writeGatewayUrl;
 const PHOTO_UPLOAD_API_URL = MOCK ? '' : CONFIG.photoGatewayUrl;
 const MEMBER_PROFILE_URL = MOCK ? '' : 'https://oixxsocunhxqqbfrkgts.supabase.co/functions/v1/stock-member-profiles';
+const TEAM_API_URL = MOCK ? '' : 'https://oixxsocunhxqqbfrkgts.supabase.co/functions/v1/stock-job-team';
 const registrationAllowed = () => MOCK || (CONFIG.mode === 'live' && CONFIG.registrationEnabled === true && safeLink(CONFIG.registrationWriteUrl));
 // The installed STK_07 V4 / STK_08 V2 / STK_06 V2 contract is a four-slot
 // legacy bridge. It does NOT provide atomic version checks or a request-status API.
@@ -45,7 +46,7 @@ const STATUS = {
 };
 const TITLES = {
   reportpreview: 'Report Preview', home: 'Stock Inspection', choose: 'เลือกงานตรวจ', jobs: 'งานตรวจ', overview: 'Monthly Overview', monthdetail: 'Monthly Overview', reports: 'Reports',
-  profile: 'Profile', members: 'สมาชิก', recorddetail: 'ผลตรวจรายคัน', jobdetail: 'รายละเอียดงาน', jobform: 'จัดการงานตรวจ', inspection: 'ผลตรวจรายคัน'
+  profile: 'Profile', myjobs: 'งานของฉัน', members: 'สมาชิก', recorddetail: 'ผลตรวจรายคัน', jobdetail: 'รายละเอียดงาน', jobform: 'จัดการงานตรวจ', inspection: 'ผลตรวจรายคัน'
 };
 const GATES = ['gateLoading', 'gateLogin', 'gateRegister', 'gatePending', 'gateBlocked', 'gateError'];
 const TIME_ZONE = 'Asia/Bangkok';
@@ -69,7 +70,7 @@ const app = {
   capabilities: {}, modelMaster: [], modelMasterSource: '', transfers: [], photoAssets: new Map(), vehicleGroup: true,
   ready: false, initializing: false, deleteEnabled: false, member: null, line: null, nickname: '', jobs: [], page: 'home',
   group: '', claimFilter: '', modelFilter: '', jobState: '', claimTypes: KNOWN_CLAIM_TYPES, products: GROUPS, search: '', selected: '', editJob: false, editRecord: '', viewRecord: '',
-  stars: new Set(), members: [], membersReady: false,
+  stars: new Set(), members: [], membersReady: false, teamAssignments: [], teamReady: false,
   jobsLoading: false, jobsLive: false, recordRead: false, loaded: false, loadError: '', partial: false,
   yearsVisible: 1, jobsLoadedAt: '', month: '', monthFilter: 'all',
   reportJob: '', reportQuery: '', reportFilter: 'all', recordFilter: 'all', detailOrigin: 'jobs', detailMessage: null,
@@ -411,6 +412,50 @@ async function uploadMemberProfile(file){
  }catch(error){console.warn('Profile upload failed',error);if(state)state.textContent='เปลี่ยนรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'}
  finally{if(button)button.disabled=false}
 }
+async function teamRequest(payload,timeout=22000){
+ if(MOCK)return {status:'OK',assignments:[]};
+ return fetchJson(TEAM_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,idToken:idToken()})},timeout);
+}
+async function loadTeamAssignments(){
+ if(!app.member||!app.jobsLive)return;
+ const epoch=sessionEpoch;
+ const data=await teamRequest({action:'list'});
+ if(epoch!==sessionEpoch||!app.member)return;
+ if(data.status!=='OK'||!Array.isArray(data.assignments))throw Error('อ่านทีมตรวจไม่สำเร็จ');
+ app.teamAssignments=data.assignments.filter(x=>x&&text(x.jobKey)&&/^U[0-9a-f]{32}$/i.test(text(x.userId)));
+ app.teamReady=true;
+ if(['myjobs','jobdetail','home'].includes(app.page))renderCurrent();
+}
+function teamIds(job){return app.teamAssignments.filter(x=>x.jobKey===job.id).map(x=>x.userId)}
+function myJobs(){
+ const myId=text(app.line?.userId),name=memberName();
+ return selectedJobs().filter(job=>teamIds(job).includes(myId) || (name && job.startedBy===name) ||
+  liveRecords(job).some(record=>text(record.inspector||record.checkedBy)===name));
+}
+function renderMyJobs(){
+ const jobs=myJobs().sort((a,b)=>Number(b.status==='progress')-Number(a.status==='progress')||text(b.updated).localeCompare(text(a.updated)));
+ $('myJobsCount').textContent=jobs.length+' งาน';
+ $('myJobsGrid').innerHTML=jobs.length?jobs.map(jobCard).join(''):'<p class="empty">ยังไม่มีงานที่ได้รับมอบหมายหรือเริ่มตรวจเอง</p>';
+}
+function renderJobTeam(job){
+ if(!app.membersReady)return '';
+ const ids=teamIds(job),assigned=app.members.filter(person=>ids.includes(person.userId));
+ const memberAvatar=p=>p.avatarUrl?'<img class="team-photo" src="'+html(p.avatarUrl)+'" alt="">':'<span class="team-photo team-photo-initial">'+html(Array.from(p.fullName)[0]||'?')+'</span>';
+ return '<section class="panel job-team-panel"><div class="panel-head"><h2>'+icon('users')+' ทีมตรวจงานนี้</h2><span class="muted">'+assigned.length+' คน</span></div>'+
+  (assigned.length?'<div class="job-team-list">'+assigned.map(p=>'<span class="team-person">'+memberAvatar(p)+'<span>'+html(p.fullName)+'</span></span>').join('')+'</div>':'<p class="hint">ยังไม่ได้เลือกสมาชิกทีมตรวจ</p>')+
+  (job.status==='progress'?'<div class="team-manage"><h3>เพิ่มสมาชิกเข้าทีม</h3><div class="team-select-list">'+app.members.map(p=>'<label class="team-choice">'+memberAvatar(p)+'<span>'+html(p.fullName)+'</span><input type="checkbox" data-team-member="'+html(p.userId)+'" '+(ids.includes(p.userId)?'checked':'')+' aria-label="มอบหมายงานให้ '+html(p.fullName)+'"></label>').join('')+'</div></div>':'')+
+  '</section>';
+}
+async function assignJobMember(input){
+ const job=findJob(),memberId=text(input.dataset.teamMember);if(!job||job.status!=='progress'||!app.members.some(p=>p.userId===memberId))return;
+ const enabled=input.checked;input.disabled=true;
+ try{
+  const data=await teamRequest({action:'assign',jobKey:job.id,memberId,enabled},30000);
+  if(data.status!=='OK'||!Array.isArray(data.assignments))throw Error('ไม่สามารถบันทึกทีมตรวจได้');
+  app.teamAssignments=data.assignments;app.teamReady=true;renderDetail();
+  showFeedback('อัปเดตทีมตรวจเรียบร้อยแล้ว · สมาชิกจะเห็นงานเมื่อรีเฟรช','success');
+ }catch(error){console.warn('Assign inspection team failed',error);input.checked=!enabled;input.disabled=false;showFeedback('เพิ่มหรือเอาสมาชิกออกไม่ได้ กรุณาลองใหม่อีกครั้ง','warning')}
+}
 function normalizeJob(job) {
   job = StockDomain.normalizeFields(job, 'job');
   const metadata = decodeJobNotes(job.notes);
@@ -513,6 +558,7 @@ async function loadJobs() {
     if (member === app.member && epoch === sessionEpoch) {
       applyJobs(data);
       loadMemberProfiles().catch(error=>console.warn('Profile photos unavailable',error));
+      loadTeamAssignments().catch(error=>console.warn('Team assignments unavailable',error));
     }
   } catch (error) {
     if (member === app.member && epoch === sessionEpoch) {
@@ -1325,6 +1371,7 @@ function renderDetail() {
     ${job.notes ? `<section class="inspection-info-section notes-visible"><h2>หมายเหตุงาน</h2><p class="detail-desc">${html(job.notes)}</p></section>` : ''}
     ${action && !active ? `<div class="detail-actions">${action}</div>` : ''}
   </section>
+  ${renderJobTeam(job)}
   ${recordedInspectorTeam(job)}
   ${job.status !== 'new' ? `<section class="panel delete-job-section"><h2>จัดการงานตรวจ</h2><p class="hint">นำงานออกจากหน้ารายการ โดยเก็บผลตรวจรถ รูปภาพ และประวัติทั้งหมดไว้</p><button class="btn secondary sm danger" type="button" data-action="archive-job">${icon('archive')} นำงานออกจากระบบ</button></section>` : ''}
   ${detailNotice(job)}${transferMarkup(job)}
@@ -1567,7 +1614,7 @@ function renderMembers() {
 
 function renderCurrent() {
   const render = {
-    home: renderHome, members: renderMembers, overview: renderOverview, monthdetail: renderMonthDetail, jobs: renderJobs, choose: renderChoose,
+    home: renderHome, myjobs: renderMyJobs, members: renderMembers, overview: renderOverview, monthdetail: renderMonthDetail, jobs: renderJobs, choose: renderChoose,
     reports: renderReports, reportpreview: renderReportPreview, jobdetail: renderDetail, recorddetail: renderRecordDetail
   }[app.page];
   render?.();
@@ -2573,6 +2620,7 @@ document.addEventListener('input', event => {
 });
 document.addEventListener('change', event => {
   if (event.target.matches('input[data-photo-slot]')) selectPhoto(event.target);
+  if (event.target.matches('input[data-team-member]')) assignJobMember(event.target);
 });
 $('jobSearch').addEventListener('input', event => {
   app.search = event.target.value;
