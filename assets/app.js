@@ -773,36 +773,37 @@ function renderReports() {
   }).join('') : blank('ไม่มีข้อมูลตามตัวกรอง');
 }
 function renderReportPreview(){
- const jobs=scopedReportJobs();
- if(!jobs.length){$('previewContent').innerHTML='<div class="page-head"><h1 tabindex="-1">รายงานรายปัญหา</h1></div><p class="empty">เลือกปัญหาในหน้า Reports เพื่อเปิดรายงาน</p>';return}
- const counts=DOMAIN.summary(jobs),created=new Intl.DateTimeFormat('th-TH',{timeZone:TIME_ZONE,dateStyle:'medium',timeStyle:'short'}).format(new Date());
- const title='รายงานรายปัญหา';
- const reportStatus=!counts.total?'Draft':counts.incomplete?'In Progress':jobs.every(finished)?'Completed':'In Progress';
- const reportRows=job=>[...job.records].sort((a,b)=>text(b.checkedAt).localeCompare(text(a.checkedAt))).map(record=>{
-  const result=vehicleInspection(job,record);
-  // The serial-label image belongs to this vehicle, not to the whole Claim Job.
-  // Never generate public URLs or bypass access permissions.
-  const serialImage=safeLink(record.photoSlots?.[0]);
-  const serialEvidence=serialImage
-    ? `<div class="report-serial-evidence"><img src="${html(serialImage)}" alt="ป้าย PIN / Serial ${html(record.serial||'')}" loading="eager" data-reference-photo><small>รูปป้าย Serial Number</small></div>`
-    : '<small class="report-photo-pending">ยังไม่มีรูปป้าย Serial Number</small>';
-  return `<tr><td data-label="PIN / Model"><strong>${html(record.serial||'— (ไม่ระบุ Serial)')}</strong><br>${html(record.product||'—')} · ${html(record.model||'—')}${serialEvidence}</td>
-   <td data-label="วันที่ / สถานที่ / ผู้ตรวจ">${niceDate(record.checkedAt)}<br>${html(record.location||'—')}<br>${html(record.inspector||'—')}</td>
-   <td data-label="ผล / ความครบถ้วน">${vehicleBadge(result)}<br>${vehicleProgress(result)}</td>
-   <td data-label="ผลรายเกณฑ์">${DOMAIN.criteria(job,record).map(c=>{const d=DOMAIN.criterionValue(record,c);return `<p>${html(c.label)}: <strong>${html(d.result||'กำลังดำเนินการ')}</strong>${d.note?'<br>'+html(d.note):''}${d.ngDetail?'<br>NG: '+html(d.ngDetail):''}<br><small>${d.updatedAt?niceDate(d.updatedAt)+' · ':''}ผู้ตรวจ ${html(d.inspector||record.inspector||record.checkedBy||'—')}</small></p>`}).join('')||'—'}<p>หมายเหตุ: ${html(record.note||'—')}</p></td></tr>`;
- }).join('');
- $('previewContent').innerHTML=`<header class="report-heading"><img class="kubota-logo" src="assets/kubota.png" alt="Kubota"><div><p class="eyebrow">STOCK INSPECTION</p><h1 tabindex="-1">${title}</h1></div><span class="status">${reportStatus}</span></header>
-  <div class="page-head"><p>${MOCK?'MOCK REPORT · ข้อมูลจำลอง ไม่ใช่ข้อมูลบริษัท':'รายงานจากข้อมูลที่อ่านยืนยันแล้ว'}</p><button class="btn primary no-print" type="button" data-action="print-report">${icon('download')} พิมพ์ / บันทึก PDF</button></div>
-  <p class="hint">สร้างรายงาน ${html(created)} (Asia/Bangkok) · อ่านข้อมูลล่าสุด ${niceDate(app.jobsLoadedAt)}</p>
-  ${!app.jobsLive||app.partial?'<div class="notice warning">Draft · ข้อมูลไม่ครบหรืออาจไม่ใช่ข้อมูลล่าสุด</div>':''}
-  <div class="stats report-metrics">${unitStats(jobs)}</div><p class="hint">รวมรถ = OK + NG + กำลังดำเนินการ · ตรวจครบ ${counts.complete} คัน / ยังไม่ครบ ${counts.incomplete} คัน · — หมายถึงไม่มีข้อมูล</p>
-  ${jobs.map(job=>`<section class="panel print-job"><div class="panel-head"><h2>${html(job.title)}</h2>${statusBadge(job.status)}</div>
-   <p>${html(job.id)} · ${html(job.claimCategory||'—')}</p><p class="muted">${html(groupLabel(job))} · เป้าหมาย ${job.targetUnits==null?'—':html(job.targetUnits)} คัน · ในรายงาน ${job.records.length} คัน</p>
-   ${job.detail?`<p>${html(job.detail)}</p>`:''}<p>วิธีตรวจ: ${html(job.checkingMethod||'—')}</p>
-   ${referencePictures(job)}
-   <div class="report-table-wrap"><table class="report-table"><thead><tr><th>PIN / Product / Model</th><th>วันที่ / สถานที่ / ผู้ตรวจ</th><th>ผล / ความครบถ้วน</th><th>ผลรายเกณฑ์</th></tr></thead><tbody>${reportRows(job)||'<tr><td colspan="4">ไม่มีผลตรวจในช่วงนี้</td></tr>'}</tbody></table></div></section>`).join('')}`;
+ const job=selectedJobs().find(j=>j.id===app.reportJob);
+ const root=$('previewContent');
+ if(!job){root.innerHTML='<p class="empty">เลือกงานตรวจที่เสร็จแล้วจาก Reports</p>';return}
+ if(!finished(job)){root.innerHTML='<div class="notice warning">กรุณาจบการตรวจก่อนเปิดรายงานฉบับสมบูรณ์</div>';return}
+ if(!app.jobsLive||app.partial||!app.recordRead||app.loadError){root.innerHTML='<div class="notice warning">ข้อมูล Microsoft Lists ยังไม่ครบ กรุณารีเฟรชก่อนสร้างรายงาน</div>';return}
+ const records=liveRecords(job),summary=DOMAIN.summary([{...job,records}]);
+ const total=summary.total,ok=summary.OK,ng=summary.NG,missing=summary.pending;
+ const rate=n=>total?(n*100/total).toFixed(1).replace(/\.0$/,'')+'%':'0%';
+ const dates=records.map(r=>dateValue(r.checkedAt)).filter(Boolean).sort();
+ const period=dates.length?niceDate(dates[0])+(dates[0]!==dates[dates.length-1]?' – '+niceDate(dates[dates.length-1]):''):'—';
+ const inspectors=[...new Set(records.map(r=>text(r.inspector||r.checkedBy)).filter(Boolean))];
+ const criteria=new Map();
+ for(const record of records)for(const c of DOMAIN.criteria(job,record)){
+   const name=text(c.label);if(!name)continue;
+   if(!criteria.has(name))criteria.set(name,{ok:0,ng:0});
+   const result=DOMAIN.criterionValue(record,c).result;
+   if(result==='OK')criteria.get(name).ok++;
+   if(result==='NG')criteria.get(name).ng++;
+ }
+ const created=new Intl.DateTimeFormat('th-TH',{timeZone:TIME_ZONE,dateStyle:'medium',timeStyle:'short'}).format(new Date());
+ root.innerHTML=`<div class="report-toolbar no-print"><div><strong>รายงานสรุป 1 หน้า A4</strong><p class="hint">สร้างอัตโนมัติจาก Microsoft Lists</p></div><button class="btn primary" type="button" data-action="print-report">${icon('download')} ดาวน์โหลด PDF / พิมพ์</button></div>
+ <article class="one-page-report">
+ <header class="one-page-report-header"><div class="one-page-report-brand"><img src="assets/kubota.png" alt="Kubota"><span>STOCK INSPECTION REPORT</span></div><h1 tabindex="-1">รายงานสรุปผลการตรวจสต็อก</h1><p>STOCK INSPECTION SUMMARY</p></header>
+ <div class="one-page-report-heading"><div><small>ชื่อปัญหา / CLAIM JOB</small><h2>${html(job.title)}</h2><p>${html([job.claimCategory,groupLabel(job)].filter(Boolean).join(' · ')||'—')}</p></div><div class="one-page-report-id"><small>JOB REFERENCE</small><strong>${html(job.id)}</strong><small>สถานะ: ตรวจเสร็จแล้ว</small></div></div>
+ <section class="one-page-report-metrics"><div class="one-page-metric total"><span>ตรวจทั้งหมด</span><strong>${total}</strong><small>คัน</small></div><div class="one-page-metric ok"><span>OK</span><strong>${ok}</strong><small>${rate(ok)} ของทั้งหมด</small></div><div class="one-page-metric ng"><span>NG</span><strong>${ng}</strong><small>${rate(ng)} ของทั้งหมด</small></div><div class="one-page-metric rate"><span>NG RATE</span><strong>${rate(ng)}</strong><small>NG ${ng} จาก ${total} คัน</small></div></section>
+ <section class="one-page-result"><h3>สรุปผลการตรวจ</h3><p>ตรวจสต็อกทั้งหมด <b>${total} คัน</b> ผลตรวจ <b class="ok-text">OK ${ok} คัน</b> และ <b class="ng-text">NG ${ng} คัน</b> คิดเป็นอัตรา NG <b class="ng-text">${rate(ng)}</b> ของรถที่ตรวจทั้งหมด</p>${missing?`<p class="report-pending-note">ข้อมูลที่ตรวจยังไม่ครบ ${missing} คัน</p>`:''}</section>
+ ${criteria.size?`<section class="one-page-criteria"><h3>ผลตรวจตามเกณฑ์</h3><div class="one-page-criteria-list">${[...criteria].map(([name,c])=>`<div class="one-page-criteria-line"><span>${html(name)}</span><span>OK <b class="ok-text">${c.ok}</b> &nbsp; NG <b class="ng-text">${c.ng}</b></span></div>`).join('')}</div><p class="one-page-explain">ยอด NG รายเกณฑ์อาจเป็นรถคันเดียวกัน · NG RATE นับตามจำนวนคัน</p></section>`:''}
+ <section class="one-page-report-detail"><div><small>วันที่ตรวจ</small><strong>${html(period)}</strong></div><div><small>ผู้ตรวจ</small><strong>${html(inspectors.join(', ')||'—')}</strong></div><div><small>เป้าหมาย</small><strong>${job.targetUnits==null?'—':html(job.targetUnits)+' คัน'}</strong></div><div><small>สร้างรายงานเมื่อ</small><strong>${html(created)}</strong></div></section>
+ <footer class="one-page-report-footer"><span>ข้อมูลจากระบบ Stock Inspection</span><span>${html(job.id)}</span></footer>
+ </article>`;
 }
-
 
 const jobScope = job => 'job:' + job.id;
 const manualScope = 'manual-job';
