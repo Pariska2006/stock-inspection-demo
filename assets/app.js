@@ -909,7 +909,7 @@ function recordEvidence(job,record){
  }).join('');
  return `${Number(record.schemaVersion)!==2?'<p class="notice warning">ข้อมูลรุ่นเดิมบางรายการยังต้องตรวจยืนยันผล</p>':''}${results||'<p class="hint">ไม่มีผลรายเกณฑ์</p>'}
  ${record.note?`<div class="record-extra"><h3>หมายเหตุรวม</h3><p class="record-note">${html(record.note)}</p></div>`:''}
- ${record.ngDetail?`<div class="record-extra ng-summary"><span class="ng-summary-badge" aria-label="พบผล NG">NG</span></div>`:''}
+ ${vehicleInspection(job,record).status==='NG'?`<div class="record-extra ng-summary"><span class="ng-summary-badge" aria-label="พบผล NG">NG</span></div>`:''}
  <div class="record-extra"><h3>รูป Label / PIN</h3>${recordPictures(record)}</div>`;
 }
 function auditHistoryMarkup(job,record){
