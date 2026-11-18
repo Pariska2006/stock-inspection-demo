@@ -133,12 +133,21 @@ async function download(data){
    layout:{hLineColor:()=>BORDER,vLineColor:()=>BORDER,
     paddingLeft:()=>3,paddingRight:()=>3,paddingTop:()=>3,paddingBottom:()=>3}},
   {text:'แสดง '+data.rows.length+' จาก '+total+' คัน · ยอดรวมคำนวณจากข้อมูลรถทั้งหมด',fontSize:7.5,color:MUTED,margin:[0,4,0,5]},
-  {columns:[
-   {width:'*',...metric('TOTAL',total,'Units')},
-   {width:'*',...metric('OK',data.ok,pct(data.ok,total),GREEN)},
-   {width:'*',...metric('NG',data.ng,pct(data.ng,total),'#bd2433')},
-   {width:'*',...metric('% NG',pct(data.ng,total),'NG / Total','#bd2433')}
-  ],columnGap:5},
+  {table:{widths:['*','*','*','*'],body:[[
+   {stack:[{text:'TOTAL',fontSize:8,color:MUTED,alignment:'center'},
+           {text:String(total),fontSize:17,bold:true,color:DARK,alignment:'center'},
+           {text:'Units',fontSize:7,color:MUTED,alignment:'center'}],fillColor:'#f8fbf9'},
+   {stack:[{text:'OK',fontSize:8,color:MUTED,alignment:'center'},
+           {text:String(data.ok),fontSize:17,bold:true,color:GREEN,alignment:'center'},
+           {text:pct(data.ok,total),fontSize:7,color:MUTED,alignment:'center'}],fillColor:'#f8fbf9'},
+   {stack:[{text:'NG',fontSize:8,color:MUTED,alignment:'center'},
+           {text:String(data.ng),fontSize:17,bold:true,color:'#bd2433',alignment:'center'},
+           {text:pct(data.ng,total),fontSize:7,color:MUTED,alignment:'center'}],fillColor:'#f8fbf9'},
+   {stack:[{text:'% NG',fontSize:8,color:MUTED,alignment:'center'},
+           {text:pct(data.ng,total),fontSize:17,bold:true,color:'#bd2433',alignment:'center'},
+           {text:'NG / Total',fontSize:7,color:MUTED,alignment:'center'}],fillColor:'#f8fbf9'}
+  ]]},layout:{hLineColor:()=>BORDER,vLineColor:()=>BORDER,
+       paddingLeft:()=>3,paddingRight:()=>3,paddingTop:()=>6,paddingBottom:()=>6}},
   {text:'สรุปผลตรวจ '+total+' คัน · OK '+data.ok+' คัน · NG '+data.ng+' คัน ('+pct(data.ng,total)+')'+
    (data.pending?' · อยู่ระหว่างตรวจ '+data.pending+' คัน':''),fontSize:8,color:DARK,margin:[0,6,0,6]},
   {columns:[
