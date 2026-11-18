@@ -1590,10 +1590,6 @@ async function deleteJobFromWeb() {
     'ต้องการลบงาน "' + job.title + '" (' + job.id + ') หรือไม่?\nลบได้เฉพาะงานที่ยังไม่มีรถตรวจ และรูปที่เก็บแยกไว้อาจยังอยู่',
     'ลบงาน', 'danger'
   )) return;
-  const typed = window.prompt('เพื่อยืนยันงานที่ถูกต้อง ให้พิมพ์ Job Key ตามนี้:\n' + job.id);
-  if (typed === null) return;
-  if (text(typed) !== job.id) return showFeedback('Job Key ไม่ตรง ยกเลิกการลบ', 'warning');
-
   await withWrite(async () => {
     const latest = await readJobs();
     if (latest.partial || latest.status !== 'OK') {
