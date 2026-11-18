@@ -620,3 +620,18 @@ html { scroll-padding-bottom:100px }
 .slide-image-export .inspection-capture-section .reference-photo img{max-height:265px}
 @media(max-width:600px){#previewContent .reference-report{margin-left:0;margin-right:0}.inspection-capture-section{padding:16px}.detail-copy-actions .btn{flex:1 1 160px}}
 @media print{#previewContent{overflow:visible!important}#previewContent .reference-report{border:0!important;box-shadow:none!important;min-height:0!important;margin:0!important;padding:11mm!important;width:210mm!important}}
+
+/* Shared assigned inspectors: compact, accessible controls. */
+.job-team-panel .panel-head h2{display:flex;align-items:center;gap:9px}
+.job-team-list{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
+.team-person{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:9px;padding:6px 10px;font-size:13px;color:var(--ink)}
+.team-photo{width:32px;height:32px;min-width:32px;border-radius:50%;object-fit:cover}
+.team-photo-initial{display:grid;place-items:center;background:#eaf5ed;color:#226e41;font-weight:700}
+.team-manage{margin-top:18px;border-top:1px solid var(--line);padding-top:15px}
+.team-manage h3{margin:0 0 12px;font-size:14px}
+.team-select-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr));gap:8px}
+.team-choice{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:9px;padding:10px;cursor:pointer;font-size:13px;min-width:0}
+.team-choice>span:nth-child(2){flex:1;overflow-wrap:anywhere}
+.team-choice input{width:19px;height:19px;accent-color:#16803c}
+.team-choice:has(input:checked){background:#eff8f2;border-color:#9bd0ad}
+.team-choice:has(input:disabled){opacity:.65}
