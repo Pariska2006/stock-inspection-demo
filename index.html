@@ -7,7 +7,7 @@
   <meta name="description" content="Stock Inspection — Confirm Tractor in Stock">
   <title>Stock Inspection | KUBOTA — White Minimal Search Update</title>
 <link rel="stylesheet" href="assets/fonts.css?v=20261117-search2">
-<link rel="stylesheet" href="assets/styles.css?v=20261118-docno2-member-profile-v1">
+<link rel="stylesheet" href="assets/styles.css?v=20261118-a4-details-team-myjobs">
 
 </head>
 <body>
@@ -209,6 +209,7 @@
     <button id="mobileNavBackdrop" class="mobile-nav-backdrop" type="button" data-action="close-mobile-nav" aria-label="ปิดเมนู" hidden></button>
     <aside class="side" id="mainSidebar" aria-label="เมนูหลัก"><button id="mobileNavClose" class="mobile-nav-close icon-btn" type="button" data-action="close-mobile-nav" aria-label="ปิดเมนูด้านซ้าย"><svg class="ico sm" aria-hidden="true"><use href="#ic-x"></use></svg></button><div class="side-brand"><img src="assets/kubota.png" alt="Kubota"><span>STOCK INSPECTION</span><small>Inspection workspace</small></div>
       <nav aria-label="เมนูหลัก"><button class="nav-btn" type="button" data-nav="home"><svg class="ico sm" aria-hidden="true"><use href="#ic-home"></use></svg> หน้าหลัก</button>
+<button class="nav-btn" type="button" data-nav="myjobs"><svg class="ico sm" aria-hidden="true"><use href="#ic-user"></use></svg> งานของฉัน</button>
 <button class="nav-btn" type="button" data-nav="jobs"><svg class="ico sm" aria-hidden="true"><use href="#ic-list"></use></svg> งานตรวจ</button>
 <button class="nav-btn" type="button" data-nav="overview"><svg class="ico sm" aria-hidden="true"><use href="#ic-chart"></use></svg> ภาพรวม</button>
 <button class="nav-btn" type="button" data-nav="reports"><svg class="ico sm" aria-hidden="true"><use href="#ic-file"></use></svg> Reports</button>
@@ -254,6 +255,11 @@
         <section class="panel monthly-panel"><div><p class="eyebrow">MONTHLY OVERVIEW</p><h2>ความคืบหน้าประจำเดือน</h2><p class="hint">ตามเดือนที่เริ่มงานตรวจ</p><button class="btn ghost" data-nav="overview" type="button">ดูภาพรวมทั้งหมด</button></div><div id="homeMonth"></div></section>
       </section>
 
+      <section class="view" id="myjobs">
+        <div class="page-head"><div><h1 tabindex="-1">งานของฉัน</h1><p>งานที่ได้รับมอบหมาย หรือเคยเริ่มและบันทึกผลตรวจเอง</p></div><button class="btn secondary sm" type="button" data-action="refresh-jobs">รีเฟรช</button></div>
+        <div class="list-info"><span id="myJobsCount">0 งาน</span></div>
+        <div class="job-grid" id="myJobsGrid"></div>
+      </section>
       <section class="view" id="jobs">
         <div class="page-head"><h1 tabindex="-1">งานตรวจสต็อก</h1><button class="btn primary" type="button" data-action="choose-job"><svg class="ico sm" aria-hidden="true"><use href="#ic-plus"></use></svg> เลือกงานตรวจ</button></div>
         <div id="jobsLiveBanner" class="notice" role="status" hidden><span></span><button class="btn secondary sm" type="button" data-action="refresh-jobs" hidden>ลองอีกครั้ง</button></div>
@@ -342,7 +348,7 @@
   </div>
   <nav class="bottom" aria-label="เมนูหลักบนมือถือ">
 <button class="nav-btn" type="button" data-nav="home"><svg class="ico" aria-hidden="true"><use href="#ic-home"></use></svg> หน้าหลัก</button>
-<button class="nav-btn" type="button" data-nav="jobs"><svg class="ico" aria-hidden="true"><use href="#ic-list"></use></svg> งานตรวจ</button>
+<button class="nav-btn" type="button" data-nav="myjobs"><svg class="ico" aria-hidden="true"><use href="#ic-user"></use></svg> งานของฉัน</button>
 <button class="nav-btn" type="button" data-nav="inspection"><svg class="ico" aria-hidden="true"><use href="#ic-qr"></use></svg> ตรวจสต็อก</button>
 <button class="nav-btn" type="button" data-nav="reports"><svg class="ico" aria-hidden="true"><use href="#ic-file"></use></svg> รายงาน</button></nav>
 </div>
@@ -359,7 +365,7 @@
 <script defer src="assets/mock.js?v=20261117-search2"></script>
 <script defer src="assets/vendor/jsQR.js?v=20261117-search2"></script>
 <script defer src="assets/scanner.js?v=20261118-ui-note-model-board"></script>
-<script defer src="assets/app.js?v=20261118-docno2-member-profile-v2"></script>
+<script defer src="assets/app.js?v=20261118-a4-details-team-myjobs"></script>
 </body>
 </html>
 
