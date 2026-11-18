@@ -810,6 +810,9 @@ const criteriaSlots = job => DOMAIN.criteria(job).map(c => c.slot);
 
 const pendingControls = scope => app.pending.has(scope) ? `<div class="section-actions">
   <button class="btn secondary" type="button" data-action="check-save">${icon('refresh')} ตรวจสอบผลบันทึก</button>
+  ${app.page === 'jobdetail' && app.pending.get(scope)?.descriptor.action === 'finishJob'
+    ? `<button class="btn ghost" type="button" data-action="recover-finish">${icon('shield-check')} ตรวจสอบและปลดคำขอจบงานที่ค้าง</button>`
+    : ''}
 </div>` : '';
 
 function recordPictures(record) {
@@ -1540,6 +1543,87 @@ async function trackWrite(scope, action, payload, makeMatcher, onSaved) {
   return confirmPending(scope);
 }
 
+async function recoverPendingFinish() {
+  const job=findJob();
+  if(!job || app.page!=='jobdetail') return;
+  const scope=jobScope(job);
+  const pending=app.pending.get(scope);
+  if(!pending || pending.descriptor.action!=='finishJob') {
+    return showFeedback('ไม่พบคำขอจบงานที่ค้างสำหรับงานนี้','warning');
+  }
+  if(app.busy || app.jobsLoading) return;
+  if(!await confirmAction(
+    'ตรวจสอบคำขอจบงานที่ค้าง',
+    'ระบบจะอ่าน Microsoft Lists ใหม่ก่อนปลดคำขอเดิม\n\nโปรดยืนยันว่าตรวจ STK_08 Executions และ STK_06 Run History แล้วว่าไม่มีการประมวลผลคำขอจบงานนี้\n\nการปลดนี้ไม่ใช่การจบงาน และจะยังไม่ส่งคำสั่งใหม่',
+    'อ่านสถานะล่าสุด'
+  )) return;
+  setBusy(true);
+  try {
+    const data=await readJobs();
+    if(data.status!=='OK'||data.partial) {
+      return showFeedback('ข้อมูล STK_07 ยังไม่ครบ จึงไม่ปลดคำขอค้าง','warning');
+    }
+    const latest=data.jobs.filter(Boolean).map(normalizeJob).find(item=>item.id===job.id);
+    if(!latest || Number(latest.sharePointItemId)!==Number(pending.descriptor.payload.itemId) ||
+       pending.descriptor.payload.jobKey!==job.id) {
+      return showFeedback('Job Key หรือ Item ID ใน Lists ไม่ตรงคำขอเดิม จึงไม่ปลดคำขอ','warning');
+    }
+    if(finished(latest)) {
+      applyJobs(data);
+      const confirmed=app.pending.get(scope);
+      if(confirmed===pending){
+        app.pending.delete(scope);
+        if(!persistPending()){app.pending.set(scope,pending);return showFeedback('เก็บผลยืนยันในอุปกรณ์ไม่ได้ จึงยังไม่ปลดคำขอ','error')}
+      }
+      app.reportJob=job.id;
+      navigate('reports',true);
+      return;
+    }
+    if(latest.status!=='progress') {
+      applyJobs(data);
+      return showFeedback('สถานะงานใน Lists เปลี่ยนไปเป็น '+latest.status+' จึงยังไม่ปลดคำขอ','warning');
+    }
+    const records=liveRecords(latest);
+    if(!records.length || records.some(record=>!vehicleInspection(latest,record).complete)) {
+      applyJobs(data);
+      return showFeedback('ข้อมูลล่าสุดยังมีรถที่ตรวจไม่ครบ กรุณาตรวจให้ครบก่อน','warning');
+    }
+    if(app.pending.get(scope)!==pending) return showFeedback('คำขอค้างเปลี่ยนระหว่างตรวจสอบ กรุณาโหลดใหม่','warning');
+    const request=String(pending.descriptor.clientRequestId||'');
+    const approved=await confirmAction(
+      'ปลดคำขอจบงานเก่า',
+      'ยืนยันว่าตรวจ STK_08 และ STK_06 แล้ว ไม่พบ Run ของคำขอนี้\n\nJob: '+job.id+'\nRequest ID: '+request+
+      '\n\nLists ยังเป็น In Progress ระบบจะปลดเฉพาะคำขอจบงานค้างในเบราว์เซอร์ โดยไม่ลบข้อมูลรถหรือรูป และจะไม่ส่งคำสั่งใหม่จนกว่าจะกด “จบการตรวจ” อีกครั้ง\n\nหากยังไม่แน่ใจว่าคำขอเดิมถูกประมวลผลหรือไม่ ให้กดยกเลิก',
+      'ยืนยันปลดคำขอ',
+      'danger'
+    );
+    if(!approved) return;
+    if(app.pending.get(scope)!==pending) return;
+    // Keep a local recovery audit separate from the write journal. If storage
+    // is inaccessible, do not remove the pending safeguard.
+    const auditKey='stock-finish-recovery-v1:'+storageIdentity();
+    try {
+      const old=JSON.parse(localStorage.getItem(auditKey)||'[]');
+      const entries=Array.isArray(old)?old:[];
+      entries.push({jobKey:job.id,itemId:Number(latest.sharePointItemId),clientRequestId:request,recoveredAt:new Date().toISOString()});
+      localStorage.setItem(auditKey,JSON.stringify(entries.slice(-30)));
+    }catch(error){
+      return showFeedback('บันทึกประวัติการปลดคำขอไม่ได้ จึงยังไม่ปลดคำขอ','error');
+    }
+    app.pending.delete(scope);
+    if(!persistPending()){
+      app.pending.set(scope,pending);
+      return showFeedback('เก็บสถานะคำขอใหม่ไม่ได้ ระบบคงคำขอเดิมไว้','error');
+    }
+    applyJobs(data);
+    showFeedback('ปลดเฉพาะคำขอจบงานที่ค้างแล้ว · งานยังเป็น In Progress และยังไม่ส่งคำสั่งใหม่ · กดจบการตรวจอีกครั้งเมื่อต้องการส่งใหม่','success');
+  } catch(error) {
+    showFeedback('ตรวจสอบคำขอไม่ได้: '+String(error?.message||'ไม่ทราบสาเหตุ')+' · ระบบยังคงคำขอเดิมไว้','warning');
+  } finally {
+    releaseWrite();
+  }
+}
+
 async function recheckSave() {
   const scope = currentScope();
   const pending = app.pending.get(scope);
@@ -2137,6 +2221,8 @@ async function handleClick(event) {
     await finishJob();
   } else if (action === 'check-save') {
     await recheckSave();
+  } else if (action === 'recover-finish') {
+    await recoverPendingFinish();
   } else if (action === 'refresh-jobs') {
     await loadJobs();
   } else if (action === 'add-criteria') {
