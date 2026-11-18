@@ -356,7 +356,7 @@ async function loadJobPhotos(key,refresh=false){
   const data=await photoRequest({action:'list',jobKey:key},30000);
   if(data.status!=='OK'||!Array.isArray(data.photos))throw Error('ยังโหลดรูปภาพไม่ได้ กรุณาลองใหม่อีกครั้ง');
   if(epoch!==sessionEpoch)return null;
-  const rows=data.photos.filter(p=>Number.isSafeInteger(p.itemId)&&['SERIAL','JOB_OK','JOB_NG','JOB_METHOD'].includes(p.photoType)&&safeLink(p.url));
+  const rows=data.photos.map(p=>({...p,itemId:Number(p.itemId),photoType:text(p.photoType).toUpperCase()})).filter(p=>Number.isSafeInteger(p.itemId)&&p.itemId>0&&['SERIAL','JOB_OK','JOB_NG','JOB_METHOD'].includes(p.photoType)&&safeLink(p.url));
   const index={loadedAt:Date.now(),rows};app.photoAssets.set(key,index);overlayPhotos(job);
   if(['jobdetail','recorddetail','reportpreview'].includes(app.page)&&(app.selected===key||app.reportJob===key))renderCurrent();
   return index;
