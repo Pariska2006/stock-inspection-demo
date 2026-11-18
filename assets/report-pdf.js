@@ -35,13 +35,10 @@ async function asDataUrl(url){
  });
 }
 function section(number,title){
- // Match the green numbered headings and continuous rules from the A4 preview.
+ // Number-free, left-aligned report section with a light bottom rule.
  return {stack:[
-  {columns:[
-   {width:22,text:number,color:'#ffffff',bold:true,fontSize:9,alignment:'center',fillColor:GREEN,margin:[0,3,0,3]},
-   {width:'*',text:title,bold:true,color:DARK,fontSize:10,margin:[6,3,0,2]}
-  ],columnGap:3},
-  {canvas:[{type:'line',x1:0,y1:0,x2:535,y2:0,lineColor:BORDER,lineWidth:.7}],margin:[0,4,0,0]}
+  {text:title,bold:true,color:DARK,fontSize:10.5,margin:[0,0,0,5]},
+  {canvas:[{type:'line',x1:0,y1:0,x2:535,y2:0,lineColor:BORDER,lineWidth:.7}]}
  ],margin:[0,8,0,7]};
 }
 function info(label,value){
@@ -112,9 +109,9 @@ async function download(data){
  if(photoErrors.length)throw Error('ยังดึงรูป '+photoErrors.join('/')+' ไม่สำเร็จ กรุณาลองดาวน์โหลดอีกครั้ง');
  const total=Number(data.total)||0;
  const detailCols=[
-  {width:'*',stack:[info('Problem / ชื่อปัญหา',data.title),info('Model',data.model),info('Checking Location',data.location)]},
-  {width:'*',stack:[info('Product',data.product),info('Claim Type',data.claimType),info('Checking Date',data.date)]},
-  {width:'auto',stack:[info('DocNo2',data.docNo2)]}
+  {width:'*',stack:[info('Problem / ชื่อปัญหา',data.title),info('Checking Location',data.location)]},
+  {width:'*',stack:[info('Product',data.product),info('Model',data.model)]},
+  {width:'*',stack:[info('Claim Type',data.claimType),info('DocNo2',data.docNo2)]}
  ];
  const content=[
   {columns:[logo?{image:logo,width:90}:{text:'KUBOTA',bold:true,fontSize:21,color:'#00a58e'},
