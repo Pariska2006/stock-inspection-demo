@@ -794,7 +794,9 @@ function reportDocument(job) {
      const value=criterion?DOMAIN.criterionValue(record,criterion).result:'';
      return `<td class="report-result ${value==='NG'?'ng':value==='OK'?'ok':''}">${html(value||'—')}</td>`;
    }).join('');
-   return `<tr><td>${index+1}</td><td>${html(niceDate(dateValue(record.checkedAt))||'—')}</td><td>${html(record.model||job.model||'—')}</td><td class="serial-cell">${html(record.serial||'—')}</td><td>${html(record.lotNo||'—')}</td>${resultCells}</tr>`;
+   const overall=vehicleInspection(job,record).status;
+   const overallLabel=overall==='pending'?'ยังไม่ครบ':overall;
+   return `<tr><td>${index+1}</td><td>${html(niceDate(dateValue(record.checkedAt))||'—')}</td><td>${html(record.model||job.model||'—')}</td><td class="serial-cell">${html(record.serial||'—')}</td><td>${html(record.lotNo||'—')}</td>${resultCells}<td class="report-overall ${overall==='NG'?'ng':overall==='OK'?'ok':'pending'}">${overallLabel}</td></tr>`;
  }).join('');
  const remaining=Math.max(0,records.length-sampleRecords.length);
  const reference=[['OK REFERENCE',safeLink(job.okPictureUrl)],['NG REFERENCE',safeLink(job.ngPictureUrl)]];
@@ -827,8 +829,8 @@ function reportDocument(job) {
   </section>
   <section class="reference-report-section reference-report-results"><h2><span>03</span> ผลการตรวจสต็อก</h2>
    <div class="reference-report-table-wrap"><table class="reference-report-vehicles">
-    <thead><tr><th>#</th><th>Date</th><th>Model</th><th>Serial Number</th><th>Lot No.</th><th>Result 1</th><th>Result 2</th><th>Result 3</th><th>Result 4</th></tr></thead>
-    <tbody>${reportRows||'<tr><td colspan="9">ไม่มีข้อมูลรถที่บันทึก</td></tr>'}</tbody>
+    <thead><tr><th>#</th><th>Date</th><th>Model</th><th>Serial Number</th><th>Lot No.</th><th>Result 1</th><th>Result 2</th><th>Result 3</th><th>Result 4</th><th>ผลรวม</th></tr></thead>
+    <tbody>${reportRows||'<tr><td colspan="10">ไม่มีข้อมูลรถที่บันทึก</td></tr>'}</tbody>
    </table></div>
    <p class="reference-report-sample-note">แสดง ${sampleRecords.length} จาก ${records.length} คัน${remaining?' · เลือกแสดงรถที่พบ NG ก่อน และตัวอย่างรถ OK · ไม่แสดงอีก '+remaining+' คันเพื่อให้รายงานอยู่ในหน้าเดียว':''} · ยอดสรุปด้านล่างคำนวณจากรถทั้งหมด</p>
    <div class="reference-report-summary">
