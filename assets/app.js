@@ -722,8 +722,6 @@ function renderHome() {
     Number(app.stars.has(b.id)) - Number(app.stars.has(a.id)) ||
     text(b.updated).localeCompare(text(a.updated)));
   $('homeJobs').innerHTML = shown.length ? shown.map(jobCard).join('') : blank('ไม่มีงานที่กำลังดำเนินการตามตัวกรอง');
-  const key = dateValue(new Date()).slice(0, 7), buckets = jobsByMonth();
-  $('homeMonth').innerHTML = monthCard(key, buckets.get(key) || [], true);
 }
 function renderJobs() {
   syncSearch('jobs');
@@ -838,6 +836,8 @@ function monthCard(key, jobs, isCurrent = false) {
 
 function renderOverview() {
   renderSystemOverview();
+  const currentKey=dateValue(new Date()).slice(0,7),monthBuckets=jobsByMonth();
+  $('overviewMonth').innerHTML=monthCard(currentKey,monthBuckets.get(currentKey)||[],true);
   if (!app.loaded) {
     $('monthGrid').innerHTML = blank('');
     $('olderMonths').hidden = true;
@@ -945,7 +945,8 @@ function reportDocument(job) {
  const product=selectedProducts(job).join(', ')||job.product||'—';
  const models=selectedModels(job).join(', ')||job.model||'—';
  const made=new Intl.DateTimeFormat('th-TH',{timeZone:TIME_ZONE,dateStyle:'medium',timeStyle:'short'}).format(new Date());
- const refPhoto=([caption,url])=>`<div class="report-reference-cell"><div class="report-reference-label">${caption}</div>${url?`<img src="${html(url)}" crossorigin="anonymous" alt="${caption}" loading="eager" data-reference-photo>`:'<span class="report-reference-empty">ไม่มีรูปอ้างอิง</span>'}</div>`;
+ const photoPending=Boolean(PHOTO_UPLOAD_API_URL&&!MOCK&&!app.photoAssets.has(job.id));
+ const refPhoto=([caption,url])=>`<div class="report-reference-cell"><div class="report-reference-label">${caption}</div>${url?`<img src="${html(url)}" crossorigin="anonymous" alt="${caption}" loading="eager" data-reference-photo>`:`<span class="report-reference-empty">${photoPending?'กำลังซิงค์รูปภาพ…':'ไม่มีรูปอ้างอิง'}</span>`}</div>`;
  return `<article class="one-page-report reference-report">
   <header class="reference-report-header">
    <div class="reference-report-brand"><img src="assets/kubota.png" alt="Kubota"><span>QUALITY ASSURANCE / STOCK INSPECTION</span></div>
@@ -1030,7 +1031,8 @@ function renderReportPreview(){
  if(!job){root.innerHTML='<p class="empty">เลือกงานที่ตรวจเสร็จแล้วจากหน้า Reports</p>';return}
  if(!finished(job)){root.innerHTML='<div class="notice warning">รายงานพร้อมหลังจบการตรวจ</div>';return}
  if(!app.jobsLive||app.partial||!app.recordRead||app.loadError){root.innerHTML='<div class="notice warning">ข้อมูลยังไม่ครบ กรุณารีเฟรชก่อนเปิดรายงาน</div>';return}
- root.innerHTML=`<div class="report-toolbar no-print"><div><strong>ตัวอย่างรายงาน · A4</strong></div>
+ const photoPending=Boolean(PHOTO_UPLOAD_API_URL&&!MOCK&&!app.photoAssets.has(job.id));
+ root.innerHTML=`<div class="report-toolbar no-print"><div><strong>ตัวอย่างรายงาน · A4</strong>${photoPending?'<small class="report-photo-sync" role="status">กำลังซิงค์รูปภาพ…</small>':''}</div>
   <div class="report-toolbar-actions"><button class="btn secondary" type="button" data-action="print-report">${icon('printer')} พิมพ์ / บันทึก PDF คมชัด</button>
   <button class="btn primary" type="button" data-export-job="${html(job.id)}">${icon('download')} ดาวน์โหลด PDF</button></div>
  </div>${reportDocument(job)}`;
@@ -1068,21 +1070,21 @@ async function exportReportPdf(jobId) {
   const unavailable=await prepareReportImages(root);
   if(unavailable.length)showFeedback('รูปภาพบางรายการยังเปิดไม่ได้ กรุณาตรวจสอบรูปที่บันทึกไว้','warning');
   await document.fonts.ready;
-  // Explicit image dimensions prevent html2canvas from stretching portrait/circular reference photos.
-  for(const img of target.querySelectorAll('.report-reference-cell img')){
-   if(!img.naturalWidth||!img.naturalHeight)continue;
-   const cell=img.closest('.report-reference-cell');
-   const widthLimit=Math.max(1,cell.clientWidth-12),heightLimit=Math.max(1,cell.clientHeight-29);
-   const ratio=Math.min(widthLimit/img.naturalWidth,heightLimit/img.naturalHeight);
-   const width=Math.max(1,Math.round(img.naturalWidth*ratio)),height=Math.max(1,Math.round(img.naturalHeight*ratio));
-   Object.assign(img.style,{position:'absolute',width:width+'px',height:height+'px',maxWidth:'none',maxHeight:'none',padding:'0',top:(25+(heightLimit-height)/2)+'px',left:((cell.clientWidth-width)/2)+'px',objectFit:'fill'});
+  // Render the fixed A4 layout directly; avoid html2pdf's extra blank space.
+  const render=window.html2canvas,JsPDF=window.jspdf?.jsPDF;
+  if(typeof render!=='function'||typeof JsPDF!=='function')throw Error('เครื่องมือ PDF ยังไม่พร้อม');
+  const canvas=await render(target,{scale:3,useCORS:true,allowTaint:false,backgroundColor:'#ffffff',logging:false,scrollX:0,scrollY:0,windowWidth:794});
+  if(!canvas.width||!canvas.height)throw Error('สร้างหน้ารายงานไม่ได้');
+  const pdf=new JsPDF({unit:'mm',format:'a4',orientation:'portrait',compress:true});
+  const pageWidth=210,pageHeight=297,pxPerPage=Math.floor(canvas.width*pageHeight/pageWidth);
+  for(let top=0,page=0;top<canvas.height;top+=pxPerPage,page++){
+   const height=Math.min(pxPerPage,canvas.height-top);
+   const slice=document.createElement('canvas');slice.width=canvas.width;slice.height=height;
+   slice.getContext('2d').drawImage(canvas,0,top,canvas.width,height,0,0,canvas.width,height);
+   if(page>0)pdf.addPage();
+   pdf.addImage(slice.toDataURL('image/png'),'PNG',0,0,pageWidth,height*pageWidth/canvas.width,undefined,'FAST');
   }
-  await window.html2pdf().set({
-   margin:0,filename,image:{type:'png',quality:1},
-   html2canvas:{scale:3,useCORS:true,allowTaint:false,backgroundColor:'#fff',logging:false,scrollY:0,windowWidth:794},
-   jsPDF:{unit:'mm',format:'a4',orientation:'portrait',compress:true},
-   pagebreak:{mode:['legacy']}
-  }).from(target).save();
+  pdf.save(filename);
   done=true;
  }catch(error){
   console.warn('PDF export unavailable',error);
