@@ -1674,11 +1674,10 @@ async function finishJob() {
     const success=await trackWrite(jobScope(current),'finishJob',jobData(current),
       ()=>item=>item.id===current.id&&finished(item),
       ()=>{app.reportJob=current.id;app.detailOrigin='reports';navigate('reports',true);});
-    if(!success&&app.page==='jobdetail'){
-      const pending=app.pending.get(jobScope(current));
-      if(pending) {
-        showFeedback('ยังไม่ยืนยันการจบงานจาก Microsoft Lists กรุณาดูข้อความนี้และกด “ตรวจสอบผลบันทึก” ห้ามส่งจบงานซ้ำ','warning');
-      }
+    if(!success&&app.page==='jobdetail'&&app.pending.has(jobScope(current))) {
+      // The write may already have reached STK_06: do not re-send or hide the
+      // backend response. The persisted pending journal supports safe rechecks.
+      $('detailMessage')?.scrollIntoView({behavior:'smooth',block:'center'});
     }
   });
 }
