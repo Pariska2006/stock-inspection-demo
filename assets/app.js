@@ -7,6 +7,7 @@ const API_URL = CONFIG.usersReadUrl;
 const JOBS_API_URL = CONFIG.jobsReadUrl;
 const WRITE_API_URL = CONFIG.writeGatewayUrl;
 const PHOTO_UPLOAD_API_URL = MOCK ? '' : CONFIG.photoGatewayUrl;
+const MEMBER_PROFILE_URL = MOCK ? '' : 'https://oixxsocunhxqqbfrkgts.supabase.co/functions/v1/stock-member-profiles';
 const registrationAllowed = () => MOCK || (CONFIG.mode === 'live' && CONFIG.registrationEnabled === true && safeLink(CONFIG.registrationWriteUrl));
 // The installed STK_07 V4 / STK_08 V2 / STK_06 V2 contract is a four-slot
 // legacy bridge. It does NOT provide atomic version checks or a request-status API.
@@ -296,7 +297,7 @@ function openApp(member) {
   $('appMain').hidden = false;
   renameProfile(member.nickname);
   $('memberRole').textContent = member.role || 'Inspector';
-  const avatar = safeLink(app.line?.pictureUrl);
+  const avatar = safeLink(member.avatarUrl || app.line?.pictureUrl);
   setAvatar('topAvatar', 'topAvatarFallback', avatar);
   setAvatar('greetingAvatar', 'greetingAvatarFallback', avatar);
   setAvatar('profileAvatar', 'profileFallback', avatar);
@@ -366,6 +367,50 @@ function loadVisiblePhotos(page){
  if(key&&['jobdetail','recorddetail','inspection','jobform','reportpreview'].includes(page))
   loadJobPhotos(key).catch(e=>console.warn('Photo read unavailable',e.message));
 }
+async function memberProfileRequest(values,timeout=45000) {
+  if(!MEMBER_PROFILE_URL||!app.member||MOCK)throw Error('ยังไม่พร้อมเปลี่ยนรูปโปรไฟล์');
+  return fetchJson(MEMBER_PROFILE_URL,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({...values,idToken:idToken()})},timeout);
+}
+function applyMemberProfileUrls(rows) {
+  if(!Array.isArray(rows))return;
+  const map=new Map(rows.filter(item=>/^U[0-9a-f]{32}$/i.test(text(item.userId)) && safeLink(item.avatarUrl))
+    .map(item=>[text(item.userId),safeLink(item.avatarUrl)]));
+  for(const person of app.members)person.avatarUrl=map.get(person.userId)||person.avatarUrl||'';
+  const me=app.members.find(person=>person.userId===app.line?.userId);
+  const selected=map.get(text(app.line?.userId)) || me?.avatarUrl || safeLink(app.line?.pictureUrl);
+  for(const [img,fallback] of [['topAvatar','topAvatarFallback'],['profileAvatar','profileFallback'],['greetingAvatar','greetingAvatarFallback']])
+    setAvatar(img,fallback,selected);
+  if(app.page==='members')renderMembers();
+}
+async function loadMemberProfiles(){
+ const epoch=sessionEpoch;
+ if(MOCK||!app.member||!MEMBER_PROFILE_URL)return;
+ const data=await memberProfileRequest({action:'list'},25000);
+ if(epoch!==sessionEpoch || !app.member)return;
+ if(data.status!=='OK'||!Array.isArray(data.profiles))throw Error('ยังโหลดรูปสมาชิกไม่ได้');
+ applyMemberProfileUrls(data.profiles);
+}
+async function uploadMemberProfile(file){
+ if(!file || app.busy)return;
+ if(!/^image\//.test(file.type)||file.size>10*1024*1024)return showFeedback('กรุณาเลือกรูปขนาดไม่เกิน 10 MB','warning');
+ const state=$('profilePhotoStatus'); if(state)state.textContent='กำลังบันทึกรูปโปรไฟล์…';
+ const button=$('profilePhotoSelect');if(button)button.disabled=true;
+ try{
+   const bitmap=await createImageBitmap(file);
+   const canvas=document.createElement('canvas'),scale=Math.min(1,512/Math.max(bitmap.width,bitmap.height));
+   canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+   const ctx=canvas.getContext('2d');if(!ctx)throw Error('เปิดรูปไม่ได้');
+   ctx.fillStyle='#FFFFFF';ctx.fillRect(0,0,canvas.width,canvas.height);
+   ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close?.();
+   const jpeg=canvas.toDataURL('image/jpeg',0.86).split(',')[1];
+   const result=await memberProfileRequest({action:'upload',fileBase64:jpeg},45000);
+   if(result.status!=='OK')throw Error('ยังบันทึกรูปไม่ได้');
+   applyMemberProfileUrls(result.profiles);
+   if(state)state.textContent='เปลี่ยนรูปโปรไฟล์เรียบร้อยแล้ว';
+ }catch(error){console.warn('Profile upload failed',error);if(state)state.textContent='เปลี่ยนรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'}
+ finally{if(button)button.disabled=false}
+}
 function normalizeJob(job) {
   job = StockDomain.normalizeFields(job, 'job');
   const metadata = decodeJobNotes(job.notes);
@@ -390,6 +435,7 @@ function normalizeJob(job) {
   const normalized = {
     ...job, legacyPhotoUrls: {okPictureUrl:safeLink(job.okPictureUrl),ngPictureUrl:safeLink(job.ngPictureUrl),methodPictureUrl:safeLink(job.methodPictureUrl)}, id: text(job.id), sharePointItemId: text(job.sharePointItemId),
     title: text(job.title || job.problem) || 'งานตรวจสต็อก',
+    docNo2: text(job.docNo2 || job.DocNo2),
     ...metadata,
     startedBy: text(job.startedBy || job.selectedBy) || metadata.startedBy,
     startedAt: dateValue(job.startedAt) || metadata.startedAt,
@@ -464,7 +510,10 @@ async function loadJobs() {
   showReadState();
   try {
     const data = await readJobs();
-    if (member === app.member && epoch === sessionEpoch) applyJobs(data);
+    if (member === app.member && epoch === sessionEpoch) {
+      applyJobs(data);
+      loadMemberProfiles().catch(error=>console.warn('Profile photos unavailable',error));
+    }
   } catch (error) {
     if (member === app.member && epoch === sessionEpoch) {
       app.loadError = error.message;
@@ -858,7 +907,7 @@ function reportDocument(job) {
   <header class="reference-report-header">
    <div class="reference-report-brand"><img src="assets/kubota.png" alt="Kubota"><span>QUALITY ASSURANCE / STOCK INSPECTION</span></div>
    <div class="reference-report-heading"><div><h1>Confirm Tractor in Stock Report</h1><p>รายงานสรุปผลการตรวจสต็อก · STOCK INSPECTION SUMMARY</p></div><div class="reference-report-count"><small>INSPECTION</small><b>${total}</b><small>UNITS</small></div></div>
-   <p class="reference-report-number">JOB REF: ${html(job.id)} · ${html(claimNumber(job))}</p>
+   <p class="reference-report-number">JOB REF: ${html(job.id)} · DocNo2: ${html(job.docNo2||'—')}</p>
   </header>
   <section class="reference-report-section"><h2><span>01</span> ข้อมูลปัญหา</h2>
    <div class="reference-report-info">
@@ -866,6 +915,7 @@ function reportDocument(job) {
     <div><small>Product</small><strong>${html(product)}</strong></div>
     <div><small>Model</small><strong>${html(models)}</strong></div>
     <div><small>Claim Type</small><strong>${html(issueType)}</strong></div>
+     <div><small>เลขที่เคลม (DocNo2)</small><strong>${html(job.docNo2||'—')}</strong></div>
     <div><small>Checking Location</small><strong>${html(job.inspectionLocation||'—')}</strong></div>
     <div><small>Checking Date</small><strong>${html(period)}</strong></div>
    </div>
@@ -1132,7 +1182,7 @@ function completedSlideCards(job) {
  const card=(key,heading,body)=>`<section class="slide-tile">
   <div class="slide-tile-content" data-slide-capture="${key}">
     <div class="slide-tile-brand"><b>KUBOTA</b> / STOCK INSPECTION</div>
-    <h3>${heading}</h3><p class="slide-tile-job">${html(job.title)}</p>
+    <h3>${heading}</h3><p class="slide-tile-job">${html(job.title)} · DocNo2: ${html(job.docNo2||'—')}</p>
     ${body}
     <footer>JOB: ${html(job.id)}</footer>
   </div>
@@ -1287,6 +1337,7 @@ function renderDetail() {
     ${job.detail && text(job.detail) !== job.title ? `<p class="detail-desc">${html(job.detail)}</p>` : ''}
     <div class="detail-info">
       <div class="info"><small>ClaimType</small><span>${html(job.claimCategory || '—')}</span></div>
+      <div class="info"><small>เลขที่เคลม (DocNo2)</small><span>${html(job.docNo2||'—')}</span></div>
       <div class="info"><small>Product · Model</small><span>${html(groupLabel(job) || '—')}</span></div>
       ${job.inspectionLocation ? `<div class="info"><small>จุดตรวจ</small><span>${html(job.inspectionLocation)}</span></div>` : ''}
       ${completed && openedDate(job) ? `<div class="info"><small>Start Date</small><span>${niceDate(openedDate(job))}</span></div>` : ''}
