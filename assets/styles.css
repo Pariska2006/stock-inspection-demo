@@ -471,3 +471,40 @@ html { scroll-padding-bottom:100px }
  .reference-report-approval{grid-template-columns:1.4fr 1fr 1fr!important;gap:4mm;margin-top:4mm;padding-top:2.5mm}
  .reference-report-footer{margin-top:4mm;padding-top:2mm}
 }
+
+/* Original-style tractor result table: selected records, full totals. */
+.reference-report-table-wrap{width:100%;overflow-x:auto}
+.reference-report-vehicles{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9px;color:#273f31}
+.reference-report-vehicles th{background:#edf5f0;color:#29563b;font-size:8px;font-weight:700;padding:6px 4px;border-top:1px solid #dbe8de;border-bottom:1px solid #dbe8de;text-align:left;white-space:nowrap}
+.reference-report-vehicles td{padding:5px 4px;border-bottom:1px solid #e7ece9;overflow-wrap:anywhere;vertical-align:middle}
+.reference-report-vehicles th:nth-child(1){width:4%}
+.reference-report-vehicles th:nth-child(2){width:13%}
+.reference-report-vehicles th:nth-child(3){width:11%}
+.reference-report-vehicles th:nth-child(4){width:24%}
+.reference-report-vehicles th:nth-child(5){width:10%}
+.reference-report-vehicles th:nth-child(n+6){width:9.5%;text-align:center}
+.reference-report-vehicles td:nth-child(n+6){text-align:center}
+.reference-report-vehicles .serial-cell{font-weight:600;font-size:8px}
+.reference-report-vehicles .report-result.ng{color:#b91c1c;font-weight:700}
+.reference-report-vehicles .report-result.ok{color:#147c42;font-weight:700}
+.reference-report-sample-note{font-size:9px;color:#6b7b6e;margin:6px 0 10px;line-height:1.45}
+@media print{
+ .reference-report-table-wrap{overflow:visible!important}
+ .reference-report-vehicles{display:table!important;table-layout:fixed!important;font-size:7pt!important}
+ .reference-report-vehicles thead{display:table-header-group!important}
+ .reference-report-vehicles tbody{display:table-row-group!important}
+ .reference-report-vehicles tr{display:table-row!important;break-inside:avoid}
+ .reference-report-vehicles th,.reference-report-vehicles td{display:table-cell!important;padding:1.3mm 1mm!important;white-space:normal}
+ .reference-report-vehicles th{font-size:6.5pt!important}
+ .reference-report-vehicles td:before{display:none!important}
+ .reference-report-vehicles .serial-cell{font-size:7pt}
+ .reference-report-sample-note{font-size:7pt;margin:1.5mm 0 2mm}
+ .reference-report-results .reference-report-summary>div{padding:1.8mm 1mm}
+ .reference-report-results .reference-report-summary strong{font-size:15pt}
+ .reference-report-criteria th,.reference-report-criteria td{padding:1.2mm 2mm!important}
+}
+.pdf-export-canvas .reference-report-vehicles{display:table!important;table-layout:fixed!important}
+.pdf-export-canvas .reference-report-vehicles thead{display:table-header-group!important}
+.pdf-export-canvas .reference-report-vehicles tbody{display:table-row-group!important}
+.pdf-export-canvas .reference-report-vehicles tr{display:table-row!important}
+.pdf-export-canvas .reference-report-vehicles th,.pdf-export-canvas .reference-report-vehicles td{display:table-cell!important}
