@@ -990,7 +990,7 @@ function renderDetail() {
   const target = Number(job.targetUnits);
   const incomplete = records.filter(record => !vehicleInspection(job, record).complete).length;
   const isNew = job.status === 'new';
-  root.classList.toggle('detail-with-vehicle-sidebar', !isNew);
+  root.classList.remove('detail-with-vehicle-sidebar');
   const action = isNew ? `<button class="btn primary" type="button" data-action="select-job">${icon('check')} ตั้งค่าก่อนเริ่มตรวจ</button>` :
     active ? `<button class="btn primary" type="button" data-action="inspect-job">${icon('plus')} เพิ่มการตรวจ</button>` :
     url ? `<a class="btn primary" href="${html(url)}" target="_blank" rel="noopener noreferrer">${icon('download')} ดาวน์โหลด PDF</a>` : '';
@@ -1025,7 +1025,7 @@ function renderDetail() {
   ${detailNotice(job)}${transferMarkup(job)}
   ${completed && !url ? '<div class="notice warning">รอไฟล์ PDF · เปิดดูผลในแอปได้</div>' : ''}
   <button type="button" class="btn secondary" data-preview-job="${html(job.id)}">${icon('file')} ดูรายงานงานนี้</button>
-  ${isNew ? '' : `<section class="panel vehicle-records-panel">
+  ${isNew ? '' : `<div class="vehicle-board-layout"><section class="panel vehicle-records-panel">
     <div class="panel-head"><div><h2>รถในรายการ</h2><span class="muted">${records.length} คัน${target > 0 ? ' จาก ' + target : ''}</span></div>
       ${active && !app.loadError ? `<button class="btn ghost sm" type="button" data-action="refresh-jobs">${icon('refresh')} รีเฟรช</button>` : ''}</div>
     ${!app.recordRead ? '<p class="hint">ยังไม่มีข้อมูลรายการตรวจรายคันจากฐานข้อมูล</p>' : ''}
@@ -1036,7 +1036,10 @@ function renderDetail() {
     </div>
     ${filtered.length ? groupedVehicles(job, filtered, active, completed) :
       `<p class="empty">${records.length ? 'ไม่มีรถในผลตรวจที่เลือก' : 'ยังไม่มีรถที่บันทึกผลตรวจ'}</p>`}
-  </section>`}
+  </section><aside class="vehicle-status-sidebar" aria-label="สถานะการตรวจรายคัน">
+    <div class="vehicle-status-mini done"><span class="vehicle-status-mini-label">${icon('check')} ตรวจสำเร็จ</span><strong>${records.length-incomplete}</strong><small>คันที่ตรวจครบทุกเกณฑ์</small></div>
+    <div class="vehicle-status-mini progress"><span class="vehicle-status-mini-label">${icon('clock')} กำลังตรวจ</span><strong>${incomplete}</strong><small>คันที่ยังตรวจไม่ครบ</small></div>
+  </aside></div>`}
   ${active ? `<div class="finish-actions">
     ${!records.length ? '<p class="hint">บันทึกผลอย่างน้อย 1 คันเพื่อจบการตรวจ</p>' : ''}
     ${incomplete ? `<p class="hint">ตรวจรถที่ค้างอีก ${incomplete} คันให้ครบก่อนจบงาน</p>` : ''}
