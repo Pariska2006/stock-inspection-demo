@@ -1037,7 +1037,22 @@ function renderReportPreview(){
  </div>${reportDocument(job)}`;
  requestAnimationFrame(()=>{ root.scrollTop=0; window.scrollTo(0,0); });
 }
+let reportDownloadBusy=false;
 async function exportReportPdf(jobId) {
+ if(reportDownloadBusy)return;
+ reportDownloadBusy=true;
+ const overlay=document.getElementById('reportDownloadOverlay');
+ const buttons=[...document.querySelectorAll('[data-export-job]')];
+ buttons.forEach(button=>{button.disabled=true;button.setAttribute('aria-busy','true')});
+ if(overlay){overlay.hidden=false;overlay.setAttribute('aria-busy','true')}
+ try{return await exportReportPdfCore(jobId)}
+ finally{
+  reportDownloadBusy=false;
+  buttons.forEach(button=>{button.disabled=false;button.removeAttribute('aria-busy')});
+  if(overlay){overlay.hidden=true;overlay.removeAttribute('aria-busy')}
+ }
+}
+async function exportReportPdfCore(jobId) {
  const job=selectedJobs().find(j=>j.id===jobId&&finished(j));
  if(!job)return showFeedback('เปิดดาวน์โหลดได้เฉพาะงานที่จบการตรวจแล้ว','warning');
  if(!app.jobsLive||app.partial||!app.recordRead||app.loadError)
