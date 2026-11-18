@@ -384,3 +384,10 @@ html { scroll-padding-bottom:100px }
  .one-page-report-detail strong{font-size:9pt}
  .one-page-report-footer{margin-top:5mm;padding-top:2.5mm}
 }
+
+/* Keep completion feedback visible exactly where the inspector takes action. */
+.finish-job-feedback{border:1px solid #d7e3dc;background:#f7faf8;border-radius:10px;padding:13px 15px;font-size:13px;line-height:1.65;color:#294737;white-space:pre-line;margin-top:12px}
+.finish-job-feedback.warning{background:#fffbeb;border-color:#f0dfa9;color:#80591c}
+.finish-job-feedback.error{background:#fff1f2;border-color:#fecdd3;color:#9f1239}
+.finish-job-feedback.success{background:#f0fdf4;border-color:#bbf7d0;color:#166534}
+.finish-job-feedback[hidden]{display:none!important}
