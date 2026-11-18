@@ -348,14 +348,14 @@
 <button class="nav-btn" type="button" data-nav="reports"><svg class="ico" aria-hidden="true"><use href="#ic-file"></use></svg> รายงาน</button></nav>
 </div>
 
-<dialog id="qrDialog" aria-labelledby="qrTitle"><h2 id="qrTitle">สแกน QR Code</h2><p class="hint">ตรวจสอบ PIN และ Model จากป้ายก่อนยืนยัน ภาพจากกล้องจะไม่ถูกจัดเก็บ</p><video id="qrVideo" playsinline muted aria-label="ภาพจากกล้องสำหรับอ่าน QR"></video><p id="qrStatus" role="status" aria-live="polite"></p><p id="qrFields" class="hint"></p><div class="field"><label for="qrCandidate">Serial ที่อ่านได้</label><input class="control" id="qrCandidate" readonly></div><div class="section-actions"><button class="btn ghost" id="qrCancel" type="button">ปิด</button><button class="btn secondary" id="qrRetry" type="button">สแกนใหม่</button><button class="btn primary" id="qrUse" type="button" disabled>ใช้ Serial นี้</button></div></dialog>
+<dialog id="qrDialog" aria-labelledby="qrTitle"><h2 id="qrTitle">สแกน QR Code</h2><p class="hint">ตรวจสอบ PIN และ Model จากป้ายก่อนยืนยัน ภาพจากกล้องจะไม่ถูกจัดเก็บ</p><video id="qrVideo" playsinline muted aria-label="ภาพจากกล้องสำหรับอ่าน QR"></video><p id="qrStatus" role="status" aria-live="polite"></p><p id="qrFields" class="hint"></p><div class="field"><label for="qrCandidate">PIN ที่อ่านได้จาก QR</label><input class="control" id="qrCandidate" readonly></div><div class="section-actions"><button class="btn ghost" id="qrCancel" type="button">ปิด</button><button class="btn secondary" id="qrRetry" type="button">สแกนใหม่</button><button class="btn primary" id="qrUse" type="button" disabled>ใช้ PIN นี้</button></div></dialog>
 <dialog id="confirmDialog" aria-labelledby="confirmTitle">
   <h2 id="confirmTitle"></h2><p id="confirmText"></p>
   <form method="dialog"><button class="btn ghost" value="cancel" autofocus>ยกเลิก</button><button class="btn primary" id="confirmButton" value="confirm">ยืนยัน</button></form>
 </dialog>
 
 <script defer src="config.js?v=20261117-supabase-bridge"></script>
-<script defer src="assets/domain.js?v=20261117-selected-progress-1"></script>
+<script defer src="assets/domain.js?v=20261118-kubota-pin-qr"></script>
 <script defer src="assets/adapter.js?v=20261117-search2"></script>
 <script defer src="assets/mock.js?v=20261117-search2"></script>
 <script defer src="assets/vendor/jsQR.js?v=20261117-search2"></script>
