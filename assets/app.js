@@ -273,6 +273,7 @@ function normalStatus(value) {
   const status = text(value).toLowerCase().replace(/[\s_]+/g, '-');
   if (['in-progress', 'selected', 'รอดำเนินการ', 'กำลังดำเนินการ', 'กำลังตรวจ'].includes(status)) return 'progress';
   if (status === 'รอเริ่มตรวจ') return 'new';
+  if (['deleted','ลบออก','archived','archive'].includes(status)) return 'deleted';
   return Object.hasOwn(STATUS, status) ? status : 'unknown';
 }
 
@@ -380,7 +381,8 @@ function applyJobs(data) {
   app.modelMaster = Array.isArray(data.modelMaster) ? data.modelMaster.filter(row => row && text(row.product) && text(row.model)).map(row => ({product:text(row.product),model:text(row.model)})) : [];
   app.modelMasterSource = text(data.modelMasterSource);
   const normalized = data.jobs.filter(Boolean).map(normalizeJob);
-  app.jobs = normalized.filter(job => job.id).sort(sortJobs);
+  // Soft-deleted jobs remain in Lists but are hidden from every workspace.
+  app.jobs = normalized.filter(job => job.id && job.status !== 'deleted').sort(sortJobs);
   const listChoices = data.choices?.claimCategory ?? data.choices?.claimType ?? data.claimCategories;
   const categories = Array.isArray(listChoices) ? listChoices.map(claimCategory).filter(Boolean) : [];
   app.claimTypes = [...new Set([...KNOWN_CLAIM_TYPES, ...categories, ...app.jobs.map(job => job.claimCategory)].filter(Boolean))];
@@ -484,7 +486,7 @@ function setPressed(container, field, value) {
 
 function selectedJobs() {
   // The jobs workspace and reports include only jobs explicitly started by inspection staff.
-  return app.jobs.filter(job => job.status !== 'new' && job.status !== 'unknown');
+  return app.jobs.filter(job => !['new','unknown','deleted'].includes(job.status));
 }
 function activeJobs() {
   return selectedJobs().filter(job => job.status === 'progress');
@@ -1247,6 +1249,7 @@ function renderDetail() {
     ${action && !active ? `<div class="detail-actions">${action}</div>` : ''}
   </section>
   ${completed ? completedSlideCards(job) : ''}
+  ${job.status !== 'new' ? `<section class="panel delete-job-section"><h2>จัดการงานตรวจ</h2><p class="hint">เปลี่ยนสถานะใน Lists เป็น Deleted และซ่อนจากหน้าเว็บ โดยไม่ลบรถ รูป หรือประวัติ</p><button class="btn secondary sm danger" type="button" data-action="archive-job">${icon('archive')} นำงานออกจากระบบ</button></section>` : ''}
   ${detailNotice(job)}${transferMarkup(job)}
 
   ${completed ? `<div class="report-actions no-print"><button class="btn secondary" type="button" data-preview-job="${html(job.id)}">${icon('eye')} ดูรายงาน</button><button class="btn primary" type="button" data-export-job="${html(job.id)}">${icon('download')} ดาวน์โหลด PDF</button></div>` : ''}
@@ -1361,9 +1364,9 @@ function renderJobForm() {
       </fieldset>
       ${formFoot(manual ? 'สร้างงานและเริ่มตรวจ' : starting ? 'บันทึกและเริ่มตรวจ' : 'บันทึกรายละเอียดงาน', scope)}
     </form>
-    ${job && !finished(job) ? `<section class="panel delete-job-section"><h2>จัดการงานตรวจ</h2>
-      <p class="hint">${liveRecords(job).length ? 'งานนี้มีรถที่บันทึกผลแล้ว จึงไม่อนุญาตให้ลบงาน' : 'ลบได้เฉพาะงานที่ยังไม่มีผลตรวจรถ ระบบจะตรวจ Microsoft Lists อีกครั้งก่อนลบ'}</p>
-      <button class="btn secondary sm danger" type="button" data-action="delete-job" ${liveRecords(job).length ? 'disabled' : ''}>${icon('x')} ลบงานตรวจนี้</button>
+    ${job ? `<section class="panel delete-job-section"><h2>จัดการงานตรวจ</h2>
+      <p class="hint">นำงานออกจากเว็บ โดยเปลี่ยนสถานะใน Microsoft Lists เป็น Deleted · เก็บผลตรวจรถ รูปภาพ และประวัติทั้งหมดไว้</p>
+      <button class="btn secondary sm danger" type="button" data-action="archive-job">${icon('archive')} นำงานออกจากระบบ</button>
     </section>` : ''}`;
   syncFormControls();
 }
@@ -1692,7 +1695,8 @@ async function confirmPending(scope, attempts = 7) {
   const pendingAction = pending.descriptor.action === 'finishJob' ? 'จบการตรวจ' :
     pending.descriptor.action === 'saveInspection' ? 'บันทึกผลตรวจรถ' :
     pending.descriptor.action === 'deleteInspection' ? 'ลบรถ' :
-    pending.descriptor.action === 'deleteJob' ? 'ลบงาน' : pending.descriptor.action;
+    pending.descriptor.action === 'deleteJob' ? 'ลบงาน' :
+    pending.descriptor.action === 'archiveJob' ? 'นำงานออกจากระบบ' : pending.descriptor.action;
   const diagnosis = newest
     ? 'STK_07 อ่านข้อมูลได้ แต่ยังไม่พบผลที่ยืนยันคำขอนี้'
     : 'STK_07 อ่านผลยืนยันไม่ได้: ' + (lastReadError || 'ไม่มีการตอบกลับ');
@@ -1902,47 +1906,32 @@ function encodeJobNotes({ notes, claimCategory, startedBy, startedAt, defaultIns
   return [notesHeader, ...metadata].join('\n') + (notes ? '\n\n' + notes : '');
 }
 
-async function deleteJobFromWeb() {
-  const job = findJob();
-  if (!job || !['new', 'progress'].includes(job.status)) {
-    return showFeedback('ลบได้เฉพาะงานใหม่หรืองานที่กำลังดำเนินการ', 'warning');
+async function archiveJobFromWeb() {
+ const job=findJob();
+ if(!job || job.status==='deleted') return;
+ if(app.pending.has(jobScope(job)))return showFeedback('งานนี้ยังมีคำขอบันทึกค้าง กรุณาตรวจสอบผลก่อน','warning');
+ if(app.dirty)return showFeedback('มีแบบฟอร์มแก้ไขค้างอยู่ กรุณาออกจากแบบฟอร์มก่อน','warning');
+ if(!await confirmAction('นำงานออกจากระบบ',
+  'นำงาน "'+job.title+'" ('+job.id+') ออกจากหน้าเว็บหรือไม่?\n\nระบบจะเปลี่ยน JobStatus ใน Microsoft Lists เป็น Deleted และเก็บผลตรวจรถ รูปภาพ รวมถึงประวัติไว้ทั้งหมด\n\nจะซ่อนงานเมื่อ Lists ยืนยันผลแล้วเท่านั้น',
+  'นำงานออก','danger'))return;
+ await withWrite(async()=>{
+  const data=await readJobs();
+  if(data.status!=='OK'||data.partial)return showFeedback('STK_07 อ่านข้อมูลไม่ครบ จึงยังไม่ส่งคำสั่ง','warning');
+  const current=data.jobs.filter(Boolean).map(normalizeJob).find(j=>j.id===job.id);
+  if(!current||Number(current.sharePointItemId)!==Number(job.sharePointItemId)||
+    current.status!==job.status||current.status==='deleted'){
+    applyJobs(data);return showFeedback('สถานะหรือ Item ID งานเปลี่ยน กรุณารีเฟรชก่อน','warning');
   }
-  if (app.pending.has(jobScope(job))) {
-    return showFeedback('งานนี้มีคำขอค้างอยู่ กรุณาตรวจสอบผลก่อน', 'warning');
-  }
-  if (liveRecords(job).length) {
-    return showFeedback('งานนี้มีรถที่บันทึกผลแล้ว จึงไม่อนุญาตให้ลบทั้งงาน', 'warning');
-  }
-  if (app.dirty) {
-    return showFeedback('มีการแก้ไขที่ยังไม่บันทึก กรุณาออกจากฟอร์มก่อนเริ่มลบ', 'warning');
-  }
-  if (!await confirmAction(
-    'ลบงานตรวจ',
-    'ต้องการลบงาน "' + job.title + '" (' + job.id + ') หรือไม่?\nลบได้เฉพาะงานที่ยังไม่มีรถตรวจ และรูปที่เก็บแยกไว้อาจยังอยู่',
-    'ลบงาน', 'danger'
-  )) return;
-  await withWrite(async () => {
-    const latest = await readJobs();
-    if (latest.partial || latest.status !== 'OK') {
-      return showFeedback('อ่านรายการงานจาก Lists ได้ไม่ครบ จึงไม่ส่งคำสั่งลบ', 'warning');
-    }
-    const current = latest.jobs.filter(Boolean).map(normalizeJob).find(item => item.id === job.id);
-    if (!current || current.sharePointItemId !== job.sharePointItemId ||
-        !['new','progress'].includes(current.status) || liveRecords(current).length) {
-      applyJobs(latest);
-      return showFeedback('งานเปลี่ยนไปหรือมีรายการรถแล้ว จึงยกเลิกการลบ', 'warning');
-    }
-    const payload = { ...jobData(current), schemaVersion: 2 };
-    await trackWrite(jobScope(current), 'deleteJob', payload,
-      () => () => false,
-      () => {
-        app.editJob = false;
-        app.selected = '';
-        app.dirty = false;
-        navigate('jobs', true);
-        showFeedback('ไม่พบงานในรายการอ่านกลับแล้ว กรุณาตรวจ STK_Jobs เพื่อยืนยันผลลบ', 'success');
-      });
-  });
+  await trackWrite(jobScope(current),'archiveJob',
+   {...jobData(current),archiveStatus:'Deleted'},
+   ()=>j=>j.id===current.id&&j.status==='deleted'&&
+     Number(j.sharePointItemId)===Number(current.sharePointItemId),
+   ()=>{
+    app.selected='';app.reportJob='';app.editJob=false;app.dirty=false;
+    navigate('jobs',true);
+    showFeedback('ซ่อนงานแล้ว · Microsoft Lists เก็บสถานะ Deleted และข้อมูลเดิมทั้งหมด','success');
+   });
+ });
 }
 
 async function finishJob() {
@@ -2434,8 +2423,8 @@ async function handleClick(event) {
   } else if (action === 'select-job') {
     app.editJob = true;
     navigate('jobform', true);
-  } else if (action === 'delete-job') {
-    await deleteJobFromWeb();
+  } else if (action === 'archive-job') {
+    await archiveJobFromWeb();
   } else if (action === 'finish-job') {
     await finishJob();
   } else if (action === 'check-save') {
@@ -2617,6 +2606,8 @@ function operationIdentity(operation,job){
     // correlated write request. Never match by title alone (duplicate risk).
     return !!requestId && [job.id, job.importKey].some(value => text(value).endsWith(requestId));
   }
+  if (operation.action === 'archiveJob') return job.id===operation.payload.jobKey &&
+    Number(job.sharePointItemId)===Number(operation.payload.itemId) && job.status==='deleted';
   if (operation.action === 'deleteInspection') return job.id === operation.payload.jobKey &&
     Number.isSafeInteger(Number(operation.payload.recordItemId)) &&
     !liveRecords(job).some(record => Number(record.sharePointItemId) === Number(operation.payload.recordItemId));
@@ -2653,7 +2644,10 @@ function restorePending() {
       if (!descriptor.scope || !descriptor.action || !descriptor.payload || !descriptor.clientRequestId) continue;
       app.pending.set(descriptor.scope, { descriptor, matches: job => operationMatches(descriptor, job),
         onSaved: job => {
-          if (descriptor.action === 'deleteJob') {
+          if (descriptor.action === 'archiveJob') {
+            app.selected='';app.reportJob='';app.editJob=false;navigate('jobs',true);
+            showFeedback('Lists ยืนยัน Deleted · งานถูกซ่อน และข้อมูลเดิมยังเก็บอยู่','success');
+          } else if (descriptor.action === 'deleteJob') {
             app.selected = ''; app.editJob = false; navigate('jobs', true);
             showFeedback('ไม่พบงานในผลอ่านกลับแล้ว กรุณาตรวจ STK_Jobs อีกครั้ง', 'success');
           } else if (descriptor.action === 'finishJob') {
