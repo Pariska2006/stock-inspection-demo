@@ -990,6 +990,7 @@ function renderDetail() {
   const target = Number(job.targetUnits);
   const incomplete = records.filter(record => !vehicleInspection(job, record).complete).length;
   const isNew = job.status === 'new';
+  root.classList.toggle('detail-with-vehicle-sidebar', !isNew);
   const action = isNew ? `<button class="btn primary" type="button" data-action="select-job">${icon('check')} ตั้งค่าก่อนเริ่มตรวจ</button>` :
     active ? `<button class="btn primary" type="button" data-action="inspect-job">${icon('plus')} เพิ่มการตรวจ</button>` :
     url ? `<a class="btn primary" href="${html(url)}" target="_blank" rel="noopener noreferrer">${icon('download')} ดาวน์โหลด PDF</a>` : '';
@@ -1024,8 +1025,8 @@ function renderDetail() {
   ${detailNotice(job)}${transferMarkup(job)}
   ${completed && !url ? '<div class="notice warning">รอไฟล์ PDF · เปิดดูผลในแอปได้</div>' : ''}
   <button type="button" class="btn secondary" data-preview-job="${html(job.id)}">${icon('file')} ดูรายงานงานนี้</button>
-  ${isNew ? '' : `<section class="panel">
-    <div class="panel-head"><div><h2>รถที่บันทึกผล</h2><span class="muted">${records.length} คัน${target > 0 ? ' จาก ' + target : ''}</span></div>
+  ${isNew ? '' : `<section class="panel vehicle-records-panel">
+    <div class="panel-head"><div><h2>รถในรายการ</h2><span class="muted">${records.length} คัน${target > 0 ? ' จาก ' + target : ''}</span></div>
       ${active && !app.loadError ? `<button class="btn ghost sm" type="button" data-action="refresh-jobs">${icon('refresh')} รีเฟรช</button>` : ''}</div>
     ${!app.recordRead ? '<p class="hint">ยังไม่มีข้อมูลรายการตรวจรายคันจากฐานข้อมูล</p>' : ''}
     <div class="filters vehicle-filters" role="group" aria-label="กรองผลตรวจรถ">
@@ -1194,7 +1195,7 @@ function renderInspection() {
       ${field('insDate','วันที่ตรวจ',dateValue(record?.checkedAt)||dateValue(new Date()),{type:'date',required:true})}
     </div>
     <p class="hint">${html(app.modelMasterSource||'ยังไม่พบ Model Master · ตัวเลือกอ้างอิงจากขอบเขต Job')} · ไม่อนุมาน Model จาก PIN</p>
-    <div class="two-col location-fields">${field('insLocation','สถานที่ตรวจ (ไม่บังคับ)',record?.location||job.inspectionLocation||'',{max:160})}${field('insLot','Lot No. (ไม่บังคับ)',record?.lotNo,{max:100})}</div>
+    <div class="two-col location-fields">${field('insLocation','สถานที่ตรวจ (ไม่บังคับ)',record?.location||job.inspectionLocation||'',{max:160})}</div>
     <section class="inspection-info-section method-visible"><h2>${icon('clipboard')} วิธีการตรวจ</h2><p class="inspection-intro">${html(job.checkingMethod||'ยังไม่ระบุวิธีตรวจ')}</p></section>
     <section class="inspection-info-section criteria-visible"><h2>${icon('check')} เกณฑ์การตรวจ</h2>
     <ol>${criteria.map(c=>`<li>${html(c.label)}</li>`).join('')}</ol></section>
@@ -1206,7 +1207,7 @@ function renderInspection() {
       return `<article class="check-row" data-state="${chosen.toLowerCase()||'pending'}"><div class="check-description" id="checkLabel${c.slot}">${html(c.label)}</div>
         <div class="check-choices" role="group" aria-labelledby="checkLabel${c.slot}">${['OK','NG'].map(value=>`<button class="pick-result ${chosen===value?'selected '+value.toLowerCase():''}" type="button" data-result-slot="${c.slot}" data-result-value="${value}" aria-pressed="${chosen===value}">${value}</button>`).join('')}</div>
         <input id="insR${c.slot}" type="hidden" value="${html(chosen)}">
-        <div class="criterion-notes inline-notes"><div class="optional-body">${area('insNote'+c.slot,'หมายเหตุเกณฑ์นี้ (ไม่บังคับ)',detail.note,{max:500})}${area('insNG'+c.slot,'รายละเอียด NG (หากพบปัญหา)',detail.ngDetail,{max:500})}</div></div>
+        <div class="criterion-notes inline-notes"><div class="optional-body">${area('insNote'+c.slot,'หมายเหตุ (ไม่บังคับ)',detail.note||detail.ngDetail,{max:500})}</div></div>
         ${(detail.updatedAt || detail.inspector || record?.inspector || record?.checkedBy)?`<small class="hint">${detail.updatedAt?'แก้ล่าสุด '+html(niceDate(detail.updatedAt))+' · ':''}ผู้ตรวจ ${html(detail.inspector || record?.inspector || record?.checkedBy || '—')}</small>`:''}</article>`;
     }).join('')}</div>
     <div id="liveOverallResult" class="live-result" aria-live="polite"></div>
@@ -1218,7 +1219,7 @@ function renderInspection() {
 }
 function formRecord() {
   const job=findJob();
-  return {schemaVersion:2,criterionResults:DOMAIN.criteria(job).map(c=>({criterionId:c.id,result:val('insR'+c.slot),note:val('insNote'+c.slot),ngDetail:val('insNG'+c.slot)}))};
+  return {schemaVersion:2,criterionResults:DOMAIN.criteria(job).map(c=>({criterionId:c.id,result:val('insR'+c.slot),note:val('insNote'+c.slot),ngDetail:val('insR'+c.slot)==='NG'?val('insNote'+c.slot):''}))};
 }
 function refreshCriterionColors(){
  for(const row of document.querySelectorAll('.check-row')){
@@ -1793,7 +1794,7 @@ async function submitInspection(event){
  const aggregate=DOMAIN.inspection(job,record),changes=DOMAIN.changes(job,existing,record);
  const payload={...jobData(job),schemaVersion:2,recordItemId,serial,product,model,location:val('insLocation'),expectedVersion:existing?.version??null,
   criteria:cs,criterionResults:record.criterionResults,changes,overallResult:aggregate.overallResult,isComplete:aggregate.isComplete,
-  lotNo:val('insLot'),inspectionDate:val('insDate'),remarks:val('insRemarks'),photoUrl1:existing?.legacyPhotoUrl1||'',
+  lotNo:existing?.lotNo||'',inspectionDate:val('insDate'),remarks:val('insRemarks'),photoUrl1:existing?.legacyPhotoUrl1||'',
   ngDetail:ng.map(r=>[cs.find(c=>c.id===r.criterionId)?.label,r.ngDetail].filter(Boolean).join(': ')).join('\n'),
   ...Object.fromEntries(cs.map(c=>['result'+c.slot,record.criterionResults.find(r=>r.criterionId===c.id).result]))};
  if(existing&&!app.photos.size&&recordMatches(existing,payload))return showFeedback('ยังไม่มีข้อมูลที่เปลี่ยนแปลง');
