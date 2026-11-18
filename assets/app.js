@@ -1132,7 +1132,7 @@ function renderJobForm() {
     </form>
     ${job && !finished(job) ? `<section class="panel delete-job-section"><h2>จัดการงานตรวจ</h2>
       <p class="hint">${liveRecords(job).length ? 'งานนี้มีรถที่บันทึกผลแล้ว จึงไม่อนุญาตให้ลบงาน' : 'ลบได้เฉพาะงานที่ยังไม่มีผลตรวจรถ ระบบจะตรวจ Microsoft Lists อีกครั้งก่อนลบ'}</p>
-      <button class="btn secondary sm danger" type="button" data-action="delete-job" ${liveRecords(job).length ? 'disabled' : ''}>${icon('trash')} ลบงานตรวจนี้</button>
+      <button class="btn secondary sm danger" type="button" data-action="delete-job" ${liveRecords(job).length ? 'disabled' : ''}>${icon('x')} ลบงานตรวจนี้</button>
     </section>` : ''}`;
   syncFormControls();
 }
