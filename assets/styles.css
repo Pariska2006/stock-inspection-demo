@@ -598,3 +598,25 @@ html { scroll-padding-bottom:100px }
 .profile-photo-edit .hint{flex:1 1 230px}
 .profile-photo-edit [role="status"]{flex-basis:100%;font-size:12px;color:var(--accent)}
 @media(max-width:560px){.profile-photo-edit{align-items:stretch}.profile-photo-edit .btn{width:100%}}
+
+/* Consistent on-screen A4 preview and exported PDF dimensions. */
+#previewContent{overflow-x:auto;overscroll-behavior-x:contain}
+#previewContent .reference-report{box-sizing:border-box;width:210mm;min-width:210mm;min-height:297mm;max-width:none;margin:0 auto 28px;padding:11mm;border:1px solid #dce5df;border-radius:0;box-shadow:0 5px 22px rgba(21,57,35,.06)}
+.pdf-export-canvas .reference-report{min-height:297mm}
+.pdf-export-canvas .report-reference-cell img{object-fit:fill}
+.inspection-capture-section{border:1px solid #dfe8e2;border-radius:12px;padding:22px;background:#fff;color:#253e31}
+.inspection-capture-section>h2{font-size:21px;color:#21583b;margin:0 0 16px}
+.inspection-detail-block{margin:0 0 17px}
+.inspection-detail-block h3{font-size:16px;color:#1c6240;margin:0 0 7px}
+.inspection-detail-block .inspection-intro{margin:0;white-space:pre-line;line-height:1.65}
+.inspection-detail-block ol{margin:0;padding-left:25px;display:grid;gap:6px}
+.inspection-capture-section .reference-grid{margin-top:12px}
+.inspection-capture-section .reference-photo{min-height:180px}
+.inspection-capture-section .reference-photo a{display:grid;place-items:center;min-height:140px}
+.inspection-capture-section .reference-photo img{max-height:250px;width:100%;object-fit:contain;aspect-ratio:auto}
+.detail-copy-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;margin:12px 0 2px}
+.slide-image-export .inspection-capture-section{box-sizing:border-box;width:680px;border-radius:0;padding:30px 36px}
+.slide-image-export .inspection-capture-section .reference-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.slide-image-export .inspection-capture-section .reference-photo img{max-height:265px}
+@media(max-width:600px){#previewContent .reference-report{margin-left:0;margin-right:0}.inspection-capture-section{padding:16px}.detail-copy-actions .btn{flex:1 1 160px}}
+@media print{#previewContent{overflow:visible!important}#previewContent .reference-report{border:0!important;box-shadow:none!important;min-height:0!important;margin:0!important;padding:11mm!important;width:210mm!important}}
