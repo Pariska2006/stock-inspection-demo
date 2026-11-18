@@ -566,3 +566,8 @@ html { scroll-padding-bottom:100px }
 @media print{
  .reference-report-vehicles .report-overall.ok,.reference-report-vehicles .report-overall.ng,.reference-report-vehicles .report-overall.pending{print-color-adjust:exact;-webkit-print-color-adjust:exact}
 }
+
+/* Completed jobs: make the full per-tractor history easy to discover from Reports. */
+.completed-work-records-intro{margin-top:16px;margin-bottom:12px}
+.completed-work-records-intro h2{display:flex;align-items:center;gap:9px;font-size:17px;color:#1a5736;margin:0 0 8px}
+.completed-work-records-intro p{color:#587062;font-size:13px;line-height:1.7;margin:0}
