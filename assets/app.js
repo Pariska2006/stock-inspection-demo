@@ -771,37 +771,111 @@ function renderReports() {
       ${url ? `<a class="btn ghost sm" href="${html(url)}" target="_blank" rel="noopener noreferrer">${icon('download')} PDF จากระบบ (ทั้งงาน)</a>` : ''}</div></article>`;
   }).join('') : blank('ยังไม่มีงานที่จบการตรวจ เมื่อกดจบการตรวจสำเร็จ งานจะมาแสดงที่นี่');
 }
+function reportDocument(job) {
+ const records=liveRecords(job),summary=DOMAIN.summary([{...job,records}]);
+ const total=summary.total,ok=summary.OK,ng=summary.NG,missing=summary.pending;
+ const percent=n=>total?(n*100/total).toFixed(1)+'%':'0.0%';
+ const dates=records.map(r=>dateValue(r.checkedAt)).filter(Boolean).sort();
+ const period=dates.length?niceDate(dates[0])+(dates[0]!==dates[dates.length-1]?' – '+niceDate(dates[dates.length-1]):''):'—';
+ const inspectors=[...new Set(records.map(r=>text(r.inspector||r.checkedBy)).filter(Boolean))].join(', ')||'—';
+ const criteria=DOMAIN.criteria(job);
+ const perCriterion=criteria.map(c=>{let yes=0,no=0;for(const r of records){const v=DOMAIN.criterionValue(r,c).result;if(v==='OK')yes++;if(v==='NG')no++}return {label:c.label,ok:yes,ng:no}});
+ const reference=[['OK REFERENCE',safeLink(job.okPictureUrl)],['NG REFERENCE',safeLink(job.ngPictureUrl)]];
+ const checkingMethod=text(job.checkingMethod);
+ const issueType=text(job.claimCategory||job.claimType||'—');
+ const product=selectedProducts(job).join(', ')||job.product||'—';
+ const models=selectedModels(job).join(', ')||job.model||'—';
+ const made=new Intl.DateTimeFormat('th-TH',{timeZone:TIME_ZONE,dateStyle:'medium',timeStyle:'short'}).format(new Date());
+ const refPhoto=([caption,url])=>`<div class="report-reference-cell"><div class="report-reference-label">${caption}</div>${url?`<img src="${html(url)}" crossorigin="anonymous" alt="${caption}" loading="eager" data-reference-photo>`:'<span class="report-reference-empty">ไม่มีรูปอ้างอิง</span>'}</div>`;
+ return `<article class="one-page-report reference-report">
+  <header class="reference-report-header">
+   <div class="reference-report-brand"><img src="assets/kubota.png" alt="Kubota"><span>QUALITY ASSURANCE / STOCK INSPECTION</span></div>
+   <div class="reference-report-heading"><div><h1>Confirm Tractor in Stock Report</h1><p>รายงานสรุปผลการตรวจสต็อก · STOCK INSPECTION SUMMARY</p></div><div class="reference-report-count"><small>INSPECTION</small><b>${total}</b><small>UNITS</small></div></div>
+   <p class="reference-report-number">JOB REF: ${html(job.id)} · ${html(claimNumber(job))}</p>
+  </header>
+  <section class="reference-report-section"><h2><span>01</span> CLAIM INFORMATION</h2>
+   <div class="reference-report-info">
+    <div class="wide"><small>Problem / ชื่อปัญหา</small><strong>${html(job.title)}</strong></div>
+    <div><small>Product</small><strong>${html(product)}</strong></div>
+    <div><small>Model</small><strong>${html(models)}</strong></div>
+    <div><small>Claim Type</small><strong>${html(issueType)}</strong></div>
+    <div><small>Checking Location</small><strong>${html(job.inspectionLocation||'—')}</strong></div>
+    <div><small>Checking Date</small><strong>${html(period)}</strong></div>
+   </div>
+  </section>
+  <section class="reference-report-section"><h2><span>02</span> VISUAL REFERENCE &amp; INSPECTION METHOD</h2>
+   <div class="reference-report-images">${reference.map(refPhoto).join('')}</div>
+   <div class="reference-report-method"><small>Checking Method</small><p>${html(checkingMethod||'—')}</p></div>
+   <div class="reference-report-method"><small>Acceptance Criteria</small><p>${html(criteria.map((c,i)=>(i+1)+'. '+c.label).join('  |  ')||'—')}</p></div>
+  </section>
+  <section class="reference-report-section reference-report-results"><h2><span>03</span> INSPECTION RESULTS</h2>
+   <div class="reference-report-summary">
+    <div><small>TOTAL</small><strong>${total}</strong><small>Units</small></div>
+    <div><small>OK</small><strong class="ok-text">${ok}</strong><small>${percent(ok)}</small></div>
+    <div><small>NG</small><strong class="ng-text">${ng}</strong><small>${percent(ng)}</small></div>
+    <div><small>% NG</small><strong class="ng-text">${percent(ng)}</strong><small>NG / Total</small></div>
+   </div>
+   <p class="reference-report-summary-text">สรุปผลตรวจ ${total} คัน · OK ${ok} คัน · NG ${ng} คัน (${percent(ng)})${missing?' · อยู่ระหว่างตรวจ '+missing+' คัน':''}</p>
+   <table class="reference-report-criteria"><thead><tr><th>Inspection Criteria</th><th>OK (Units)</th><th>NG (Units)</th></tr></thead>
+   <tbody>${perCriterion.map(c=>`<tr><td>${html(c.label)}</td><td>${c.ok}</td><td>${c.ng}</td></tr>`).join('')||'<tr><td colspan="3">ไม่มีเกณฑ์</td></tr>'}</tbody></table>
+   <p class="reference-report-note">NG 1 คันนับเพียงครั้งเดียว แม้พบ NG หลายเกณฑ์ · ไม่มีตาราง Serial Number รายคันในรายงานสรุป</p>
+  </section>
+  <section class="reference-report-approval"><div><small>Inspector / ผู้ตรวจ</small><strong>${html(inspectors)}</strong></div><div><small>Report Generated</small><strong>${html(made)}</strong></div><div><small>Review / Approval</small><span class="reference-report-sign-line"></span></div></section>
+  <footer class="reference-report-footer"><span>KUBOTA · STOCK INSPECTION</span><span>${html(job.id)}</span></footer>
+ </article>`;
+}
 function renderReportPreview(){
  const job=reportJobs().find(j=>j.id===app.reportJob);
  const root=$('previewContent');
- if(!job){root.innerHTML='<p class="empty">เลือกงานตรวจที่เสร็จแล้วจาก Reports</p>';return}
- if(!finished(job)){root.innerHTML='<div class="notice warning">กรุณาจบการตรวจก่อนเปิดรายงานฉบับสมบูรณ์</div>';return}
- if(!app.jobsLive||app.partial||!app.recordRead||app.loadError){root.innerHTML='<div class="notice warning">ข้อมูล Microsoft Lists ยังไม่ครบ กรุณารีเฟรชก่อนสร้างรายงาน</div>';return}
- const records=liveRecords(job),summary=DOMAIN.summary([{...job,records}]);
- const total=summary.total,ok=summary.OK,ng=summary.NG,missing=summary.pending;
- const rate=n=>total?(n*100/total).toFixed(1).replace(/\.0$/,'')+'%':'0%';
- const dates=records.map(r=>dateValue(r.checkedAt)).filter(Boolean).sort();
- const period=dates.length?niceDate(dates[0])+(dates[0]!==dates[dates.length-1]?' – '+niceDate(dates[dates.length-1]):''):'—';
- const inspectors=[...new Set(records.map(r=>text(r.inspector||r.checkedBy)).filter(Boolean))];
- const criteria=new Map();
- for(const record of records)for(const c of DOMAIN.criteria(job,record)){
-   const name=text(c.label);if(!name)continue;
-   if(!criteria.has(name))criteria.set(name,{ok:0,ng:0});
-   const result=DOMAIN.criterionValue(record,c).result;
-   if(result==='OK')criteria.get(name).ok++;
-   if(result==='NG')criteria.get(name).ng++;
+ if(!job){root.innerHTML='<p class="empty">เลือกงานที่ตรวจเสร็จแล้วจากหน้า Reports</p>';return}
+ if(!finished(job)){root.innerHTML='<div class="notice warning">รายงานพร้อมหลังจบการตรวจ</div>';return}
+ if(!app.jobsLive||app.partial||!app.recordRead||app.loadError){root.innerHTML='<div class="notice warning">ข้อมูล Microsoft Lists ไม่ครบ กรุณารีเฟรชก่อนเปิดรายงาน</div>';return}
+ root.innerHTML=`<div class="report-toolbar no-print"><div><strong>ตัวอย่างรายงาน · A4 หนึ่งหน้า</strong><p class="hint">อ้างอิงฟอร์ม Confirm Tractor in Stock Report · แสดงข้อมูลสรุปจาก Lists</p></div>
+  <div class="report-toolbar-actions"><button class="btn secondary" type="button" data-action="print-report">${icon('printer')} พิมพ์</button>
+  <button class="btn primary" type="button" data-export-job="${html(job.id)}">${icon('download')} ดาวน์โหลด PDF</button></div>
+ </div>${reportDocument(job)}`;
+}
+async function exportReportPdf(jobId) {
+ const job=selectedJobs().find(j=>j.id===jobId&&finished(j));
+ if(!job)return showFeedback('เปิดดาวน์โหลดได้เฉพาะงานที่จบการตรวจแล้ว','warning');
+ if(!app.jobsLive||app.partial||!app.recordRead||app.loadError)return showFeedback('ข้อมูล Lists ยังไม่ครบ จึงยังดาวน์โหลดรายงานไม่ได้','warning');
+ const original=document.getElementById('reportPdfExport');
+ if(original)original.remove();
+ const root=document.createElement('div');
+ root.id='reportPdfExport';root.className='pdf-export-canvas';
+ root.innerHTML=reportDocument(job);
+ document.body.append(root);
+ const filename='Stock_Inspection_'+job.id.replace(/[^A-Za-z0-9_-]/g,'_')+'.pdf';
+ const target=root.querySelector('.reference-report');
+ let done=false;
+ try{
+  // The library renders locally in the browser; no report data is sent to a PDF service.
+  if(typeof window.html2pdf!=='function'){
+   await new Promise((resolve,reject)=>{
+    const script=document.createElement('script');
+    script.src='https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js';
+    script.async=true;
+    script.onload=resolve;
+    script.onerror=()=>reject(Error('โหลดเครื่องมือ PDF ไม่ได้'));
+    document.head.append(script);
+   });
+  }
+  await Promise.all([...root.querySelectorAll('img')].map(img=>
+   img.complete?Promise.resolve():new Promise(resolve=>{img.addEventListener('load',resolve,{once:true});img.addEventListener('error',resolve,{once:true});setTimeout(resolve,7000)})));
+  await window.html2pdf().set({
+   margin:0,filename,image:{type:'jpeg',quality:0.94},
+   html2canvas:{scale:2,useCORS:true,allowTaint:false,backgroundColor:'#fff',logging:false},
+   jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
+   pagebreak:{mode:['avoid-all']}
+  }).from(target).save();
+  done=true;
+ }catch(error){
+  console.warn('PDF export unavailable',error);
+  window.alert('ดาวน์โหลด PDF อัตโนมัติไม่ได้ในเบราว์เซอร์นี้\\nกรุณาใช้ปุ่ม “ดูรายงาน” แล้วกด “พิมพ์” → เลือก Save as PDF');
+ }finally{
+  root.remove();
  }
- const created=new Intl.DateTimeFormat('th-TH',{timeZone:TIME_ZONE,dateStyle:'medium',timeStyle:'short'}).format(new Date());
- root.innerHTML=`<div class="report-toolbar no-print"><div><strong>รายงานสรุป 1 หน้า A4</strong><p class="hint">สร้างอัตโนมัติจาก Microsoft Lists</p></div><button class="btn primary" type="button" data-action="print-report">${icon('download')} ดาวน์โหลด PDF / พิมพ์</button></div>
- <article class="one-page-report">
- <header class="one-page-report-header"><div class="one-page-report-brand"><img src="assets/kubota.png" alt="Kubota"><span>STOCK INSPECTION REPORT</span></div><h1 tabindex="-1">รายงานสรุปผลการตรวจสต็อก</h1><p>STOCK INSPECTION SUMMARY</p></header>
- <div class="one-page-report-heading"><div><small>ชื่อปัญหา / CLAIM JOB</small><h2>${html(job.title)}</h2><p>${html([job.claimCategory,groupLabel(job)].filter(Boolean).join(' · ')||'—')}</p></div><div class="one-page-report-id"><small>JOB REFERENCE</small><strong>${html(job.id)}</strong><small>สถานะ: ตรวจเสร็จแล้ว</small></div></div>
- <section class="one-page-report-metrics"><div class="one-page-metric total"><span>ตรวจทั้งหมด</span><strong>${total}</strong><small>คัน</small></div><div class="one-page-metric ok"><span>OK</span><strong>${ok}</strong><small>${rate(ok)} ของทั้งหมด</small></div><div class="one-page-metric ng"><span>NG</span><strong>${ng}</strong><small>${rate(ng)} ของทั้งหมด</small></div><div class="one-page-metric rate"><span>NG RATE</span><strong>${rate(ng)}</strong><small>NG ${ng} จาก ${total} คัน</small></div></section>
- <section class="one-page-result"><h3>สรุปผลการตรวจ</h3><p>ตรวจสต็อกทั้งหมด <b>${total} คัน</b> ผลตรวจ <b class="ok-text">OK ${ok} คัน</b> และ <b class="ng-text">NG ${ng} คัน</b> คิดเป็นอัตรา NG <b class="ng-text">${rate(ng)}</b> ของรถที่ตรวจทั้งหมด</p>${missing?`<p class="report-pending-note">ข้อมูลที่ตรวจยังไม่ครบ ${missing} คัน</p>`:''}</section>
- ${criteria.size?`<section class="one-page-criteria"><h3>ผลตรวจตามเกณฑ์</h3><div class="one-page-criteria-list">${[...criteria].map(([name,c])=>`<div class="one-page-criteria-line"><span>${html(name)}</span><span>OK <b class="ok-text">${c.ok}</b> &nbsp; NG <b class="ng-text">${c.ng}</b></span></div>`).join('')}</div><p class="one-page-explain">ยอด NG รายเกณฑ์อาจเป็นรถคันเดียวกัน · NG RATE นับตามจำนวนคัน</p></section>`:''}
- <section class="one-page-report-detail"><div><small>วันที่ตรวจ</small><strong>${html(period)}</strong></div><div><small>ผู้ตรวจ</small><strong>${html(inspectors.join(', ')||'—')}</strong></div><div><small>เป้าหมาย</small><strong>${job.targetUnits==null?'—':html(job.targetUnits)+' คัน'}</strong></div><div><small>สร้างรายงานเมื่อ</small><strong>${html(created)}</strong></div></section>
- <footer class="one-page-report-footer"><span>ข้อมูลจากระบบ Stock Inspection</span><span>${html(job.id)}</span></footer>
- </article>`;
+ return done;
 }
 
 const jobScope = job => 'job:' + job.id;
