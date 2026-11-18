@@ -763,12 +763,12 @@ function renderReports() {
     .map(job => ({...job,records:liveRecords(job)}));
   setPressed($('reportFilters'), 'report-filter', app.reportFilter);
   const filtered = jobs.filter(job =>
-    (app.reportFilter === 'ready' ? reportLink(job) : app.reportFilter === 'waiting' ? finished(job) && !reportLink(job) : true));
+    (app.reportFilter === 'ready' ? finished(job) : app.reportFilter === 'waiting' ? !finished(job) : true));
   $('reportList').innerHTML = filtered.length ? filtered.map(job => {
     const url = reportLink(job), counts = StockDomain.summary([job]);
     return `<article class="report-row"><span class="report-icon">${icon('file')}</span><div><h3>${html(job.title)}</h3>
       <p>${html(groupLabel(job))} · ${html(claimNumber(job))}</p><p>${counts.total} คัน · OK ${counts.OK} · NG ${counts.NG} · กำลังดำเนินการ ${counts.incomplete}</p></div>
-      <div class="report-actions"><button class="btn secondary sm" type="button" data-preview-job="${html(job.id)}">Preview</button>
+      <div class="report-actions"><button class="btn secondary sm" type="button" data-preview-job="${html(job.id)}" ${finished(job)?'':'disabled'}>${finished(job)?'เปิดรายงานสรุป':'รอจบการตรวจ'}</button>
       ${url ? `<a class="btn ghost sm" href="${html(url)}" target="_blank" rel="noopener noreferrer">${icon('download')} PDF จากระบบ (ทั้งงาน)</a>` : ''}</div></article>`;
   }).join('') : blank('ไม่มีข้อมูลตามตัวกรอง');
 }
@@ -1041,7 +1041,7 @@ function renderDetail() {
   </section>
   ${detailNotice(job)}${transferMarkup(job)}
   ${completed && !url ? '<div class="notice warning">รอไฟล์ PDF · เปิดดูผลในแอปได้</div>' : ''}
-  <button type="button" class="btn secondary" data-preview-job="${html(job.id)}">${icon('file')} ดูรายงานงานนี้</button>
+  <button type="button" class="btn secondary" data-preview-job="${html(job.id)}" ${completed?'':'disabled'}>${icon('file')} ${completed?'เปิดรายงานสรุป':'รายงานพร้อมเมื่อจบการตรวจ'}</button>
   ${isNew ? '' : `<div class="vehicle-board-layout"><section class="panel vehicle-records-panel">
     <div class="panel-head"><div><h2>รถในรายการ</h2><span class="muted">${records.length} คัน${target > 0 ? ' จาก ' + target : ''}</span></div>
       ${active && !app.loadError ? `<button class="btn ghost sm" type="button" data-action="refresh-jobs">${icon('refresh')} รีเฟรช</button>` : ''}</div>
@@ -1652,7 +1652,8 @@ async function finishJob() {
       () => item => item.id === job.id && finished(item),
       () => {
         app.detailOrigin = 'reports';
-        showFeedback('ปิดการตรวจแล้ว · รอรายงาน', 'success');
+        app.reportJob = job.id;
+        navigate('reportpreview', true);
       });
   });
 }
