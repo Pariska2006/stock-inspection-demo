@@ -1184,6 +1184,22 @@ async function renderSlideImage(key,mode,button) {
  finally{host?.remove();button.disabled=false;button.textContent=textBefore}
 }
 
+function recordedInspectorTeam(job) {
+ const names=jobInspectors(job);
+ if(!names.length)return '';
+ return '<section class="panel inspection-team-history"><h2>'+icon('users')+' ผู้ร่วมตรวจที่บันทึกผลแล้ว</h2>'+
+  '<p class="hint">รายชื่อนี้มาจากผลตรวจรายคัน ไม่ใช่รายชื่อผู้ได้รับมอบหมายงาน</p>'+
+  '<div class="member-directory-grid">'+names.map(name=>{
+   const matches=app.members.filter(member=>member.fullName===name);
+   const member=matches.length===1?matches[0]:null;
+   const avatar=member?.avatarUrl
+    ? '<img class="member-photo" src="'+html(member.avatarUrl)+'" alt="" loading="lazy">'
+    : '<span class="member-photo member-initial">'+html(Array.from(name)[0]||'?')+'</span>';
+   return '<article class="member-directory-card">'+avatar+'<div><strong>'+html(name)+'</strong>'+
+    '<span>'+html(member?.nickname||'ผู้ตรวจ')+'</span></div></article>';
+  }).join('')+'</div></section>';
+}
+
 function renderDetail() {
   const job = findJob();
   const root = $('detailContent');
@@ -1259,6 +1275,7 @@ function renderDetail() {
     ${job.notes ? `<section class="inspection-info-section notes-visible"><h2>หมายเหตุงาน</h2><p class="detail-desc">${html(job.notes)}</p></section>` : ''}
     ${action && !active ? `<div class="detail-actions">${action}</div>` : ''}
   </section>
+  ${recordedInspectorTeam(job)}
   ${completed ? completedSlideCards(job) : ''}
   ${job.status !== 'new' ? `<section class="panel delete-job-section"><h2>จัดการงานตรวจ</h2><p class="hint">เปลี่ยนสถานะใน Lists เป็น Deleted และซ่อนจากหน้าเว็บ โดยไม่ลบรถ รูป หรือประวัติ</p><button class="btn secondary sm danger" type="button" data-action="archive-job">${icon('archive')} นำงานออกจากระบบ</button></section>` : ''}
   ${detailNotice(job)}${transferMarkup(job)}
