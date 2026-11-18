@@ -992,8 +992,8 @@ function renderReportPreview(){
  if(!job){root.innerHTML='<p class="empty">เลือกงานที่ตรวจเสร็จแล้วจากหน้า Reports</p>';return}
  if(!finished(job)){root.innerHTML='<div class="notice warning">รายงานพร้อมหลังจบการตรวจ</div>';return}
  if(!app.jobsLive||app.partial||!app.recordRead||app.loadError){root.innerHTML='<div class="notice warning">ข้อมูลยังไม่ครบ กรุณารีเฟรชก่อนเปิดรายงาน</div>';return}
- root.innerHTML=`<div class="report-toolbar no-print"><div><strong>ตัวอย่างรายงาน · A4 หนึ่งหน้า</strong><p class="hint">อ้างอิงฟอร์ม Confirm Tractor in Stock Report</p></div>
-  <div class="report-toolbar-actions"><button class="btn secondary" type="button" data-action="print-report">${icon('printer')} พิมพ์</button>
+ root.innerHTML=`<div class="report-toolbar no-print"><div><strong>ตัวอย่างรายงาน · A4</strong></div>
+  <div class="report-toolbar-actions"><button class="btn secondary" type="button" data-action="print-report">${icon('printer')} พิมพ์ / บันทึก PDF คมชัด</button>
   <button class="btn primary" type="button" data-export-job="${html(job.id)}">${icon('download')} ดาวน์โหลด PDF</button></div>
  </div>${reportDocument(job)}`;
  requestAnimationFrame(()=>{ root.scrollTop=0; window.scrollTo(0,0); });
