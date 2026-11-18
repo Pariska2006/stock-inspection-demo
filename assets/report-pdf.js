@@ -148,7 +148,7 @@ async function download(data){
   ],columnGap:10,margin:[0,5,0,1]},
   section('03','ผลการตรวจสต็อก'),
   {table:{headerRows:1,dontBreakRows:true,keepWithHeaderRows:1,
-   widths:[18,62,55,140,34,27,27,27,27,38],body:tableRows(data)},
+   widths:[18,62,55,132,34,27,27,27,27,38],body:tableRows(data)},
    layout:{
     hLineColor:()=>BORDER,vLineColor:()=>BORDER,
     hLineWidth:()=>0.55,vLineWidth:()=>0.55,
