@@ -1121,7 +1121,7 @@ function referencePictures(job) {
  return '<div class="reference-grid">'+[['OK',job.okPictureUrl],['NG',job.ngPictureUrl]].map(([label,value])=>{
   const url=safeLink(value);
   return '<div class="reference-photo '+label.toLowerCase()+'"><span>ตัวอย่าง '+label+'</span>'+
-   (url?'<a href="'+html(url)+'" target="_blank" rel="noopener noreferrer" aria-label="เปิดรูปตัวอย่าง '+label+'"><img src="'+html(url)+'" alt="ตัวอย่าง '+label+'" data-reference-photo loading="lazy"></a>':'<p class="hint">ยังไม่มีรูปตัวอย่าง</p>')+'</div>';
+   (url?'<a href="'+html(url)+'" target="_blank" rel="noopener noreferrer" aria-label="เปิดรูปตัวอย่าง '+label+'"><img src="'+html(url)+'" crossorigin="anonymous" alt="ตัวอย่าง '+label+'" data-reference-photo loading="lazy"></a>':'<p class="hint">ยังไม่มีรูปตัวอย่าง</p>')+'</div>';
  }).join('')+'</div>';
 }
 function jobDetailsCapture(job) {
@@ -1269,6 +1269,13 @@ async function renderSlideImage(key,mode,button) {
    img.addEventListener('load',()=>{clearTimeout(timer);resolve()},{once:true});
    img.addEventListener('error',()=>{clearTimeout(timer);resolve()},{once:true});
   })));
+  // Keep circular and portrait references proportional in copied PNGs.
+  for(const img of clone.querySelectorAll('.reference-photo img')){
+   if(!img.naturalWidth||!img.naturalHeight)continue;
+   const maxWidth=Math.max(1,img.parentElement.clientWidth-12),maxHeight=265;
+   const ratio=Math.min(maxWidth/img.naturalWidth,maxHeight/img.naturalHeight);
+   Object.assign(img.style,{width:Math.round(img.naturalWidth*ratio)+'px',height:Math.round(img.naturalHeight*ratio)+'px',objectFit:'fill',maxWidth:'none',maxHeight:'none'});
+  }
   const canvas=await window.html2canvas(clone,{backgroundColor:'#fff',scale:2,useCORS:true,allowTaint:false,logging:false});
   const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
   if(!blob)throw Error('ไม่สามารถสร้างภาพ PNG ได้');
