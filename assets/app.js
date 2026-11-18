@@ -396,8 +396,9 @@ function applyJobs(data) {
   app.loaded = true;
   app.jobsLoadedAt = new Date().toISOString();
   app.partial = !!data.partial || normalized.length !== app.jobs.length || data.jobs.some(job => !job) || normalized.some(job => (job.criteria || []).length > SLOTS.length || new Set((job.criteria || []).map(c => c.id)).size !== (job.criteria || []).length || new Set((job.criteria||[]).map(c=>c.slot)).size !== (job.criteria||[]).length || (job.criteria||[]).some(c=>!SLOTS.includes(c.slot)||!c.label));
-  app.deleteEnabled = ENABLE_DELETE_INSPECTION && !app.partial && /STK_Inspections/i.test(text(data.source));
-  app.recordRead = /STK_Inspections/i.test(text(data.source)) || app.jobs.some(job => job.records.length > 0);
+  app.deleteEnabled = ENABLE_DELETE_INSPECTION; // Show the delete control; validate live data and record ownership on click.
+  app.lastReadSource = text(data.source);
+  app.recordRead = /STK_Inspections/i.test(app.lastReadSource) || app.jobs.some(job => job.records.length > 0);
   if (!MOCK) $('environmentBanner').textContent = liveWritesAllowed()
     ? 'LIVE · อ่าน/บันทึก Microsoft Lists จริง · รองรับ 4 เกณฑ์ · ยังไม่มี atomic version lock'
     : 'LIVE · อ่าน Microsoft Lists จริง · บันทึกปิดอัตโนมัติเมื่อข้อมูลไม่ครบหรือ Flow ไม่รองรับ';
@@ -856,7 +857,7 @@ function recordLine(job, record, editable) {
     <div class="record-tail">
       <button class="small-action" type="button" data-view-record="${html(record.id)}">ดูรายละเอียด</button>
       ${editable ? `<button class="small-action${!inspection.complete ? ' continue-inspection' : ''}" type="button" data-edit-record="${html(record.id)}">${!inspection.complete ? 'ตรวจต่อ' : 'แก้ไข'}</button>
-        ${app.deleteEnabled && record.sharePointItemId ? `<button class="small-action danger" type="button" data-delete-record="${html(record.id)}">ลบ</button>` : ''}` : ''}
+        ${app.deleteEnabled ? `<button class="small-action danger" type="button" data-delete-record="${html(record.id)}" aria-label="ลบรายการรถ ${html(record.serial)}">ลบ</button>` : ''}` : ''}
     </div></article>`;
 }
 
@@ -1767,8 +1768,16 @@ async function submitInspection(event){
 async function deleteRecord(id) {
   const job = findJob();
   const record = job && liveRecords(job).find(item => item.id === id);
-  if (!app.deleteEnabled || !record?.sharePointItemId || job.status !== 'progress' || app.pending.has(jobScope(job))) return;
-  if (!await confirmAction('ลบผลตรวจ', 'นำผลตรวจ ' + record.serial + ' ออกจากยอดตรวจของงานนี้', 'ลบผลตรวจ')) return;
+  if (!app.deleteEnabled || !job || !record || job.status !== 'progress') return;
+  if (app.pending.has(jobScope(job))) return showFeedback('ยังมีคำขอก่อนหน้าค้างอยู่ กรุณาตรวจสอบผลก่อน', 'warning');
+  if (!app.jobsLive || app.loadError || app.partial || !/STK_Inspections/i.test(text(app.lastReadSource || ''))) {
+    return showFeedback('ยังไม่สามารถยืนยันข้อมูลรายการตรวจจาก STK_07 ได้ครบ กรุณารีเฟรชข้อมูลก่อนลบ', 'warning');
+  }
+  const recordItemId = Number(record.sharePointItemId);
+  if (!Number.isSafeInteger(recordItemId) || recordItemId < 1) {
+    return showFeedback('รายการนี้ไม่มี Microsoft Lists Item ID จึงยังลบไม่ได้ กรุณารีเฟรชข้อมูล', 'error');
+  }
+  if (!await confirmAction('ลบผลตรวจ', 'นำผลตรวจ ' + record.serial + ' ออกจากยอดตรวจของงานนี้', 'ลบผลตรวจ', 'danger')) return;
   await withWrite(() => trackWrite(jobScope(job), 'deleteInspection',
     { ...jobData(job), recordItemId: Number(record.sharePointItemId), serial: record.serial },
     () => current => current.id === job.id &&
