@@ -679,3 +679,22 @@ html { scroll-padding-bottom:100px }
 .pdf-export-canvas .report-reference-cell{height:110px!important}
 .pdf-export-canvas .reference-report-heading h1{font-size:21px!important}
 .pdf-export-canvas .reference-report-summary{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+
+/* A4 report 2026-11-18: begin at the top edge, retain sharp Thai text and photos. */
+#reportpreview .reference-report{box-sizing:border-box;margin:0 auto 20px;max-width:794px;padding:26px 30px;border-radius:0}
+#reportpreview .reference-report-header{margin-top:0}
+#reportpreview .reference-report-heading{margin-top:10px}
+#reportpreview .reference-report-section{margin-top:10px}
+#reportpreview .report-reference-cell{height:120px}
+.pdf-export-canvas{top:0!important;margin:0!important;padding:0!important}
+.pdf-export-canvas .reference-report{box-sizing:border-box!important;width:210mm!important;min-width:210mm!important;margin:0!important;padding:8mm 10mm!important;break-inside:auto!important;page-break-inside:auto!important}
+.pdf-export-canvas .reference-report-header,.pdf-export-canvas .reference-report-section{break-inside:auto!important;page-break-inside:auto!important}
+.pdf-export-canvas .reference-report-images{gap:8px!important}
+.pdf-export-canvas .report-reference-cell{height:105px!important}
+.pdf-export-canvas .reference-report-section{margin-top:10px!important}
+.pdf-export-canvas .reference-report-heading{margin-top:8px!important}
+.reference-report{font-family:'Stock Thai',Tahoma,Arial,sans-serif;font-synthesis:none}
+@media print{
+ @page{size:A4 portrait;margin:0}
+ #reportpreview .reference-report{width:210mm!important;max-width:210mm!important;margin:0!important;padding:8mm 10mm!important;border:0!important;box-shadow:none!important}
+}
