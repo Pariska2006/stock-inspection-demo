@@ -212,6 +212,7 @@
 <button class="nav-btn" type="button" data-nav="jobs"><svg class="ico sm" aria-hidden="true"><use href="#ic-list"></use></svg> งานตรวจ</button>
 <button class="nav-btn" type="button" data-nav="overview"><svg class="ico sm" aria-hidden="true"><use href="#ic-chart"></use></svg> ภาพรวม</button>
 <button class="nav-btn" type="button" data-nav="reports"><svg class="ico sm" aria-hidden="true"><use href="#ic-file"></use></svg> Reports</button>
+<button class="nav-btn" type="button" data-nav="members"><svg class="ico sm" aria-hidden="true"><use href="#ic-user"></use></svg> สมาชิก</button>
 <button class="nav-btn" type="button" data-nav="profile"><svg class="ico sm" aria-hidden="true"><use href="#ic-user"></use></svg> โปรไฟล์</button></nav>
       <div class="nav-bottom"><button class="nav-btn" type="button" data-action="contact"><svg class="ico sm" aria-hidden="true"><use href="#ic-info"></use></svg> ติดต่อผู้ดูแล</button></div>
     </aside>
@@ -305,12 +306,14 @@
       </section>
 
       <section class="view" id="reportpreview"><div id="previewContent"></div></section>
+<section class="view" id="members"><div class="page-head"><h1 tabindex="-1">สมาชิก</h1><button class="btn secondary sm" type="button" data-action="refresh-jobs">รีเฟรชรายชื่อ</button></div><section class="panel" id="membersContent"></section></section>
 <section class="view" id="profile">
         <div class="page-head"><h1 tabindex="-1">Profile</h1></div>
         <section class="panel">
           <div class="profilehero"><img class="photo" id="profileAvatar" alt="" hidden><span class="avatar-fallback" id="profileFallback" aria-hidden="true">P</span>
             <div><h2 id="profileName">สมาชิก</h2><p>Inspection Claim</p></div></div>
           <div class="list-row"><span>ชื่อในระบบ</span><span id="memberFullName">—</span></div>
+          <p class="hint">รูปโปรไฟล์จะใช้รูปที่บันทึกในระบบเป็นหลัก หากยังไม่มีจะใช้รูป LINE ล่าสุดเมื่อเข้าสู่ระบบ การอัปโหลดรูปใหม่จะเปิดให้ใช้เมื่อเชื่อมบริการจัดเก็บรูปสมาชิกแล้ว</p>
           <div class="list-row"><span>สถานะบัญชี</span><span class="status report-ready" id="memberStatus">อนุมัติแล้ว</span></div>
           <div class="list-row"><span>สิทธิ์ผู้ใช้งาน</span><span id="memberRole">Inspector</span></div>
           <div class="list-row" id="systemDateRow" hidden><span>วันที่จัดทำระบบ</span><time id="systemDate"></time></div>
@@ -357,7 +360,7 @@
 <script defer src="assets/mock.js?v=20261117-search2"></script>
 <script defer src="assets/vendor/jsQR.js?v=20261117-search2"></script>
 <script defer src="assets/scanner.js?v=20261118-ui-note-model-board"></script>
-<script defer src="assets/app.js?v=20261118-soft-delete-complete-flow"></script>
+<script defer src="assets/app.js?v=20261118-member-directory"></script>
 </body>
 </html>
 
