@@ -1663,7 +1663,7 @@ function navigate(page, focus = false) {
   for (const view of document.querySelectorAll('.view')) view.classList.toggle('active', view.id === page);
   const related = ['jobdetail', 'recorddetail'].includes(page);
   const current = page === 'inspection' ? 'inspection' : page === 'reportpreview' ? 'reports' : page === 'monthdetail' || related && app.detailOrigin === 'monthdetail' ? 'overview' :
-    related && app.detailOrigin === 'reports' ? 'reports' : detailPages.includes(page) ? 'jobs' : page;
+    related && app.detailOrigin === 'reports' ? 'reports' : related && app.detailOrigin === 'myjobs' ? 'myjobs' : detailPages.includes(page) ? 'jobs' : page;
   for (const button of document.querySelectorAll('.nav-btn[data-nav]')) {
     button.classList.toggle('active', button.dataset.nav === current);
     if (button.dataset.nav === current) button.setAttribute('aria-current', 'page');
