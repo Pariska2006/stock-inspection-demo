@@ -35,22 +35,33 @@ async function asDataUrl(url){
  });
 }
 function section(number,title){
- return {columns:[{text:number,color:'#ffffff',bold:true,fontSize:10,fillColor:GREEN,margin:[5,4,5,4]},
- {text:title,bold:true,color:DARK,fontSize:11,margin:[7,4,0,2]}],columnGap:4,margin:[0,13,0,7]};
+ // Match the green numbered headings and continuous rules from the A4 preview.
+ return {stack:[
+  {columns:[
+   {width:22,text:number,color:'#ffffff',bold:true,fontSize:9,alignment:'center',fillColor:GREEN,margin:[0,3,0,3]},
+   {width:'*',text:title,bold:true,color:DARK,fontSize:10,margin:[6,3,0,2]}
+  ],columnGap:3},
+  {canvas:[{type:'line',x1:0,y1:0,x2:535,y2:0,lineColor:BORDER,lineWidth:.7}],margin:[0,4,0,0]}
+ ],margin:[0,8,0,7]};
 }
 function info(label,value){
- return {stack:[{text:label,fontSize:8,color:MUTED,margin:[0,0,0,3]},
- {text:str(value),fontSize:10,bold:true,color:DARK}],margin:[0,0,0,10]};
+ return {stack:[{text:label,fontSize:7.5,color:MUTED,margin:[0,0,0,2]},
+ {text:str(value),fontSize:9,bold:true,color:DARK}],margin:[0,0,0,6]};
 }
 function metric(label,value,sub,color){
- return {stack:[{text:label,fontSize:9,color:MUTED,alignment:'center'},
- {text:str(value),fontSize:20,bold:true,color:color||DARK,alignment:'center',margin:[0,3,0,2]},
- {text:str(sub),fontSize:8,color:MUTED,alignment:'center'}],fillColor:'#f5faf6',margin:[3,7,3,7]};
+ return {stack:[{text:label,fontSize:8,color:MUTED,alignment:'center'},
+ {text:str(value),fontSize:17,bold:true,color:color||DARK,alignment:'center',margin:[0,1,0,1]},
+ {text:str(sub),fontSize:7.5,color:MUTED,alignment:'center'}],fillColor:'#f5faf6',margin:[2,4,2,4]};
 }
 function imageCell(label,image){
- return {stack:[{text:label,fontSize:9,bold:true,color:GREEN,fillColor:'#edf5f0',margin:[5,5,0,3]},
- image?{image,fit:[220,102],alignment:'center',margin:[3,5,3,5]}:
- {text:'ไม่มีรูปอ้างอิง',color:MUTED,fontSize:9,alignment:'center',margin:[0,36,0,34]}],margin:[0,0,0,0]};
+ // Fixed image height makes the two reference columns stay level.
+ return {stack:[
+  {text:label,fontSize:8.5,bold:true,color:GREEN,fillColor:'#edf5f0',margin:[5,4,0,3]},
+  {columns:[{width:'*',stack:[
+   image?{image,fit:[215,78],alignment:'center'}:
+   {text:'ไม่มีรูปอ้างอิง',fontSize:8,color:MUTED,alignment:'center',margin:[0,30,0,0]}
+  ]}],height:82,margin:[0,2,0,0]}
+ ],fillColor:'#fafcfb'};
 }
 function cleanResult(v){return v==='NG'?'NG':v==='OK'?'OK':v==='NA'?'NA':str(v)}
 function resultCell(value){return {text:cleanResult(value),color:value==='NG'?'#b42333':value==='OK'?GREEN:DARK,bold:value==='NG'||value==='OK',alignment:'center'}}
@@ -90,30 +101,38 @@ async function download(data){
  const content=[
   {columns:[logo?{image:logo,width:90}:{text:'KUBOTA',bold:true,fontSize:21,color:'#00a58e'},
    {text:'QUALITY ASSURANCE / STOCK INSPECTION',alignment:'right',bold:true,color:GREEN,fontSize:8,margin:[0,12,0,0]}],
-   margin:[0,0,0,11]},
+   margin:[0,0,0,7]},
   {columns:[
    {width:'*',stack:[{text:'Confirm Tractor in Stock Report',bold:true,fontSize:19,color:DARK},
     {text:'รายงานสรุปผลการตรวจสต็อก · STOCK INSPECTION SUMMARY',fontSize:9,color:MUTED,margin:[0,4,0,0]}]},
    {width:83,stack:[{text:'INSPECTION',fontSize:8,color:MUTED,alignment:'center'},
      {text:String(total),fontSize:27,bold:true,color:GREEN,alignment:'center'},
      {text:'UNITS',fontSize:8,color:MUTED,alignment:'center'}]}
-  ],margin:[0,0,0,9]},
-  {text:'JOB REF: '+str(data.id)+' · DocNo2: '+str(data.docNo2),fontSize:8,color:MUTED,margin:[0,0,0,8]},
+  ],margin:[0,0,0,6]},
+  {text:'JOB REF: '+str(data.id)+' · DocNo2: '+str(data.docNo2),fontSize:8,color:MUTED,margin:[0,0,0,6]},
   {canvas:[{type:'line',x1:0,y1:0,x2:535,y2:0,lineColor:GREEN,lineWidth:1.5}]},
   section('01','ข้อมูลปัญหา'),
   {columns:detailCols,columnGap:12},
   section('02','รูปตัวอย่างและวิธีการตรวจสอบ'),
-  {columns:[{width:'*',...imageCell('OK REFERENCE',okPhoto)},
-            {width:'*',...imageCell('NG REFERENCE',ngPhoto)}],columnGap:8},
-  {columns:[{width:99,text:'Checking Method',fontSize:8,color:MUTED},
-    {width:'*',text:str(data.method),fontSize:9,color:DARK}],margin:[0,9,0,5]},
-  {columns:[{width:99,text:'Acceptance Criteria',fontSize:8,color:MUTED},
-    {width:'*',text:str(data.criteria),fontSize:9,color:DARK}],margin:[0,0,0,5]},
+  {columns:[
+   {width:'*',...imageCell('OK REFERENCE',okPhoto)},
+   {width:'*',...imageCell('NG REFERENCE',ngPhoto)}
+  ],columnGap:8},
+  {columns:[
+   {width:'*',stack:[
+    {text:'Checking Method',fontSize:8,color:MUTED,margin:[0,0,0,3]},
+    {text:str(data.method),fontSize:9,color:DARK}
+   ]},
+   {width:'*',stack:[
+    {text:'Acceptance Criteria',fontSize:8,color:MUTED,margin:[0,0,0,3]},
+    {text:str(data.criteria),fontSize:9,color:DARK}
+   ]}
+  ],columnGap:10,margin:[0,6,0,3]},
   section('03','ผลการตรวจสต็อก'),
   {table:{headerRows:1,dontBreakRows:true,widths:[16,42,37,'*',30,21,21,21,21,34],body:tableRows(data)},
    layout:{hLineColor:()=>BORDER,vLineColor:()=>BORDER,
-    paddingLeft:()=>3,paddingRight:()=>3,paddingTop:()=>5,paddingBottom:()=>5}},
-  {text:'แสดง '+data.rows.length+' จาก '+total+' คัน · ยอดรวมคำนวณจากข้อมูลรถทั้งหมด',fontSize:8,color:MUTED,margin:[0,6,0,9]},
+    paddingLeft:()=>3,paddingRight:()=>3,paddingTop:()=>3,paddingBottom:()=>3}},
+  {text:'แสดง '+data.rows.length+' จาก '+total+' คัน · ยอดรวมคำนวณจากข้อมูลรถทั้งหมด',fontSize:7.5,color:MUTED,margin:[0,4,0,5]},
   {columns:[
    {width:'*',...metric('TOTAL',total,'Units')},
    {width:'*',...metric('OK',data.ok,pct(data.ok,total),GREEN)},
@@ -121,16 +140,16 @@ async function download(data){
    {width:'*',...metric('% NG',pct(data.ng,total),'NG / Total','#bd2433')}
   ],columnGap:5},
   {text:'สรุปผลตรวจ '+total+' คัน · OK '+data.ok+' คัน · NG '+data.ng+' คัน ('+pct(data.ng,total)+')'+
-   (data.pending?' · อยู่ระหว่างตรวจ '+data.pending+' คัน':''),fontSize:9,color:DARK,margin:[0,9,0,12]},
+   (data.pending?' · อยู่ระหว่างตรวจ '+data.pending+' คัน':''),fontSize:8,color:DARK,margin:[0,6,0,6]},
   {columns:[
    {width:'*',stack:[{text:'Inspector / ผู้ตรวจ',fontSize:8,color:MUTED},{text:str(data.inspector),bold:true,fontSize:9}]},
    {width:'*',stack:[{text:'Report Generated',fontSize:8,color:MUTED},{text:str(data.generated),bold:true,fontSize:9}]},
    {width:'*',stack:[{text:'Review / Approval',fontSize:8,color:MUTED},{text:'________________________',fontSize:9}]}
-  ],margin:[0,4,0,14]}
+  ],margin:[0,1,0,3]}
  ];
  const definition={
-  pageSize:'A4',pageMargins:[30,30,30,34],
-  defaultStyle:{font:'Sarabun',fontSize:9,lineHeight:1.08,color:DARK},
+  pageSize:'A4',pageMargins:[30,23,30,26],
+  defaultStyle:{font:'Sarabun',fontSize:8.5,lineHeight:1.04,color:DARK},
   content,footer:(page,pages)=>({columns:[
    {text:'KUBOTA · STOCK INSPECTION',fontSize:7,color:MUTED},
    {text:str(data.id)+'  ·  '+page+'/'+pages,alignment:'right',fontSize:7,color:MUTED}
