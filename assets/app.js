@@ -1013,7 +1013,7 @@ function recordLine(job, record, editable) {
 }
 
 function referencePictures(job) {
-  const pictures = [['OK', job.okPictureUrl], ['NG', job.ngPictureUrl], ['วิธีตรวจ', job.methodPictureUrl]].map(([label, value]) => {
+  const pictures = [['OK', job.okPictureUrl], ['NG', job.ngPictureUrl]].map(([label, value]) => {
     const url = safeLink(value);
     return url ? `<a class="reference-photo ${label.toLowerCase()}" href="${html(url)}" target="_blank" rel="noopener noreferrer">
       <span>${label === 'วิธีตรวจ' ? label : 'ตัวอย่าง ' + label}</span><img src="${html(url)}" alt="" data-reference-photo loading="lazy">
@@ -1144,10 +1144,9 @@ function completedSlideCards(job) {
  const photo=(label,url)=>url?`<img class="slide-tile-image" src="${html(url)}" crossorigin="anonymous" loading="eager" alt="${label}">`:'<div class="slide-tile-empty">ยังไม่มีรูปอ้างอิง</div>';
  return `<section class="completed-slide-section no-print"><div class="completed-slide-head">
    <h2>${icon('presentation')} สรุปสำหรับนำไปทำสไลด์</h2>
-   <p>คัดลอกกล่องเป็นภาพไปวาง PowerPoint ได้ หรือบันทึก PNG แยกกล่อง · ยอดจากผลตรวจทุกคัน</p>
+   <p>คัดลอกรายละเอียด รูปตัวอย่าง และผลตรวจเป็นภาพได้ · รายชื่อผู้ร่วมตรวจแสดงเพื่อดูข้อมูลเท่านั้น</p>
   </div><div class="slide-tile-grid">
-  ${card('method','วิธีการตรวจสอบ',`<p class="slide-tile-main">${html(job.checkingMethod||'ยังไม่ระบุวิธีการตรวจสอบ')}</p>`)}
-  ${card('criteria','เกณฑ์การตรวจสอบ',criteria.length?`<ol class="slide-tile-criteria">${criteria.map(c=>`<li>${html(c.label)}</li>`).join('')}</ol>`:'<p>ยังไม่มีเกณฑ์</p>')}
+  ${card('details','รายละเอียด',`<div class="slide-detail-pair"><h4>วิธีการตรวจสอบ</h4><p class="slide-tile-main">${html(job.checkingMethod||'ยังไม่ระบุวิธีการตรวจสอบ')}</p><h4>เกณฑ์การตรวจสอบ</h4>${criteria.length?`<ol class="slide-tile-criteria">${criteria.map(c=>`<li>${html(c.label)}</li>`).join('')}</ol>`:'<p>ยังไม่มีเกณฑ์การตรวจสอบ</p>'}</div>`)}
   ${card('ok-photo','รูปตัวอย่าง OK',photo('รูปตัวอย่าง OK',safeLink(job.okPictureUrl)))}
   ${card('ng-photo','รูปตัวอย่าง NG',photo('รูปตัวอย่าง NG',safeLink(job.ngPictureUrl)))}
   ${card('results','สรุปผลการตรวจ',`<div class="slide-tile-numbers">
@@ -1156,15 +1155,21 @@ function completedSlideCards(job) {
     <div class="ng"><small>NG</small><strong>${counts.NG}</strong><span>คัน</span></div>
     <div class="ng"><small>% NG</small><strong>${rate}</strong><span>ของทั้งหมด</span></div>
    </div><p class="slide-tile-subtitle">พบ NG ${counts.NG} จาก ${counts.total} คัน · คิดเป็น ${rate}</p>`)}
-  ${card('inspectors','ผู้ร่วมตรวจสอบ',`<div class="slide-tile-team">${names.length?names.map(name=>`<span>${html(name)}</span>`).join(''):'<span>ไม่มีชื่อผู้ตรวจในข้อมูลที่บันทึก</span>'}</div>
-   <p class="slide-tile-subtitle">${names.length} คน · รวบรวมชื่อไม่ซ้ำจากผลตรวจรายคัน</p>`)}
+  <section class="slide-tile slide-tile-readonly">
+   <div class="slide-tile-content">
+    <div class="slide-tile-brand"><b>KUBOTA</b> / STOCK INSPECTION</div>
+    <h3>ผู้ร่วมตรวจสอบ</h3><p class="slide-tile-job">${html(job.title)}</p>
+    <div class="slide-tile-team">${names.length?names.map(name=>`<span>${html(name)}</span>`).join(''):'<span>ยังไม่มีชื่อผู้ตรวจในข้อมูลที่บันทึก</span>'}</div>
+    <p class="slide-tile-subtitle">${names.length} คน · จากผลตรวจรายคัน</p>
+   </div>
+  </section>
   </div><p class="slide-tile-help">การคัดลอกภาพขึ้นอยู่กับสิทธิ์คลิปบอร์ดของเบราว์เซอร์ หากคัดลอกไม่ได้ให้เลือกบันทึก PNG · รูปที่ไม่อนุญาต CORS อาจแปลงเป็นภาพไม่ได้</p>
  </section>`;
 }
 async function renderSlideImage(key,mode,button) {
  const job=findJob();
  if(app.page!=='jobdetail'||!job||!finished(job))return;
- if(!['method','criteria','ok-photo','ng-photo','results','inspectors'].includes(key))return;
+ if(!['details','ok-photo','ng-photo','results'].includes(key))return;
  const original=document.querySelector('[data-slide-capture="'+key+'"]');
  if(!original)return;
  const textBefore=button.textContent;
@@ -1405,7 +1410,6 @@ function renderJobForm() {
         <div class="two-col">
           <div class="reference-field ok">${photoInput('ok', job?.okPictureUrl, 'OK Reference')}</div>
           <div class="reference-field ng">${photoInput('ng', job?.ngPictureUrl, 'NG Reference')}</div>
-          <div class="reference-field">${photoInput('method', job?.methodPictureUrl, 'รูปอธิบายวิธีตรวจ')}</div>
         </div>
         ${photoConnectionHint()}
         ${field('jfTarget', 'จำนวนเป้าหมาย (คัน)', job?.targetUnits ?? '', { type: 'number', max: 7 })}
