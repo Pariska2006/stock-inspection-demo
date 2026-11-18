@@ -54,14 +54,14 @@ function metric(label,value,sub,color){
  {text:str(sub),fontSize:7.5,color:MUTED,alignment:'center'}],fillColor:'#f5faf6',margin:[2,4,2,4]};
 }
 function imageCell(label,image){
- // Fixed image height makes the two reference columns stay level.
- return {stack:[
-  {text:label,fontSize:8.5,bold:true,color:GREEN,fillColor:'#edf5f0',margin:[5,4,0,3]},
-  {columns:[{width:'*',stack:[
-   image?{image,fit:[215,78],alignment:'center'}:
-   {text:'ไม่มีรูปอ้างอิง',fontSize:8,color:MUTED,alignment:'center',margin:[0,30,0,0]}
-  ]}],height:82,margin:[0,2,0,0]}
- ],fillColor:'#fafcfb'};
+ // Border, pale header, and a fixed image area match the website preview.
+ const picture=image?{image,fit:[212,76],alignment:'center',margin:[0,5,0,1]}:
+  {text:'ไม่มีรูปอ้างอิง',fontSize:8,color:MUTED,alignment:'center',margin:[0,32,0,0]};
+ return {table:{widths:['*'],body:[
+  [{text:label,bold:true,fontSize:8,color:GREEN,fillColor:'#edf5f0',margin:[6,4,3,3]}],
+  [{stack:[picture,{text:' ',fontSize:1,margin:[0,0,0,0]}],fillColor:'#fbfdfb',margin:[3,0,3,4]}]
+ ]},layout:{hLineColor:()=>BORDER,vLineColor:()=>BORDER,
+  paddingLeft:()=>0,paddingRight:()=>0,paddingTop:()=>0,paddingBottom:()=>0}};
 }
 function cleanResult(v){return v==='NG'?'NG':v==='OK'?'OK':v==='NA'?'NA':str(v)}
 function resultCell(value){return {text:cleanResult(value),color:value==='NG'?'#b42333':value==='OK'?GREEN:DARK,bold:value==='NG'||value==='OK',alignment:'center'}}
@@ -100,11 +100,11 @@ async function download(data){
  ];
  const content=[
   {columns:[logo?{image:logo,width:90}:{text:'KUBOTA',bold:true,fontSize:21,color:'#00a58e'},
-   {text:'QUALITY ASSURANCE / STOCK INSPECTION',alignment:'right',bold:true,color:GREEN,fontSize:8,margin:[0,12,0,0]}],
-   margin:[0,0,0,7]},
+   {text:'QUALITY ASSURANCE / STOCK INSPECTION',alignment:'right',bold:true,color:GREEN,fontSize:8,margin:[0,10,0,0]}],
+   margin:[0,0,0,8]},
   {columns:[
    {width:'*',stack:[{text:'Confirm Tractor in Stock Report',bold:true,fontSize:19,color:DARK},
-    {text:'รายงานสรุปผลการตรวจสต็อก · STOCK INSPECTION SUMMARY',fontSize:9,color:MUTED,margin:[0,4,0,0]}]},
+    {text:'รายงานสรุปผลการตรวจสต็อก · STOCK INSPECTION SUMMARY',fontSize:8.5,color:MUTED,margin:[0,3,0,0]}]},
    {width:83,stack:[{text:'INSPECTION',fontSize:8,color:MUTED,alignment:'center'},
      {text:String(total),fontSize:27,bold:true,color:GREEN,alignment:'center'},
      {text:'UNITS',fontSize:8,color:MUTED,alignment:'center'}]}
@@ -117,17 +117,17 @@ async function download(data){
   {columns:[
    {width:'*',...imageCell('OK REFERENCE',okPhoto)},
    {width:'*',...imageCell('NG REFERENCE',ngPhoto)}
-  ],columnGap:8},
+  ],columnGap:9,margin:[0,0,0,3]},
   {columns:[
    {width:'*',stack:[
-    {text:'Checking Method',fontSize:8,color:MUTED,margin:[0,0,0,3]},
+    {text:'Checking Method',fontSize:8,color:MUTED,margin:[0,0,0,2]},
     {text:str(data.method),fontSize:9,color:DARK}
    ]},
    {width:'*',stack:[
-    {text:'Acceptance Criteria',fontSize:8,color:MUTED,margin:[0,0,0,3]},
+    {text:'Acceptance Criteria',fontSize:8,color:MUTED,margin:[0,0,0,2]},
     {text:str(data.criteria),fontSize:9,color:DARK}
    ]}
-  ],columnGap:10,margin:[0,6,0,3]},
+  ],columnGap:10,margin:[0,5,0,1]},
   section('03','ผลการตรวจสต็อก'),
   {table:{headerRows:1,dontBreakRows:true,widths:[16,42,37,'*',30,21,21,21,21,34],body:tableRows(data)},
    layout:{hLineColor:()=>BORDER,vLineColor:()=>BORDER,
