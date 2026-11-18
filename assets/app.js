@@ -1060,6 +1060,7 @@ function renderDetail() {
     ${!records.length ? '<p class="hint">บันทึกผลอย่างน้อย 1 คันเพื่อจบการตรวจ</p>' : ''}
     ${incomplete ? `<p class="hint">ตรวจรถที่ค้างอีก ${incomplete} คันให้ครบก่อนจบงาน</p>` : ''}
     <button class="btn finish" type="button" data-action="finish-job">${icon('check')} จบการตรวจ</button>
+    <div class="finish-job-feedback" id="finishJobFeedback" role="status" aria-live="polite" ${app.detailMessage?.jobId === job.id && app.detailMessage.text ? '' : 'hidden'}>${html(app.detailMessage?.jobId === job.id ? app.detailMessage.text : '')}</div>
   </div>` : ''}`;
 }
 
@@ -1372,6 +1373,12 @@ function showFeedback(message, kind = '') {
       output.textContent = message;
       output.className = 'notice' + (kind ? ' ' + kind : '');
     }
+    const finishOutput = $('finishJobFeedback');
+    if (finishOutput) {
+      finishOutput.hidden = !message;
+      finishOutput.textContent = message;
+      finishOutput.className = 'finish-job-feedback' + (kind ? ' ' + kind : '');
+    }
   }
 }
 
@@ -1634,39 +1641,45 @@ async function deleteJobFromWeb() {
 }
 
 async function finishJob() {
-  const job = findJob();
-  if (!job) return showFeedback('ไม่พบงานตรวจ กรุณาเปิดรายการงานอีกครั้ง', 'warning');
-  if (finished(job)) { app.reportJob = job.id; navigate('reports', true); return; }
-  if (job.status !== 'progress') return showFeedback('กรุณาตั้งค่าและเริ่มตรวจงานก่อนจบการตรวจ', 'warning');
-  if (app.pending.has(jobScope(job))) return showFeedback('ยังมีคำขอบันทึกค้างอยู่ กรุณากดตรวจสอบผลบันทึกก่อนจบงาน', 'warning');
-  const recordsNow = liveRecords(job);
-  if (!recordsNow.length) {
-    const message = 'ยังจบการตรวจไม่ได้\\n\\nยังไม่มีรถที่บันทึกผล กรุณาตรวจอย่างน้อย 1 คันก่อน';
-    window.alert(message);
-    return showFeedback('ยังไม่มีรถที่บันทึกผล กรุณาตรวจอย่างน้อย 1 คันก่อนจบงาน', 'warning');
+  const job=findJob();
+  if(!job)return showFeedback('ไม่พบงานตรวจ กรุณาเปิดรายการงานอีกครั้ง','warning');
+  if(finished(job)){app.reportJob=job.id;navigate('reports',true);return}
+  if(job.status!=='progress')return showFeedback('กรุณาเริ่มตรวจงานก่อนจบการตรวจ','warning');
+  if(app.pending.has(jobScope(job))){
+    showFeedback('งานนี้มีคำขอรอยืนยันผล กรุณากด “ตรวจสอบผลบันทึก” ก่อน ไม่ต้องส่งจบงานซ้ำ','warning');
+    $('detailMessage')?.scrollIntoView({behavior:'smooth',block:'center'});
+    return;
   }
-  const unfinished = recordsNow.filter(record => !vehicleInspection(job, record).complete);
-  if (unfinished.length) {
-    const message = 'ยังจบการตรวจไม่ได้\\n\\nเหลือรถที่ตรวจไม่ครบ ' + unfinished.length + ' คัน\\nกรุณากลับไปตรวจเกณฑ์ที่ค้างให้ครบก่อน แล้วจึงกดจบการตรวจอีกครั้ง';
-    window.alert(message);
-    return showFeedback('ยังจบงานไม่ได้: รถอีก ' + unfinished.length + ' คันตรวจเกณฑ์ไม่ครบ · เปิดรถที่กำลังดำเนินการเพื่อตรวจให้ครบก่อน', 'warning');
+  const records=liveRecords(job);
+  if(!records.length){showFeedback('ยังจบงานไม่ได้ · ยังไม่มีรถที่บันทึกผล กรุณาตรวจอย่างน้อย 1 คัน','warning');return}
+  const incomplete=records.filter(r=>!vehicleInspection(job,r).complete);
+  if(incomplete.length){
+    showFeedback('ยังจบงานไม่ได้ · มีรถตรวจไม่ครบ '+incomplete.length+' คัน กรุณาตรวจเกณฑ์ที่ค้างให้ครบก่อน','warning');
+    window.alert('ยังจบการตรวจไม่ได้\n\nมีรถที่ยังตรวจไม่ครบ '+incomplete.length+' คัน\nกรุณากลับไปตรวจให้ครบก่อนจบงาน');
+    return;
   }
-  if (!await confirmAction('จบการตรวจ', 'งานจะย้ายไปหน้ารายงานและปิดการแก้ผลตรวจรายคัน', 'จบการตรวจ')) return;
-  await withWrite(async () => {
-    const { data, current } = await latestActiveJob(job);
-    const records = liveRecords(current);
-    applyJobs(data);
-    if (data.partial || data.status !== 'OK') return showFeedback('อ่าน Lists ได้ไม่ครบ จึงยังไม่จบงาน กรุณาลองรีเฟรช', 'warning');
-    if (!records.length || records.some(record => !vehicleInspection(current, record).complete)) {
-      return showFeedback('ข้อมูลล่าสุดยังมีรถตรวจไม่ครบ กรุณาเปิดรถที่ค้างตรวจให้เสร็จก่อนจบงาน', 'warning');
+  if(!await confirmAction('จบการตรวจ','ยืนยันปิดงานตรวจนี้ เมื่อบันทึกสำเร็จ งานจะย้ายไปหน้า Reports','จบการตรวจ'))return;
+  showFeedback('กำลังตรวจข้อมูลล่าสุดก่อนส่งจบงาน…');
+  await withWrite(async()=>{
+    const {data,current}=await latestActiveJob(job);
+    if(data.partial||data.status!=='OK'){
+      return showFeedback('ข้อมูล STK_07 ยังไม่ครบ จึงยังไม่ส่งคำสั่งจบงาน กรุณาโหลดใหม่','warning');
     }
-    await trackWrite(jobScope(job), 'finishJob', jobData(current),
-      () => item => item.id === job.id && finished(item),
-      () => {
-        app.detailOrigin = 'reports';
-        app.reportJob = job.id;
-        navigate('reports', true);
-      });
+    const latest=liveRecords(current);
+    const missing=latest.filter(record=>!vehicleInspection(current,record).complete);
+    if(!latest.length||missing.length){
+      applyJobs(data);
+      return showFeedback('ข้อมูลล่าสุดยังมีรถตรวจไม่ครบ '+missing.length+' คัน กรุณาตรวจให้ครบก่อนจบงาน','warning');
+    }
+    const success=await trackWrite(jobScope(current),'finishJob',jobData(current),
+      ()=>item=>item.id===current.id&&finished(item),
+      ()=>{app.reportJob=current.id;app.detailOrigin='reports';navigate('reports',true);});
+    if(!success&&app.page==='jobdetail'){
+      const pending=app.pending.get(jobScope(current));
+      if(pending) {
+        showFeedback('ยังไม่ยืนยันการจบงานจาก Microsoft Lists กรุณาดูข้อความนี้และกด “ตรวจสอบผลบันทึก” ห้ามส่งจบงานซ้ำ','warning');
+      }
+    }
   });
 }
 
