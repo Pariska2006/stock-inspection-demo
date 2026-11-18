@@ -224,7 +224,7 @@ function resetSession() {
   StockQR.stop();
   clearPhotoDraft();
   Object.assign(app, {
-    member: null, jobs: [], members: [], membersReady: false, jobsLive: false, loaded: false, recordRead: false, partial: false, loadError: '',
+    member: null, jobs: [], members: [], membersReady: false, teamAssignments: [], teamReady: false, jobsLive: false, loaded: false, recordRead: false, partial: false, loadError: '',
     selected: '', editJob: false, editRecord: '', deleteEnabled: false, inspectionBaseline: '', jobsLoading: false, photoAssets: new Map(),
     detailMessage: null, dirty: false, busy: false, group: '', claimFilter: '', search: '', stars: new Set(),
     claimTypes: KNOWN_CLAIM_TYPES, products: GROUPS, month: '', monthFilter: 'all', yearsVisible: 1, jobsLoadedAt: ''
