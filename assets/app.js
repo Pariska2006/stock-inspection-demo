@@ -946,30 +946,29 @@ function reportDocument(job) {
  const models=selectedModels(job).join(', ')||job.model||'—';
  const made=new Intl.DateTimeFormat('th-TH',{timeZone:TIME_ZONE,dateStyle:'medium',timeStyle:'short'}).format(new Date());
  const photoPending=Boolean(PHOTO_UPLOAD_API_URL&&!MOCK&&!app.photoAssets.has(job.id));
- const refPhoto=([caption,url])=>`<div class="report-reference-cell"><div class="report-reference-label">${caption}</div>${url?`<img src="${html(url)}" crossorigin="anonymous" alt="${caption}" loading="eager" data-reference-photo>`:`<span class="report-reference-empty">${photoPending?'กำลังซิงค์รูปภาพ…':'ไม่มีรูปอ้างอิง'}</span>`}</div>`;
+ const refPhoto=([caption,url])=>`<div class="report-reference-cell"><div class="report-reference-label">${caption}</div>${url?`<img src="${html(url)}" crossorigin="anonymous" alt="${caption}" loading="eager" data-reference-photo><span class="report-photo-loading" role="status">กำลังซิงค์รูปภาพ…</span>`:`<span class="report-reference-empty">${photoPending?'กำลังซิงค์รูปภาพ…':'ไม่มีรูปอ้างอิง'}</span>`}</div>`;
  return `<article class="one-page-report reference-report">
   <header class="reference-report-header">
    <div class="reference-report-brand"><img src="assets/kubota.png" alt="Kubota"><span>QUALITY ASSURANCE / STOCK INSPECTION</span></div>
    <div class="reference-report-heading"><div><h1>Confirm Tractor in Stock Report</h1><p>รายงานสรุปผลการตรวจสต็อก · STOCK INSPECTION SUMMARY</p></div><div class="reference-report-count"><small>INSPECTION</small><b>${total}</b><small>UNITS</small></div></div>
    <p class="reference-report-number">JOB REF: ${html(job.id)} · DocNo2: ${html(job.docNo2||'—')}</p>
   </header>
-  <section class="reference-report-section"><h2><span>01</span> ข้อมูลปัญหา</h2>
+  <section class="reference-report-section"><h2>ข้อมูลปัญหา</h2>
    <div class="reference-report-info">
-    <div class="wide"><small>Problem / ชื่อปัญหา</small><strong>${html(job.title)}</strong></div>
+    <div><small>Problem / ชื่อปัญหา</small><strong>${html(job.title)}</strong></div>
     <div><small>Product</small><strong>${html(product)}</strong></div>
-    <div><small>Model</small><strong>${html(models)}</strong></div>
     <div><small>Claim Type</small><strong>${html(issueType)}</strong></div>
-     <div><small>เลขที่เคลม (DocNo2)</small><strong>${html(job.docNo2||'—')}</strong></div>
     <div><small>Checking Location</small><strong>${html(job.inspectionLocation||'—')}</strong></div>
-    <div><small>Checking Date</small><strong>${html(period)}</strong></div>
+    <div><small>Model</small><strong>${html(models)}</strong></div>
+    <div><small>DocNo2</small><strong>${html(job.docNo2||'—')}</strong></div>
    </div>
   </section>
-  <section class="reference-report-section"><h2><span>02</span> รูปตัวอย่างและวิธีการตรวจสอบ</h2>
+  <section class="reference-report-section"><h2>รูปตัวอย่างและวิธีการตรวจสอบ</h2>
    <div class="reference-report-images">${reference.map(refPhoto).join('')}</div>
    <div class="reference-report-method"><small>Checking Method</small><p>${html(checkingMethod||'—')}</p></div>
    <div class="reference-report-method"><small>Acceptance Criteria</small><p>${html(criteria.map((c,i)=>(i+1)+'. '+c.label).join('  |  ')||'—')}</p></div>
   </section>
-  <section class="reference-report-section reference-report-results"><h2><span>03</span> ผลการตรวจสต็อก</h2>
+  <section class="reference-report-section reference-report-results"><h2>ผลการตรวจสต็อก</h2>
    <div class="reference-report-table-wrap"><table class="reference-report-vehicles">
     <thead><tr><th>#</th><th>Date</th><th>Model</th><th>Serial Number</th><th>Lot No.</th><th>Result 1</th><th>Result 2</th><th>Result 3</th><th>Result 4</th><th>ผลรวม</th></tr></thead>
     <tbody>${reportRows||'<tr><td colspan="10">ไม่มีข้อมูลรถที่บันทึก</td></tr>'}</tbody>
@@ -1035,6 +1034,17 @@ function renderReportPreview(){
  root.innerHTML=`<div class="report-toolbar no-print"><div><strong>ตัวอย่างรายงาน · A4</strong>${photoPending?'<small class="report-photo-sync" role="status">กำลังซิงค์รูปภาพ…</small>':''}</div>
   <div class="report-toolbar-actions"><button class="btn primary" type="button" data-export-job="${html(job.id)}">${icon('download')} ดาวน์โหลด PDF</button></div>
  </div>${reportDocument(job)}`;
+ // Show identical photo sync state for OK and NG until the image is decoded.
+ for(const img of root.querySelectorAll('.report-reference-cell img[data-reference-photo]')){
+  const label=img.nextElementSibling;
+  if(!label||!label.classList.contains('report-photo-loading'))continue;
+  const mark=()=>{
+   if(img.naturalWidth>0){label.hidden=true;label.setAttribute('aria-hidden','true')}
+   else label.textContent='รูปภาพยังเปิดไม่ได้ · ตรวจสอบลิงก์หรือสิทธิ์';
+  };
+  if(img.complete)mark();
+  else{img.addEventListener('load',mark,{once:true});img.addEventListener('error',mark,{once:true})}
+ }
  requestAnimationFrame(()=>{ root.scrollTop=0; window.scrollTo(0,0); });
 }
 let reportDownloadBusy=false;
