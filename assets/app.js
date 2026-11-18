@@ -1056,17 +1056,23 @@ async function exportReportPdf(jobId) {
  const target=root.querySelector('.reference-report');
  let done=false;
  try{
-  // The library renders locally in the browser; no report data is sent to a PDF service.
-  if(typeof window.html2pdf!=='function'){
+  // Load the two standalone browser libraries explicitly: html2pdf's bundle
+  // does not reliably expose its internal jsPDF or html2canvas globally.
+  async function ensurePdfLibrary(check,src,label){
+   if(check())return;
    await new Promise((resolve,reject)=>{
     const script=document.createElement('script');
-    script.src='https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js';
-    script.async=true;
+    script.src=src;script.async=true;
     script.onload=resolve;
-    script.onerror=()=>reject(Error('โหลดเครื่องมือ PDF ไม่ได้'));
+    script.onerror=()=>reject(Error('โหลด '+label+' ไม่สำเร็จ'));
     document.head.append(script);
    });
+   if(!check())throw Error(label+' ไม่พร้อมทำงาน');
   }
+  await ensurePdfLibrary(()=>typeof window.html2canvas==='function',
+   'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js','html2canvas');
+  await ensurePdfLibrary(()=>typeof window.jspdf?.jsPDF==='function',
+   'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js','jsPDF');
   const unavailable=await prepareReportImages(root);
   if(unavailable.length)showFeedback('รูปภาพบางรายการยังเปิดไม่ได้ กรุณาตรวจสอบรูปที่บันทึกไว้','warning');
   await document.fonts.ready;
@@ -1088,7 +1094,7 @@ async function exportReportPdf(jobId) {
   done=true;
  }catch(error){
   console.warn('PDF export unavailable',error);
-  window.alert('ดาวน์โหลด PDF อัตโนมัติไม่ได้ในเบราว์เซอร์นี้\\nกรุณาใช้ปุ่ม “ดูรายงาน” แล้วกด “พิมพ์” → เลือก Save as PDF');
+  showFeedback('สร้าง PDF ไม่สำเร็จ: '+(error?.message||'ไม่ทราบสาเหตุ')+' · กรุณาลองอีกครั้ง','error');
  }finally{
   root.remove();
  }
