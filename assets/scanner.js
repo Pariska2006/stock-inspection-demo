@@ -94,7 +94,17 @@ window.StockQR = (() => {
       stream = obtained;
       video = el('qrVideo');
       video.srcObject = stream;
+      video.muted = true;
+      video.setAttribute('playsinline', '');
+      // Mobile browsers can resolve play() before the first visible frame.
       await video.play();
+      if (current !== generation) return;
+      if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !video.videoWidth) {
+        await Promise.race([
+          new Promise(resolve => video.addEventListener('loadeddata', resolve, {once:true})),
+          new Promise((_, reject) => setTimeout(() => reject(Error('กล้องเปิดแล้วแต่ไม่ส่งภาพ')), 8000))
+        ]);
+      }
       if (current !== generation) return;
 
       let detector = null;
@@ -104,10 +114,12 @@ window.StockQR = (() => {
         }
       } catch { /* Use jsQR instead */ }
 
+      const hasJsQR = typeof window.jsQR === 'function';
       const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d', {willReadFrequently:true});
-      if (!context) throw Error('ไม่สามารถอ่านภาพกล้องในเบราว์เซอร์นี้ได้');
-      if (!detector && typeof window.jsQR !== 'function') throw Error('ตัวอ่าน QR ยังโหลดไม่สำเร็จ กรุณารีเฟรชหน้า');
+      const context = hasJsQR ? canvas.getContext('2d', {willReadFrequently:true}) : null;
+      if (!detector && (!hasJsQR || !context)) throw Error('ตัวอ่าน QR ยังโหลดไม่สำเร็จ กรุณารีเฟรชหน้า');
+      let detectorFailures = 0;
+      let emptyFrames = 0;
 
       const deadline = Date.now() + 60000;
       status('วาง QR ให้อยู่กลางภาพ · เมื่ออ่าน Serial ได้ ระบบจะกรอกให้อัตโนมัติ');
@@ -126,16 +138,27 @@ window.StockQR = (() => {
         try {
           let raw = '';
           if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
+            emptyFrames = 0;
             if (detector) {
-              raw = (await detector.detect(video))[0]?.rawValue || '';
-            } else {
-              const scale = Math.min(1, 720 / Math.max(video.videoWidth,video.videoHeight));
+              try {
+                raw = (await detector.detect(video))[0]?.rawValue || '';
+              } catch {
+                detectorFailures++;
+                if (detectorFailures > 2) detector = null;
+              }
+            }
+            // A browser may expose BarcodeDetector but fail to decode a live camera
+            // frame. Try local jsQR as a fallback on the same frame, without uploading it.
+            if (!raw && context && hasJsQR) {
+              const scale = Math.min(1, 640 / Math.max(video.videoWidth,video.videoHeight));
               canvas.width = Math.max(1,Math.round(video.videoWidth*scale));
               canvas.height = Math.max(1,Math.round(video.videoHeight*scale));
               context.drawImage(video,0,0,canvas.width,canvas.height);
               const frame = context.getImageData(0,0,canvas.width,canvas.height);
               raw = window.jsQR(frame.data,frame.width,frame.height,{inversionAttempts:'attemptBoth'})?.data || '';
             }
+          } else if (++emptyFrames > 20) {
+            status('กล้องยังไม่แสดงภาพ กรุณากดสแกนใหม่ หรือเลือกเปิดผ่าน Chrome / Safari');
           }
           if (current !== generation) return;
           if (raw) {
