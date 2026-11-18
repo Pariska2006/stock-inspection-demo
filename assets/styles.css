@@ -234,3 +234,32 @@ html { scroll-padding-bottom:100px }
 .delete-job-section .btn.danger{color:#b42318;border-color:#efb2ad;background:#fff}
 .delete-job-section .btn.danger:hover:not(:disabled){background:#fff0ee}
 .delete-job-section .btn.danger:disabled{opacity:.5;cursor:not-allowed}
+
+/* 18 Nov: clearer starred work, one note field, left vehicle sidebar */
+.star-button { color:#475569; border:1px solid #cbd5e1; background:#fff; }
+.star-button .ico { width:20px; height:20px; stroke-width:2.5; }
+.star-button[aria-pressed="true"] { color:#a16207; background:#fef3c7; border-color:#d6a44a; }
+.star-button[aria-pressed="true"] .ico { fill:#d89912; stroke:#8b5b00; }
+.job-entry.starred .job-tile { border-color:#b78829; background:#fffefa; }
+.check-row .criterion-notes .optional-body { display:grid; grid-template-columns:minmax(0,1fr); }
+#detailContent.detail-with-vehicle-sidebar { display:grid; grid-template-columns:minmax(280px, 330px) minmax(0, 1fr); column-gap:20px; align-items:start; }
+#detailContent.detail-with-vehicle-sidebar > *:not(.vehicle-records-panel) { grid-column:2; min-width:0; }
+#detailContent.detail-with-vehicle-sidebar > .vehicle-records-panel {
+  grid-column:1;
+  grid-row:1 / span 8;
+  position:sticky;
+  top:18px;
+  max-height:calc(100vh - 36px);
+  overflow:auto;
+  min-width:0;
+}
+#detailContent .vehicle-records-panel .vehicle-filters { gap:6px; }
+#detailContent .vehicle-records-panel .filter-chip { padding:8px 9px; min-height:38px; }
+#detailContent .vehicle-records-panel .record { grid-template-columns:minmax(0,1fr); }
+#detailContent .vehicle-records-panel .record-tail { justify-content:flex-start; }
+@media(max-width:1100px) {
+  #detailContent.detail-with-vehicle-sidebar { display:block; }
+  #detailContent.detail-with-vehicle-sidebar > .vehicle-records-panel {
+    position:static; max-height:none; overflow:visible;
+  }
+}
