@@ -1078,6 +1078,101 @@ function reportSummary(job, records) {
   </section>`;
 }
 
+function jobInspectors(job) {
+ const names=new Set();
+ for(const record of liveRecords(job)){
+  const person=text(record.inspector||record.checkedBy);
+  if(person)names.add(person);
+  for(const value of Array.isArray(record.criterionResults)?record.criterionResults:[]){
+   const name=text(value.inspector);if(name)names.add(name);
+  }
+ }
+ return [...names];
+}
+function completedSlideCards(job) {
+ if(!finished(job))return '';
+ const records=liveRecords(job),counts=DOMAIN.summary([{...job,records}]),criteria=DOMAIN.criteria(job);
+ const rate=counts.total?(counts.NG*100/counts.total).toFixed(1)+'%':'0.0%';
+ const names=jobInspectors(job);
+ const card=(key,heading,body)=>`<section class="slide-tile">
+  <div class="slide-tile-content" data-slide-capture="${key}">
+    <div class="slide-tile-brand"><b>KUBOTA</b> / STOCK INSPECTION</div>
+    <h3>${heading}</h3><p class="slide-tile-job">${html(job.title)}</p>
+    ${body}
+    <footer>JOB: ${html(job.id)}</footer>
+  </div>
+  <div class="slide-tile-actions no-print">
+   <button type="button" class="btn secondary sm" data-slide-copy="${key}">${icon('copy')} คัดลอกภาพ</button>
+   <button type="button" class="btn ghost sm" data-slide-download="${key}">${icon('download')} บันทึก PNG</button>
+  </div>
+ </section>`;
+ const photo=(label,url)=>url?`<img class="slide-tile-image" src="${html(url)}" crossorigin="anonymous" loading="eager" alt="${label}">`:'<div class="slide-tile-empty">ยังไม่มีรูปอ้างอิง</div>';
+ return `<section class="completed-slide-section no-print"><div class="completed-slide-head">
+   <h2>${icon('presentation')} สรุปสำหรับนำไปทำสไลด์</h2>
+   <p>คัดลอกกล่องเป็นภาพไปวาง PowerPoint ได้ หรือบันทึก PNG แยกกล่อง · ยอดจากผลตรวจทุกคัน</p>
+  </div><div class="slide-tile-grid">
+  ${card('method','วิธีการตรวจสอบ',`<p class="slide-tile-main">${html(job.checkingMethod||'ยังไม่ระบุวิธีการตรวจสอบ')}</p>`)}
+  ${card('criteria','เกณฑ์การตรวจสอบ',criteria.length?`<ol class="slide-tile-criteria">${criteria.map(c=>`<li>${html(c.label)}</li>`).join('')}</ol>`:'<p>ยังไม่มีเกณฑ์</p>')}
+  ${card('ok-photo','รูปตัวอย่าง OK',photo('รูปตัวอย่าง OK',safeLink(job.okPictureUrl)))}
+  ${card('ng-photo','รูปตัวอย่าง NG',photo('รูปตัวอย่าง NG',safeLink(job.ngPictureUrl)))}
+  ${card('results','สรุปผลการตรวจ',`<div class="slide-tile-numbers">
+    <div><small>ตรวจทั้งหมด</small><strong>${counts.total}</strong><span>คัน</span></div>
+    <div class="ok"><small>OK</small><strong>${counts.OK}</strong><span>คัน</span></div>
+    <div class="ng"><small>NG</small><strong>${counts.NG}</strong><span>คัน</span></div>
+    <div class="ng"><small>% NG</small><strong>${rate}</strong><span>ของทั้งหมด</span></div>
+   </div><p class="slide-tile-subtitle">พบ NG ${counts.NG} จาก ${counts.total} คัน · คิดเป็น ${rate}</p>`)}
+  ${card('inspectors','ผู้ร่วมตรวจสอบ',`<div class="slide-tile-team">${names.length?names.map(name=>`<span>${html(name)}</span>`).join(''):'<span>ไม่มีชื่อผู้ตรวจในข้อมูลที่บันทึก</span>'}</div>
+   <p class="slide-tile-subtitle">${names.length} คน · รวบรวมชื่อไม่ซ้ำจากผลตรวจรายคัน</p>`)}
+  </div><p class="slide-tile-help">การคัดลอกภาพขึ้นอยู่กับสิทธิ์คลิปบอร์ดของเบราว์เซอร์ หากคัดลอกไม่ได้ให้เลือกบันทึก PNG · รูปที่ไม่อนุญาต CORS อาจแปลงเป็นภาพไม่ได้</p>
+ </section>`;
+}
+async function renderSlideImage(key,mode,button) {
+ const job=findJob();
+ if(app.page!=='jobdetail'||!job||!finished(job))return;
+ if(!['method','criteria','ok-photo','ng-photo','results','inspectors'].includes(key))return;
+ const original=document.querySelector('[data-slide-capture="'+key+'"]');
+ if(!original)return;
+ const textBefore=button.textContent;
+ button.disabled=true;button.textContent='กำลังสร้างภาพ…';
+ let host;
+ try {
+  if(typeof window.html2canvas!=='function'){
+   if(!window.stockImageCapturePromise){
+    window.stockImageCapturePromise=new Promise((resolve,reject)=>{
+     const script=document.createElement('script');
+     script.src='https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+     script.onload=()=>typeof window.html2canvas==='function'?resolve():reject(Error('เครื่องมือสร้างรูปไม่พร้อม'));
+     script.onerror=()=>reject(Error('โหลดเครื่องมือสร้างรูปไม่สำเร็จ'));
+     document.head.append(script);
+    }).catch(error=>{window.stockImageCapturePromise=null;throw error});
+   }
+   await window.stockImageCapturePromise;
+  }
+  host=document.createElement('div');host.className='slide-image-export';
+  const clone=original.cloneNode(true);host.append(clone);document.body.append(host);
+  await Promise.all([...clone.querySelectorAll('img')].map(img=>img.complete?Promise.resolve():new Promise(resolve=>{
+   const timer=setTimeout(resolve,4500);
+   img.addEventListener('load',()=>{clearTimeout(timer);resolve()},{once:true});
+   img.addEventListener('error',()=>{clearTimeout(timer);resolve()},{once:true});
+  })));
+  const canvas=await window.html2canvas(clone,{backgroundColor:'#fff',scale:2,useCORS:true,allowTaint:false,logging:false});
+  const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+  if(!blob)throw Error('ไม่สามารถสร้างภาพ PNG ได้');
+  if(mode==='copy'){
+   if(!navigator.clipboard?.write||typeof ClipboardItem==='undefined')throw Error('เบราว์เซอร์ไม่รองรับคัดลอกภาพ กรุณาบันทึก PNG');
+   await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
+   showFeedback('คัดลอกภาพแล้ว · กด Ctrl+V ใน PowerPoint ได้เลย','success');
+  }else{
+   const url=URL.createObjectURL(blob),a=document.createElement('a');
+   a.href=url;a.download='STK_'+job.id.replace(/[^A-Za-z0-9_-]/g,'_')+'_'+key+'.png';
+   document.body.append(a);a.click();a.remove();
+   setTimeout(()=>URL.revokeObjectURL(url),10000);
+   showFeedback('บันทึกภาพ PNG แล้ว','success');
+  }
+ }catch(error){showFeedback('สร้างภาพไม่สำเร็จ: '+text(error?.message||'ไม่ทราบสาเหตุ'),'warning')}
+ finally{host?.remove();button.disabled=false;button.textContent=textBefore}
+}
+
 function renderDetail() {
   const job = findJob();
   const root = $('detailContent');
@@ -1153,6 +1248,7 @@ function renderDetail() {
     ${job.notes ? `<section class="inspection-info-section notes-visible"><h2>หมายเหตุงาน</h2><p class="detail-desc">${html(job.notes)}</p></section>` : ''}
     ${action && !active ? `<div class="detail-actions">${action}</div>` : ''}
   </section>
+  ${completed ? completedSlideCards(job) : ''}
   ${detailNotice(job)}${transferMarkup(job)}
 
   ${completed ? `<div class="report-actions no-print"><button class="btn secondary" type="button" data-preview-job="${html(job.id)}">${icon('eye')} ดูรายงาน</button><button class="btn primary" type="button" data-export-job="${html(job.id)}">${icon('download')} ดาวน์โหลด PDF</button></div>` : ''}
@@ -2242,7 +2338,9 @@ async function handleClick(event) {
     return;
   }
   if (action === 'close-mobile-nav') { closeMobileNav(true); return; }
-  if (button.dataset.photoCheck) { await checkPhotoTransfer(button.dataset.photoCheck);
+  if (button.dataset.slideCopy || button.dataset.slideDownload) {
+    await renderSlideImage(button.dataset.slideCopy||button.dataset.slideDownload,button.dataset.slideCopy?'copy':'download',button);
+  } else if (button.dataset.photoCheck) { await checkPhotoTransfer(button.dataset.photoCheck);
   } else if (button.dataset.exportJob) {
     await exportReportPdf(button.dataset.exportJob);
   } else if (button.dataset.previewJob) {
