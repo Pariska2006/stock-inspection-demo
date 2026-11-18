@@ -284,3 +284,33 @@ html { scroll-padding-bottom:100px }
  .vehicle-status-mini {padding:12px}
  .vehicle-status-mini strong {font-size:27px}
 }
+
+/* Job detail overview: total left, completed and in-progress stacked right */
+.job-inspection-summary{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,.88fr);grid-template-rows:repeat(2,minmax(0,1fr));gap:12px;margin:18px 0 16px}
+.job-inspection-summary-card{min-width:0;display:flex;flex-direction:column;justify-content:space-between;gap:10px;padding:18px 20px;border:1px solid #dbe5e0;border-radius:14px;background:#fff}
+.job-inspection-summary-card.total{grid-column:1;grid-row:1/3;background:#f9fcfa}
+.job-inspection-summary-card.done{grid-column:2;grid-row:1;background:#f2faf5;border-color:#cfe8d7}
+.job-inspection-summary-card.ongoing{grid-column:2;grid-row:2;background:#fffcf4;border-color:#f0e0bf}
+.job-inspection-summary-label{display:flex;align-items:center;gap:8px;color:#52635b;font-size:13px;font-weight:650;line-height:1.4}
+.job-inspection-summary-label .ico{width:18px;height:18px;flex:none}
+.job-inspection-summary-card strong{font-size:34px;line-height:1.05;letter-spacing:-.03em;color:#24342b;font-weight:750}
+.job-inspection-summary-card.total strong{font-size:52px}
+.job-inspection-summary-card.done strong{color:#147a43}
+.job-inspection-summary-card.ongoing strong{color:#a7670b}
+.job-inspection-summary-card small{font-size:11px;color:#687a70;line-height:1.45}
+@media(min-width:900px){
+  .job-inspection-summary{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:1fr}
+  .job-inspection-summary-card.total,.job-inspection-summary-card.done,.job-inspection-summary-card.ongoing{grid-row:1}
+  .job-inspection-summary-card.total{grid-column:1}
+  .job-inspection-summary-card.done{grid-column:2}
+  .job-inspection-summary-card.ongoing{grid-column:3}
+}
+@media(max-width:480px){
+  .job-inspection-summary{grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:9px}
+  .job-inspection-summary-card{padding:14px 12px;border-radius:13px;gap:7px}
+  .job-inspection-summary-label{font-size:11px;gap:5px}
+  .job-inspection-summary-label .ico{width:15px;height:15px}
+  .job-inspection-summary-card strong{font-size:28px}
+  .job-inspection-summary-card.total strong{font-size:44px}
+  .job-inspection-summary-card small{font-size:10px}
+}
