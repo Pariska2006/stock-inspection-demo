@@ -1024,6 +1024,7 @@ async function exportReportPdf(jobId) {
   }
   await Promise.all([...root.querySelectorAll('img')].map(img=>
    img.complete?Promise.resolve():new Promise(resolve=>{img.addEventListener('load',resolve,{once:true});img.addEventListener('error',resolve,{once:true});setTimeout(resolve,7000)})));
+  await document.fonts.ready;
   // Explicit image dimensions prevent html2canvas from stretching portrait/circular reference photos.
   for(const img of target.querySelectorAll('.report-reference-cell img')){
    if(!img.naturalWidth||!img.naturalHeight)continue;
@@ -1035,9 +1036,9 @@ async function exportReportPdf(jobId) {
   }
   await window.html2pdf().set({
    margin:0,filename,image:{type:'jpeg',quality:0.94},
-   html2canvas:{scale:2,useCORS:true,allowTaint:false,backgroundColor:'#fff',logging:false},
+   html2canvas:{scale:3,useCORS:true,allowTaint:false,backgroundColor:'#fff',logging:false},
    jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
-   pagebreak:{mode:['avoid-all']}
+   pagebreak:{mode:['css','legacy']}
   }).from(target).save();
   done=true;
  }catch(error){
@@ -1131,8 +1132,29 @@ function jobDetailsCapture(job) {
     ${criteria.length?`<ol>${criteria.map(c=>`<li>${html(text(c.label))}</li>`).join('')}</ol>`:'<p class="hint">ยังไม่มีเกณฑ์การตรวจสอบ</p>'}</div>
    ${referencePictures(job)}
  </section>
- <div class="detail-copy-actions no-print"><button class="btn secondary sm" data-slide-copy="job-details" type="button">${icon('copy')} คัดลอกรายละเอียดเป็นภาพ</button>
-  <button class="btn secondary sm" data-slide-download="job-details" type="button">${icon('download')} บันทึกรูป PNG</button></div>`;
+ ${captureActions('job-details','รายละเอียด')}`;
+}
+function captureActions(key,label) {
+ return `<div class="detail-copy-actions no-print">
+   <button class="btn secondary sm" type="button" data-slide-copy="${key}">${icon('copy')} คัดลอก${label}เป็นภาพ</button>
+   <button class="btn secondary sm" type="button" data-slide-download="${key}">${icon('download')} บันทึกรูป PNG</button>
+  </div>`;
+}
+function inspectionSummaryCapture(job) {
+ const {total,OK,NG,pending}=DOMAIN.summary([{...job,records:liveRecords(job)}]);
+ const pct=n=>total?(100*n/total).toFixed(1)+'%':'0.0%';
+ return `<section class="inspection-summary-capture" data-slide-capture="job-summary">
+   <div class="inspection-summary-title"><h2>สรุปผลการตรวจ</h2><span>${html(job.docNo2||job.title)}</span></div>
+   <div class="inspection-summary-metrics">
+    <div class="summary-metric total"><small>ตรวจทั้งหมด</small><strong>${total}</strong><span>คัน</span></div>
+    <div class="summary-metric ok"><small>OK</small><strong>${OK}</strong><span>${pct(OK)}</span></div>
+    <div class="summary-metric ng"><small>NG</small><strong>${NG}</strong><span>${pct(NG)}</span></div>
+   </div>
+   <div class="inspection-summary-percent"><div><span>OK</span><strong>${pct(OK)}</strong></div>
+    <div class="summary-percent-track"><span style="width:${total?OK/total*100:0}%"></span></div>
+    <div><span>NG</span><strong>${pct(NG)}</strong></div></div>
+    ${pending?`<p class="inspection-summary-pending">ยังตรวจไม่ครบ ${pending} คัน</p>`:''}
+   </section>${captureActions('job-summary','สรุปผล')}`;
 }
 function renderRecordDetail() {
   const job = findJob();
@@ -1240,7 +1262,7 @@ function jobInspectors(job) {
 async function renderSlideImage(key,mode,button) {
  const job=findJob();
  if(app.page!=='jobdetail'||!job)return;
- if(key!=='job-details')return;
+ if(!['job-details','job-summary'].includes(key))return;
  const original=document.querySelector('[data-slide-capture="'+key+'"]');
  if(!original)return;
  const textBefore=button.textContent;
@@ -1273,7 +1295,8 @@ async function renderSlideImage(key,mode,button) {
    const ratio=Math.min(maxWidth/img.naturalWidth,maxHeight/img.naturalHeight);
    Object.assign(img.style,{width:Math.round(img.naturalWidth*ratio)+'px',height:Math.round(img.naturalHeight*ratio)+'px',objectFit:'fill',maxWidth:'none',maxHeight:'none'});
   }
-  const canvas=await window.html2canvas(clone,{backgroundColor:'#fff',scale:2,useCORS:true,allowTaint:false,logging:false});
+  await document.fonts.ready;
+  const canvas=await window.html2canvas(clone,{backgroundColor:'#fff',scale:3,useCORS:true,allowTaint:false,logging:false});
   const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
   if(!blob)throw Error('ไม่สามารถสร้างภาพ PNG ได้');
   if(mode==='copy'){
@@ -1372,6 +1395,7 @@ function renderDetail() {
       ${completed && dateValue(job.closedAt) ? `<div class="info"><small>Completion Date</small><span>${niceDate(job.closedAt)}</span></div>` : ''}
     </div>
     ${jobDetailsCapture(job)}
+    ${inspectionSummaryCapture(job)}
     ${job.notes ? `<section class="inspection-info-section notes-visible"><h2>หมายเหตุงาน</h2><p class="detail-desc">${html(job.notes)}</p></section>` : ''}
     ${action && !active ? `<div class="detail-actions">${action}</div>` : ''}
   </section>
