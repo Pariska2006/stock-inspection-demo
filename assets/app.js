@@ -895,7 +895,7 @@ function renderReportPreview(){
  const root=$('previewContent');
  if(!job){root.innerHTML='<p class="empty">เลือกงานที่ตรวจเสร็จแล้วจากหน้า Reports</p>';return}
  if(!finished(job)){root.innerHTML='<div class="notice warning">รายงานพร้อมหลังจบการตรวจ</div>';return}
- if(!app.jobsLive||app.partial||!app.recordRead||app.loadError){root.innerHTML='<div class="notice warning">ข้อมูล Microsoft Lists ไม่ครบ กรุณารีเฟรชก่อนเปิดรายงาน</div>';return}
+ if(!app.jobsLive||app.partial||!app.recordRead||app.loadError){root.innerHTML='<div class="notice warning">ข้อมูลยังไม่ครบ กรุณารีเฟรชก่อนเปิดรายงาน</div>';return}
  root.innerHTML=`<div class="report-toolbar no-print"><div><strong>ตัวอย่างรายงาน · A4 หนึ่งหน้า</strong><p class="hint">อ้างอิงฟอร์ม Confirm Tractor in Stock Report · แสดงข้อมูลสรุปจาก Lists</p></div>
   <div class="report-toolbar-actions"><button class="btn secondary" type="button" data-action="print-report">${icon('printer')} พิมพ์</button>
   <button class="btn primary" type="button" data-export-job="${html(job.id)}">${icon('download')} ดาวน์โหลด PDF</button></div>
@@ -904,7 +904,7 @@ function renderReportPreview(){
 async function exportReportPdf(jobId) {
  const job=selectedJobs().find(j=>j.id===jobId&&finished(j));
  if(!job)return showFeedback('เปิดดาวน์โหลดได้เฉพาะงานที่จบการตรวจแล้ว','warning');
- if(!app.jobsLive||app.partial||!app.recordRead||app.loadError)return showFeedback('ข้อมูล Lists ยังไม่ครบ จึงยังดาวน์โหลดรายงานไม่ได้','warning');
+ if(!app.jobsLive||app.partial||!app.recordRead||app.loadError)return showFeedback('ข้อมูลยังไม่ครบ กรุณาโหลดใหม่ก่อนดาวน์โหลดรายงาน','warning');
  const original=document.getElementById('reportPdfExport');
  if(original)original.remove();
  const root=document.createElement('div');
@@ -949,23 +949,12 @@ const manualScope = 'manual-job';
 const criteriaSlots = job => DOMAIN.criteria(job).map(c => c.slot);
 
 const pendingControls = scope => app.pending.has(scope) ? (() => {
-  const descriptor = app.pending.get(scope).descriptor;
-  const status = text(descriptor.response?.status);
-  const statusText = status === 'WRITE_REQUEST_ACCEPTED' ? 'STK_08 ตอบรับคำขอแล้ว แต่ Lists ยังไม่ยืนยันการจบงาน' :
-    status ? 'STK_08 ตอบกลับ: ' + status :
-    'ยังไม่มีคำตอบรับที่บันทึกไว้จาก STK_08 (อาจส่งไม่ถึงหรือเกิดข้อผิดพลาดระหว่างเชื่อมต่อ)';
-  const received = text(descriptor.response?.requestId);
-  const sent = text(descriptor.createdAt);
+  const descriptor=app.pending.get(scope).descriptor;
   return `<div class="section-actions">
+    <p class="notice warning">มีรายการที่ยังรอตรวจสอบผล กรุณาตรวจสอบก่อนทำรายการใหม่ เพื่อป้องกันข้อมูลซ้ำ</p>
     <button class="btn secondary" type="button" data-action="check-save">${icon('refresh')} ตรวจสอบผลบันทึก</button>
-    ${app.page === 'jobdetail' && descriptor.action === 'finishJob'
-      ? `<button class="btn ghost" type="button" data-action="recover-finish">${icon('shield-check')} ตรวจสอบและปลดคำขอจบงานที่ค้าง</button>
-         <div class="finish-pending-diagnostic" role="status"><strong>รายละเอียดคำขอจบงาน</strong>
-         <span>${html(statusText)}</span>
-         <span>รหัสคำขอ: <code>${html(text(descriptor.clientRequestId))}</code></span>
-         ${received ? `<span>STK_08 Request ID: <code>${html(received)}</code></span>` : ''}
-         ${sent ? `<span>สร้างคำขอ: ${html(niceDate(sent))}</span>` : ''}
-         <small>ตรวจเทียบรหัสกับ STK_08 Executions และ STK_06 Run History ก่อนส่งใหม่</small></div>`
+    ${app.page==='jobdetail' && descriptor.action==='finishJob'
+      ? `<button class="btn ghost" type="button" data-action="recover-finish">${icon('shield-check')} ตรวจสอบรายการที่ค้าง</button>`
       : ''}
    </div>`;
 })() : '';
@@ -1782,8 +1771,8 @@ async function confirmPending(scope, attempts = 7) {
   const diagnosis = newest
     ? 'STK_07 อ่านข้อมูลได้ แต่ยังไม่พบผลที่ยืนยันคำขอนี้'
     : 'STK_07 อ่านผลยืนยันไม่ได้: ' + (lastReadError || 'ไม่มีการตอบกลับ');
-  showFeedback('คำขอ ' + pendingAction + ' ยังรอยืนยัน · ' + diagnosis +
-    ' · กรุณาตรวจ STK_08 / STK_06 โดยใช้คำขอเดิม ห้ามส่งซ้ำ', 'warning');
+  console.warn('Pending write still unconfirmed', {action:pendingAction,diagnosis});
+  showFeedback('ยังตรวจสอบผลการ'+pendingAction+'ไม่เสร็จ กรุณากด “ตรวจสอบผลบันทึก” และอย่าส่งซ้ำ', 'warning');
   return false;
 }
 
@@ -1801,7 +1790,8 @@ async function trackWrite(scope, action, payload, makeMatcher, onSaved) {
   try {
     response = await post(WRITE_API_URL, action, { payload, clientRequestId: descriptor.clientRequestId });
   } catch (error) {
-    showFeedback('ติดต่อ STK_08 ไม่สำเร็จ: ' + text(error?.message || 'ไม่ทราบสาเหตุ') + ' · คำขอยังค้าง ห้ามกดส่งซ้ำจนกว่าจะตรวจสอบผล', 'warning');
+    console.warn('Write submission could not be confirmed',error);
+    showFeedback('ยังยืนยันผลการส่งข้อมูลไม่ได้ กรุณากด “ตรวจสอบผลบันทึก” ก่อน อย่าส่งซ้ำ', 'warning');
     return false;
   }
   const code = text(response?.status || response?.code || 'UNKNOWN_RESPONSE');
@@ -1820,13 +1810,13 @@ async function trackWrite(scope, action, payload, makeMatcher, onSaved) {
     app.pending.delete(scope);
     persistPending();
     syncFormControls();
-    showFeedback('STK_08 ไม่รับคำขอ (' + code + ')' + (detail ? ': ' + detail : '') +
-      ' · ยังไม่มีการส่งบันทึกไป STK_06', 'error');
+    console.warn('Write rejected before processing',{code,detail});
+    showFeedback(code==='NOT_APPROVED'||code==='PERMISSION_DENIED'?'บัญชีนี้ยังไม่มีสิทธิ์ทำรายการ กรุณาติดต่อผู้ดูแล':'ทำรายการไม่สำเร็จ กรุณาตรวจสอบข้อมูลแล้วลองอีกครั้ง', 'error');
     return false;
   }
   if (code !== 'WRITE_REQUEST_ACCEPTED') {
-    showFeedback('STK_08 ตอบกลับ ' + code + (detail ? ': ' + detail : '') +
-      ' · ยังไม่ยืนยันว่าข้อมูลลง Lists แล้ว กดตรวจสอบผลบันทึกหรือดู STK_08 > Executions ห้ามส่งซ้ำ', 'warning');
+    console.warn('Write status unconfirmed',{code,detail});
+    showFeedback('ยังยืนยันผลการบันทึกไม่ได้ กรุณากด “ตรวจสอบผลบันทึก” และอย่าส่งซ้ำ', 'warning');
     return false;
   }
   const matches = makeMatcher(response);
@@ -1854,12 +1844,12 @@ async function recoverPendingFinish() {
   try {
     const data=await readJobs();
     if(data.status!=='OK'||data.partial) {
-      return showFeedback('ข้อมูล STK_07 ยังไม่ครบ จึงไม่ปลดคำขอค้าง','warning');
+      return showFeedback('ข้อมูลล่าสุดยังไม่ครบ กรุณาลองใหม่อีกครั้ง','warning');
     }
     const latest=data.jobs.filter(Boolean).map(normalizeJob).find(item=>item.id===job.id);
     if(!latest || Number(latest.sharePointItemId)!==Number(pending.descriptor.payload.itemId) ||
        pending.descriptor.payload.jobKey!==job.id) {
-      return showFeedback('Job Key หรือ Item ID ใน Lists ไม่ตรงคำขอเดิม จึงไม่ปลดคำขอ','warning');
+      return showFeedback('รายการนี้มีข้อมูลเปลี่ยนไป กรุณาติดต่อผู้ดูแลก่อนทำรายการต่อ','warning');
     }
     if(finished(latest)) {
       applyJobs(data);
@@ -1874,7 +1864,7 @@ async function recoverPendingFinish() {
     }
     if(latest.status!=='progress') {
       applyJobs(data);
-      return showFeedback('สถานะงานใน Lists เปลี่ยนไปเป็น '+latest.status+' จึงยังไม่ปลดคำขอ','warning');
+      return showFeedback('สถานะงานเปลี่ยนไป กรุณาโหลดรายการใหม่','warning');
     }
     const records=liveRecords(latest);
     if(!records.length || records.some(record=>!vehicleInspection(latest,record).complete)) {
@@ -1998,7 +1988,7 @@ async function archiveJobFromWeb() {
   'นำงานออก','danger'))return;
  await withWrite(async()=>{
   const data=await readJobs();
-  if(data.status!=='OK'||data.partial)return showFeedback('STK_07 อ่านข้อมูลไม่ครบ จึงยังไม่ส่งคำสั่ง','warning');
+  if(data.status!=='OK'||data.partial)return showFeedback('ข้อมูลยังไม่ครบ กรุณาโหลดใหม่แล้วลองอีกครั้ง','warning');
   const current=data.jobs.filter(Boolean).map(normalizeJob).find(j=>j.id===job.id);
   if(!current||Number(current.sharePointItemId)!==Number(job.sharePointItemId)||
     current.status!==job.status||current.status==='deleted'){
@@ -2039,7 +2029,7 @@ async function finishJob() {
   await withWrite(async()=>{
     const {data,current}=await latestActiveJob(job);
     if(data.partial||data.status!=='OK'){
-      return showFeedback('ข้อมูล STK_07 ยังไม่ครบ จึงยังไม่ส่งคำสั่งจบงาน กรุณาโหลดใหม่','warning');
+      return showFeedback('ข้อมูลยังไม่ครบ กรุณาโหลดใหม่ก่อนจบงาน','warning');
     }
     const latest=liveRecords(current);
     const missing=latest.filter(record=>!vehicleInspection(current,record).complete);
