@@ -1443,7 +1443,7 @@ async function confirmPending(scope, attempts = 7) {
   const pending = app.pending.get(scope);
   const epoch = sessionEpoch;
   if (!pending) return true;
-  let newest;
+  let newest, lastReadError = '';
   const deadline = Date.now() + 24000;
   for (let attempt = 0; attempt < attempts; attempt++) {
     if (attempts > 1) await delay(attempt ? 1900 : 650);
@@ -1451,11 +1451,17 @@ async function confirmPending(scope, attempts = 7) {
     if (remaining < 500) break;
     try {
       newest = await readJobs(Math.min(10000, remaining));
-    } catch {
+    } catch (error) {
+      lastReadError = text(error?.message || 'ไม่ทราบสาเหตุ');
+      newest = null;
       continue;
     }
     if (epoch !== sessionEpoch || !app.member) return false;
-    if (newest.partial || newest.status !== 'OK') continue;
+    if (newest.partial || newest.status !== 'OK') {
+      lastReadError = 'STK_07 ส่งข้อมูลไม่ครบ (status: ' + text(newest.status) + ', partial: ' + String(!!newest.partial) + ')';
+      newest = null;
+      continue;
+    }
     const jobs = newest.jobs.filter(Boolean).map(normalizeJob);
     const deletingJob = pending.descriptor.action === 'deleteJob';
     const match = deletingJob
@@ -1473,7 +1479,15 @@ async function confirmPending(scope, attempts = 7) {
     }
   }
   if (newest && app.member) applyJobs(newest);
-  showFeedback(newest ? 'ยังไม่พบผลบันทึกที่ยืนยันได้ กรุณาตรวจสอบอีกครั้ง' : 'ยังยืนยันผลไม่ได้ กรุณาตรวจสอบอีกครั้งเมื่อเชื่อมต่อได้', 'warning');
+  const pendingAction = pending.descriptor.action === 'finishJob' ? 'จบการตรวจ' :
+    pending.descriptor.action === 'saveInspection' ? 'บันทึกผลตรวจรถ' :
+    pending.descriptor.action === 'deleteInspection' ? 'ลบรถ' :
+    pending.descriptor.action === 'deleteJob' ? 'ลบงาน' : pending.descriptor.action;
+  const diagnosis = newest
+    ? 'STK_07 อ่านข้อมูลได้ แต่ยังไม่พบผลที่ยืนยันคำขอนี้'
+    : 'STK_07 อ่านผลยืนยันไม่ได้: ' + (lastReadError || 'ไม่มีการตอบกลับ');
+  showFeedback('คำขอ ' + pendingAction + ' ยังรอยืนยัน · ' + diagnosis +
+    ' · กรุณาตรวจ STK_08 / STK_06 โดยใช้คำขอเดิม ห้ามส่งซ้ำ', 'warning');
   return false;
 }
 
