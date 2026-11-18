@@ -1402,7 +1402,7 @@ function renderDetail() {
   root.classList.remove('detail-with-vehicle-sidebar');
   const action = isNew ? `<button class="btn primary" type="button" data-action="select-job">${icon('check')} ตั้งค่าก่อนเริ่มตรวจ</button>` :
     active ? `<button class="btn primary" type="button" data-action="inspect-job">${icon('plus')} เพิ่มการตรวจ</button>` :
-    url ? `<a class="btn primary" href="${html(url)}" target="_blank" rel="noopener noreferrer">${icon('download')} ดาวน์โหลด PDF</a>` : '';
+    '';
   root.innerHTML = `<section class="panel job-detail-head">
     ${completed ? '<p class="report-caption">Report Preview</p>' : ''}
     <div class="detail-kicker"><span>${html(claimNumber(job))}</span>${statusBadge(job.status)}${active ? starButton(job) : ''}</div>
@@ -1446,7 +1446,6 @@ function renderDetail() {
 
   ${detailNotice(job)}${transferMarkup(job)}
 
-  ${completed ? `<div class="report-actions no-print"><button class="btn secondary" type="button" data-preview-job="${html(job.id)}">${icon('eye')} ดูรายงาน</button><button class="btn primary" type="button" data-export-job="${html(job.id)}">${icon('download')} ดาวน์โหลด PDF</button></div>` : ''}
   ${completed ? `<section class="panel completed-work-records-intro"><h2>${icon('clipboard-check')} ประวัติการตรวจทั้งหมด</h2></section>` : ''}
   ${isNew ? '' : `<div class="vehicle-board-layout"><section class="panel vehicle-records-panel">
     <div class="panel-head"><div><h2>รถในรายการ</h2><span class="muted">${records.length} คัน${target > 0 ? ' จาก ' + target : ''}</span></div>
