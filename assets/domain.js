@@ -35,6 +35,17 @@
   const input=text(raw);if(!input||input.length>4096)throw Error('QR ไม่มีข้อมูลหรือยาวเกินกำหนด');
   let pairs=[];
   if(input.startsWith('{')){let d;try{d=JSON.parse(input)}catch{throw Error('QR JSON ไม่ถูกต้อง')}if(!d||Array.isArray(d)||typeof d!=='object')throw Error('รูปแบบ QR ไม่รองรับ');pairs=Object.entries(d)}
+  // Kubota factory QR labels use TAB-delimited prefixes such as PIN, MD, SN and WGN.
+  else if(input.includes('\t')){
+    const fields=input.split(/\t+/).map(part=>part.trim()).filter(Boolean);
+    const labels=['PIN','WGN','MD','SN','EMC','ESN'];
+    pairs=fields.map(part=>{
+      const label=labels.find(prefix=>part.toUpperCase().startsWith(prefix));
+      if(!label||part.length<=label.length)throw Error('QR ป้ายรถมีช่องข้อมูลที่ไม่รองรับ');
+      return [label==='WGN'?'model':label,part.slice(label.length).trim()];
+    });
+    if(!pairs.some(([name])=>name==='PIN'))throw Error('QR นี้ไม่มี PIN กรุณาสแกน QR บนป้ายรถ');
+  }
   else if(/[=:;|\n]/.test(input)){pairs=input.split(/[;|\n]/).filter(v=>v.trim()).map(v=>{const m=v.match(/^\s*([^=:]+?)\s*[:=]\s*(.+?)\s*$/);if(!m)throw Error('รูปแบบ QR หลายส่วนไม่รองรับ');return [m[1],m[2]]})}
   else {const serial=code(input);if(!serialPattern.test(serial))throw Error('Serial ใน QR ไม่ถูกต้อง');return {serial,pin:'',model:'',identifierType:'unlabelled',fields:[]}}
   const key=s=>text(s).toLowerCase().replace(/[\s_./-]/g,'');
