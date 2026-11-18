@@ -1933,7 +1933,7 @@ function removePhoto(slot) {
 }
 
 function attachInspectionPhoto(file, slot = '1') {
-  if (!file || app.busy || app.page !== 'inspection') return false;
+  if (!file || app.busy || !['inspection','jobform'].includes(app.page)) return false;
   const previewRoot = $('cameraPreview' + slot);
   const state = $('cameraState' + slot);
   if (!previewRoot || !state || !file.type.startsWith('image/') || file.size > 15 * 1024 * 1024) return false;
