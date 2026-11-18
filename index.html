@@ -7,7 +7,7 @@
   <meta name="description" content="Stock Inspection — Confirm Tractor in Stock">
   <title>Stock Inspection | KUBOTA — White Minimal Search Update</title>
 <link rel="stylesheet" href="assets/fonts.css?v=20261117-search2">
-<link rel="stylesheet" href="assets/styles.css?v=20261118-finish-visible-feedback">
+<link rel="stylesheet" href="assets/styles.css?v=20261118-confirm-tractor-report">
 
 </head>
 <body>
@@ -295,11 +295,11 @@
       <section class="view" id="reports">
         <div class="page-head"><div><h1 tabindex="-1"><svg class="ico report-title-icon" aria-hidden="true"><use href="#ic-file"></use></svg> Reports</h1></div><button class="btn ghost" type="button" data-action="refresh-jobs"><svg class="ico sm" aria-hidden="true"><use href="#ic-refresh"></use></svg> รีเฟรช</button></div>
         <div id="reportsLiveBanner" class="notice" role="status" hidden><span></span><button class="btn secondary sm" type="button" data-action="refresh-jobs" hidden>ลองอีกครั้ง</button></div>
-        <section class="panel report-controls"><div class="field"><label for="reportJob">ค้นหาชื่อปัญหา</label><input class="control" id="reportJob" type="search" list="reportJobOptions" autocomplete="off" placeholder="พิมพ์ชื่อปัญหา หรือเลขเคลม" aria-describedby="reportJobHint"><datalist id="reportJobOptions"></datalist><small class="hint" id="reportJobHint">แสดงเฉพาะงานที่จบการตรวจเรียบร้อยแล้ว</small></div><button class="btn primary" id="previewProblem" type="button" data-action="preview-report">ดูรายงาน / พิมพ์ PDF</button></section>
+        <section class="panel report-controls"><div class="field"><label for="reportJob">ค้นหาชื่อปัญหา</label><input class="control" id="reportJob" type="search" list="reportJobOptions" autocomplete="off" placeholder="พิมพ์ชื่อปัญหา หรือเลขเคลม" aria-describedby="reportJobHint"><datalist id="reportJobOptions"></datalist><small class="hint" id="reportJobHint">แสดงเฉพาะงานที่จบการตรวจเรียบร้อยแล้ว · เลือกดูรายงานได้โดยไม่เปิดหน้าพิมพ์</small></div><button class="btn primary" id="previewProblem" type="button" data-action="preview-report">ดูรายงาน</button></section>
         
         <section class="panel">
           <div class="panel-head"><h2>งานที่จบการตรวจแล้ว</h2></div>
-          <p class="hint">จะแสดงเฉพาะงานที่กด “จบการตรวจ” และยืนยันสถานะสำเร็จแล้ว เปิดสรุปเพื่อดาวน์โหลด PDF หรือพิมพ์ได้ทันที</p>
+          <p class="hint">จะแสดงเฉพาะงานที่กด “จบการตรวจ” และยืนยันสถานะสำเร็จแล้ว เลือก “ดูรายงาน” หรือ “ดาวน์โหลด PDF” ได้แยกกัน</p>
           <div id="reportList"></div>
         </section>
       </section>
@@ -357,7 +357,7 @@
 <script defer src="assets/mock.js?v=20261117-search2"></script>
 <script defer src="assets/vendor/jsQR.js?v=20261117-search2"></script>
 <script defer src="assets/scanner.js?v=20261118-ui-note-model-board"></script>
-<script defer src="assets/app.js?v=20261118-finish-request-trace"></script>
+<script defer src="assets/app.js?v=20261118-confirm-tractor-report"></script>
 </body>
 </html>
 
