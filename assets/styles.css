@@ -698,3 +698,12 @@ html { scroll-padding-bottom:100px }
  @page{size:A4 portrait;margin:0}
  #reportpreview .reference-report{width:210mm!important;max-width:210mm!important;margin:0!important;padding:8mm 10mm!important;border:0!important;box-shadow:none!important}
 }
+
+/* Monthly progress belongs on Overview, not Home. */
+.overview-monthly-panel{margin:18px 0 26px;grid-template-columns:minmax(0,1fr) minmax(230px,360px)}
+.overview-monthly-panel h2{margin:4px 0 6px}
+@media(max-width:700px){.overview-monthly-panel{grid-template-columns:1fr}}
+/* While the private image index is loading, show a clear nonblocking state. */
+.report-photo-sync{display:block;margin-top:5px;font-size:12px;font-weight:500;color:#28744d}
+.report-reference-empty{padding:14px;text-align:center;line-height:1.5}
+.pdf-export-canvas .report-reference-cell img{object-fit:contain!important}
