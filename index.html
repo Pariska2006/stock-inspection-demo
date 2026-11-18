@@ -167,7 +167,7 @@
   <div class="gate-shell">
     <div class="gate-brand"><img class="kubota-logo" src="assets/kubota.png" alt="Kubota"><h1 lang="en">Stock Inspection</h1><p class="brand-subtitle">ระบบตรวจสต็อก</p></div>
     <div class="gate-card">
-      <div id="gateLoading"><h2>กำลังตรวจสอบสิทธิ์</h2></div>
+      <div id="gateLoading"><h2>กำลังเข้าสู่ระบบ…</h2></div>
       <div id="gateLogin" hidden>
         <h2>เข้าสู่ระบบ</h2><p>ใช้บัญชี LINE เพื่อเข้าถึงงานตรวจสต็อกของหน่วยงาน</p>
         <button class="btn primary full" id="gateLoginButton">เข้าสู่ระบบด้วย LINE <svg class="ico sm" aria-hidden="true"><use href="#ic-arrow"></use></svg></button>
@@ -194,8 +194,8 @@
         <button class="gate-link" id="gateBlockedLogout">เปลี่ยนบัญชี LINE</button>
       </div>
       <div id="gateError" hidden>
-        <h2>เชื่อมต่อไม่สำเร็จ</h2><p>ตรวจสอบอินเทอร์เน็ตแล้วลองอีกครั้ง</p>
-        <button class="btn primary full" id="gateRetry">ลองอีกครั้ง</button>
+        <h2>ยังเข้าสู่ระบบไม่ได้</h2><p>กรุณาลองใหม่อีกครั้ง หากยังเข้าไม่ได้ให้ตรวจสอบอินเทอร์เน็ตหรือติดต่อผู้ดูแล</p>
+        <button class="btn primary full" id="gateRetry">ลองใหม่อีกครั้ง</button>
         <button class="gate-link" id="gateErrorLogout">เข้าสู่ระบบ LINE ใหม่</button>
       </div>
       <div class="gate-state" id="gateMessage" role="status" aria-live="polite"></div>
@@ -360,7 +360,7 @@
 <script defer src="assets/mock.js?v=20261117-search2"></script>
 <script defer src="assets/vendor/jsQR.js?v=20261117-search2"></script>
 <script defer src="assets/scanner.js?v=20261118-ui-note-model-board"></script>
-<script defer src="assets/app.js?v=20261118-members-team-history"></script>
+<script defer src="assets/app.js?v=20261118-friendly-login-retry"></script>
 </body>
 </html>
 
