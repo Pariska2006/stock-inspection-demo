@@ -353,7 +353,7 @@ async function loadJobPhotos(key,refresh=false){
  const job=findJob(key);if(!job)return null;
  const epoch=sessionEpoch;
  const work=(async()=>{
-  const data=await photoRequest({action:'list',jobKey:key},30000);
+  const data=await photoRequest({action:'list',jobKey:key},60000);
   if(data.status!=='OK'||!Array.isArray(data.photos))throw Error('ยังโหลดรูปภาพไม่ได้ กรุณาลองใหม่อีกครั้ง');
   if(epoch!==sessionEpoch)return null;
   const rows=data.photos.map(p=>({...p,itemId:Number(p.itemId),photoType:text(p.photoType).toUpperCase()})).filter(p=>Number.isSafeInteger(p.itemId)&&p.itemId>0&&['SERIAL','JOB_OK','JOB_NG','JOB_METHOD'].includes(p.photoType)&&safeLink(p.url));
@@ -498,7 +498,7 @@ function sortJobs(a, b) {
 }
 
 async function readJobs(timeout) {
-  const data = await StockAdapter.readPages(cursor => post(JOBS_API_URL, 'jobs', { cursor }, timeout));
+  const data = await StockAdapter.readPages(cursor => post(JOBS_API_URL, 'jobs', { cursor }, timeout ?? 35000));
   return data;
 }
 
