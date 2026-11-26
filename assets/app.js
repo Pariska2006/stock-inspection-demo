@@ -330,7 +330,7 @@ async function photoRequest(body,timeout=45000){
  try{
   const response=await fetch(PHOTO_UPLOAD_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,idToken:idToken()}),signal:controller.signal,cache:'no-store'});
   const data=await response.json().catch(()=>null);
-  if(!response.ok||!data||data.status==='ERROR'){console.warn('Image service failed',{status:response.status,code:data?.status});throw Error('จัดการรูปภาพไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')}
+  if(!response.ok||!data||data.status==='ERROR'){console.warn('Image service failed',{status:response.status,code:data?.status});const error=Error(response.status===403?'ตรวจสอบสิทธิ์หรือข้อมูลงานไม่ได้':response.status===413?'รูปมีขนาดหรือรูปแบบไม่ถูกต้อง':response.status===409?'งานนี้ไม่สามารถแก้ไขรูปได้':'จัดการรูปภาพไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');error.httpStatus=response.status;throw error}
   return data;
  }finally{clearTimeout(timer)}
 }
@@ -353,15 +353,15 @@ async function loadJobPhotos(key,refresh=false){
  const job=findJob(key);if(!job)return null;
  const epoch=sessionEpoch;
  const work=(async()=>{
-  const data=await photoRequest({action:'list',jobKey:key},60000);
+  const data=await photoRequest({action:'list',jobKey:key},90000);
   if(data.status!=='OK'||!Array.isArray(data.photos))throw Error('ยังโหลดรูปภาพไม่ได้ กรุณาลองใหม่อีกครั้ง');
   if(epoch!==sessionEpoch)return null;
   const rows=data.photos.map(p=>({...p,itemId:Number(p.itemId),photoType:text(p.photoType).toUpperCase()})).filter(p=>Number.isSafeInteger(p.itemId)&&p.itemId>0&&['SERIAL','JOB_OK','JOB_NG','JOB_METHOD'].includes(p.photoType)&&safeLink(p.url));
-  const index={loadedAt:Date.now(),rows};app.photoAssets.set(key,index);overlayPhotos(job);
+  const index={loadedAt:Date.now(),rows};app.photoAssets.set(key,index);const current=findJob(key);if(current)overlayPhotos(current);
   if(['jobdetail','recorddetail','reportpreview'].includes(app.page)&&(app.selected===key||app.reportJob===key))renderCurrent();
   return index;
  })();
- photoRequests.set(key,work);try{return await work}finally{photoRequests.delete(key)}
+ photoRequests.set(key,work);try{return await work}finally{if(photoRequests.get(key)===work)photoRequests.delete(key)}
 }
 function loadVisiblePhotos(page){
  const key=page==='reportpreview'?app.reportJob:app.selected;
@@ -1895,7 +1895,7 @@ async function confirmPending(scope, attempts = 7) {
       newest = null;
       continue;
     }
-    if (epoch !== sessionEpoch || !app.member) return false;
+    if (epoch !== sessionEpoch || !app.member || app.pending.get(scope)!==pending) return false;
     if (newest.partial || newest.status !== 'OK') {
       lastReadError = 'STK_07 ส่งข้อมูลไม่ครบ (status: ' + text(newest.status) + ', partial: ' + String(!!newest.partial) + ')';
       newest = null;
@@ -1910,7 +1910,7 @@ async function confirmPending(scope, attempts = 7) {
       : jobs.find(job => pending.matches(job, newest));
     if (match) {
       app.pending.delete(scope);
-      persistPending();
+      if (!persistPending()) { app.pending.set(scope,pending); showFeedback('ยืนยันข้อมูลแล้ว แต่ยังบันทึกสถานะในเครื่องไม่ได้ กรุณาตรวจสอบอีกครั้ง','warning'); return false; }
       clearSavedDraft(scope);
       applyJobs(newest);
       await pending.onSaved(deletingJob ? null : match);
@@ -2393,7 +2393,8 @@ function recordMatches(record,payload){
 function inspectionSnapshot(job,record){return JSON.stringify([record.version,DOMAIN.criteria(job,record).map(c=>[c.label,DOMAIN.criterionValue(record,c)]),record.product,record.model,record.location,record.lotNo,record.checkedAt,record.note,record.ngDetail,record.photoSlots])}
 async function latestActiveJob(job){
  const data=await readJobs();const current=data.jobs.filter(Boolean).map(normalizeJob).find(item=>item.id===job.id);
- if(!current||current.status!=='progress'){applyJobs(data);throw Error('งานนี้เปลี่ยนสถานะ กรุณาเปิดงานล่าสุด')}
+ if(data.status!=='OK'||data.partial)throw Error('ข้อมูลล่าสุดยังไม่ครบ กรุณาลองใหม่');
+ if(!current||current.status!=='progress'||Number(current.sharePointItemId)!==Number(job.sharePointItemId)){applyJobs(data);throw Error('งานนี้เปลี่ยนสถานะ กรุณาเปิดงานล่าสุด')}
  return {data,current};
 }
 async function submitInspection(event){
@@ -2504,7 +2505,7 @@ async function checkPhotoTransfer(requestId){
   const index=await loadJobPhotos(entry.jobId,true);
   const found=index?.rows.find(p=>p.requestId===requestId&&p.photoType===entry.photoType&&p.itemId===entry.itemId);
   if(found){entry.state='Uploaded';entry.message='บันทึกรูปภาพเรียบร้อยแล้ว'}
-  else{entry.state='Pending';entry.message='ยังอ่านยืนยันรูปไม่ได้ · ไม่ส่งรูปซ้ำ'}
+  else{entry.state='Pending';entry.message=entry.receipt?'ยังอ่านยืนยันรูปไม่ได้ · ไม่ส่งรูปซ้ำ':'ไม่ได้รับรหัสยืนยันจากเซิร์ฟเวอร์ กรุณาให้ผู้ดูแลตรวจสอบก่อนส่งซ้ำ'}
  }catch(e){entry.state='Pending';entry.message='อ่านยืนยันรูปไม่ได้: '+e.message}
  saveTransfers();if(app.page==='jobdetail')renderDetail();
 }
@@ -2517,12 +2518,12 @@ async function uploadPhoto(file,job,serial,slot,itemId){
  if(MOCK||!liveWritesAllowed()||!safeLink(PHOTO_UPLOAD_API_URL)){entry.state='Failed';entry.message='ระบบรูปยังไม่พร้อม';saveTransfers();return entry}
  try{
   if(!photoType||!Number.isSafeInteger(entry.itemId)||entry.itemId<1)throw Error('Item ID รูปไม่ถูกต้อง');
-  const fileBase64=await jpegBase64(file);entry.message='กำลังอัปโหลด';saveTransfers();
-  const result=await photoRequest({action:'upload',photoType,itemId:entry.itemId,jobKey:job.id,fileBase64},75000);
+  const fileBase64=await jpegBase64(file);entry.message='กำลังอัปโหลด';entry.submitted=true;if(!saveTransfers()){entry.submitted=false;throw Error('เก็บสถานะก่อนส่งไม่ได้')}
+  const result=await photoRequest({action:'upload',photoType,itemId:entry.itemId,jobKey:job.id,fileBase64},95000);
   if(result.status!=='STORED'||!result.requestId)throw Error('ยังไม่ยืนยันว่ารูปจัดเก็บแล้ว');
-  entry.requestId=result.requestId;entry.message='บันทึกไฟล์แล้ว · กำลังตรวจสอบการอ่านกลับ';saveTransfers();
+  entry.requestId=result.requestId;entry.receipt=true;entry.message='บันทึกไฟล์แล้ว · กำลังตรวจสอบการอ่านกลับ';saveTransfers();
   await checkPhotoTransfer(entry.requestId);
- }catch(e){entry.state='Failed';entry.message='อัปโหลดไม่สำเร็จ: '+e.message;saveTransfers()}
+ }catch(e){const knownFailure=!entry.submitted||[400,403,405,409,413].includes(e.httpStatus);entry.state=knownFailure?'Failed':'Pending';entry.message=knownFailure?'อัปโหลดไม่สำเร็จ: '+e.message:'ยังไม่ยืนยันผลอัปโหลด กรุณาตรวจสอบก่อนส่งซ้ำ';saveTransfers()}
  return entry;
 }
 async function uploadSavedPhotos(files,job,serial,itemId){
@@ -2735,10 +2736,15 @@ document.addEventListener('click', handleClick);
 document.addEventListener('error', event => {
   if (event.target.matches?.('img[data-reference-photo]')) {
     event.target.hidden = true;
+    if(event.target.nextElementSibling?.dataset.photoError==='1')return;
     const note = document.createElement('span');
+    note.dataset.photoError='1';
     note.className = 'hint';
     note.textContent = 'เปิดรูปไม่ได้ · ลิงก์อาจหมดอายุหรือต้องลงชื่อเข้าใช้ Microsoft';
     event.target.after(note);
+    const key=app.page==='reportpreview'?app.reportJob:app.selected;
+    const cached=app.photoAssets.get(key);
+    if(key&&cached&&Date.now()-cached.loadedAt>10*60*1000&&!isForm(app.page))loadJobPhotos(key,true).catch(()=>{});
   }
 }, true);
 document.addEventListener('submit', event => {
@@ -2877,7 +2883,7 @@ function persistedJobUpdateMatches(job, payload) {
 }
 
 function operationIdentity(operation,job){
-  if (operation.action === 'updateJob') return persistedJobUpdateMatches(job, operation.payload);
+  if (operation.action === 'updateJob') return Number(job.sharePointItemId)===Number(operation.payload.itemId) && persistedJobUpdateMatches(job, operation.payload);
   if (operation.action === 'selectJob') return job.id === operation.payload.jobKey && Number(job.sharePointItemId) === Number(operation.payload.itemId) &&
     job.status === 'progress';
   if (operation.action === 'finishJob') return job.id === operation.payload.jobKey &&
@@ -2895,10 +2901,10 @@ function operationIdentity(operation,job){
   }
   if (operation.action === 'archiveJob') return job.id===operation.payload.jobKey &&
     Number(job.sharePointItemId)===Number(operation.payload.itemId) && job.status==='deleted';
-  if (operation.action === 'deleteInspection') return job.id === operation.payload.jobKey &&
-    Number.isSafeInteger(Number(operation.payload.recordItemId)) &&
+  if (operation.action === 'deleteInspection') return job.id === operation.payload.jobKey && Number(job.sharePointItemId)===Number(operation.payload.itemId) &&
+    Number.isSafeInteger(Number(operation.payload.recordItemId)) && Number(operation.payload.recordItemId)>0 &&
     !liveRecords(job).some(record => Number(record.sharePointItemId) === Number(operation.payload.recordItemId));
-  if (operation.action === 'saveInspection') return liveRecords(job).some(record =>
+  if (operation.action === 'saveInspection') return job.id===operation.payload.jobKey && Number(job.sharePointItemId)===Number(operation.payload.itemId) && liveRecords(job).some(record =>
     record.clientRequestId === operation.clientRequestId && recordMatches(record, operation.payload));
   return false;
 }
@@ -2987,7 +2993,7 @@ function clearSavedDraft(scope) {
 window.addEventListener('beforeunload', event => {
   // Unsaved inputs may be discarded on refresh without a browser warning.
   // Warn only when a write is in flight; keep the persisted pending journal intact.
-  if (app.busy) { event.preventDefault(); event.returnValue = ''; }
+  if (app.busy || (isForm(app.page) && app.dirty)) { event.preventDefault(); event.returnValue = ''; }
 });
 for (const prefix of ['home', 'jobs']) {
   $(prefix + 'Search').addEventListener('input', event => { app.search = event.target.value; renderCurrent(); });
