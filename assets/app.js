@@ -1110,7 +1110,7 @@ const pendingControls = scope => app.pending.has(scope) ? (() => {
   const descriptor=app.pending.get(scope).descriptor;
   return `<div class="section-actions">
     <p class="notice warning">มีรายการที่ยังรอตรวจสอบผล กรุณาตรวจสอบก่อนทำรายการใหม่ เพื่อป้องกันข้อมูลซ้ำ</p>
-    <button class="btn secondary" type="button" data-action="check-save">${icon('refresh')} ตรวจสอบผลบันทึก</button>
+    <button class="btn secondary" type="button" data-action="check-save">${icon('refresh')} ${descriptor.action==='selectJob'?'ตรวจสอบ / ลองเริ่มงานใหม่':'ตรวจสอบผลบันทึก'}</button>
     ${descriptor.action==='createJob' ? `<button class="btn ghost" type="button" data-action="recover-create">กู้คืนคำขอสร้างงานที่ล้มเหลว (ผู้ดูแลยืนยัน)</button>` : ''}
     ${app.page==='jobdetail' && descriptor.action==='finishJob'
       ? `<button class="btn ghost" type="button" data-action="recover-finish">${icon('shield-check')} ตรวจสอบรายการที่ค้าง</button>`
@@ -1934,7 +1934,7 @@ async function confirmPending(scope, attempts = 7) {
 async function trackWrite(scope, action, payload, makeMatcher, onSaved) {
   if (app.pending.has(scope)) { showFeedback('คำขอก่อนหน้ายังไม่ยืนยัน กรุณาตรวจสอบผลก่อน', 'warning'); return false; }
   const descriptor = { scope, action, payload, clientRequestId: crypto.randomUUID(), createdAt: new Date().toISOString(), response: null };
-  const pending = { descriptor, matches: () => false, onSaved };
+  const pending = { descriptor, matches: job => operationMatches(descriptor, job), onSaved };
   app.pending.set(scope, pending);
   if (!persistPending()) {
     app.pending.delete(scope);
@@ -2101,7 +2101,28 @@ async function recheckSave() {
   }
   if (!pending.descriptor.response) pending.matches = job => operationMatches(pending.descriptor, job);
   setBusy(true);
-  try { await confirmPending(scope, 1); } finally { releaseWrite(); }
+  try {
+    if (pending.descriptor.action !== 'selectJob') { await confirmPending(scope, 1); return; }
+    const epoch = sessionEpoch;
+    const d = pending.descriptor;
+    const data = await readJobs();
+    if (epoch !== sessionEpoch || app.pending.get(scope) !== pending) return;
+    if (data.status !== 'OK' || data.partial) return showFeedback('ข้อมูลล่าสุดยังไม่ครบ กรุณาลองใหม่','warning');
+    const latest = data.jobs.filter(Boolean).map(normalizeJob).find(j => j.id === d.payload.jobKey && Number(j.sharePointItemId) === Number(d.payload.itemId));
+    if (!latest) return showFeedback('ไม่พบงานเดิม กรุณาติดต่อผู้ดูแล','warning');
+    if (latest.status === 'progress') { await confirmPending(scope, 1); return; }
+    if (latest.status !== 'new' || text(latest.version) !== text(d.payload.expectedJobVersion)) return showFeedback('สถานะหรือรายละเอียดงานเปลี่ยนแล้ว กรุณาติดต่อผู้ดูแล','warning');
+    if (!await confirmAction('ลองเริ่มงานอีกครั้ง','ตรวจสอบแล้วว่างานเดิมยังไม่ได้เริ่ม ระบบจะส่งคำสั่งเลือกงานเดิมอีกครั้งโดยไม่สร้างงานใหม่','ลองใหม่')) return;
+    if (epoch !== sessionEpoch || app.pending.get(scope) !== pending || !liveWritesAllowed()) return;
+    showFeedback('กำลังส่งคำสั่งเริ่มงานอีกครั้ง…');
+    const response = await post(WRITE_API_URL, 'selectJob', {payload:d.payload,clientRequestId:d.clientRequestId});
+    d.response = {requestId:text(response?.requestId),status:text(response?.status)};
+    persistPending();
+    await confirmPending(scope);
+  } catch(error) {
+    console.warn('Write recovery failed',error);
+    showFeedback('ยังตรวจสอบหรือเริ่มงานไม่ได้ ข้อมูลเดิมยังอยู่ กรุณาลองใหม่','warning');
+  } finally { releaseWrite(); }
 }
 
 function jobData(job) {
@@ -2857,8 +2878,8 @@ function persistedJobUpdateMatches(job, payload) {
 
 function operationIdentity(operation,job){
   if (operation.action === 'updateJob') return persistedJobUpdateMatches(job, operation.payload);
-  if (operation.action === 'selectJob') return job.id === operation.payload.jobKey &&
-    job.status === 'progress' && text(job.version) !== text(operation.payload.expectedJobVersion);
+  if (operation.action === 'selectJob') return job.id === operation.payload.jobKey && Number(job.sharePointItemId) === Number(operation.payload.itemId) &&
+    job.status === 'progress';
   if (operation.action === 'finishJob') return job.id === operation.payload.jobKey &&
     Number(job.sharePointItemId) === Number(operation.payload.itemId) &&
     finished(job) && liveRecords(job).length > 0 &&
@@ -2885,6 +2906,7 @@ function operationMatches(operation, job) {
   if(!operationIdentity(operation,job))return false;
   const payload = operation.payload;
   if (!operation.response) {
+    if (['selectJob','finishJob','updateJob','deleteInspection'].includes(operation.action)) return job.id === payload.jobKey && Number(job.sharePointItemId) === Number(payload.itemId);
     if (operation.action === 'createJob') return job.clientRequestId === operation.clientRequestId;
     if (operation.action === 'saveInspection') return job.id === payload.jobKey && liveRecords(job).some(record =>
       record.clientRequestId === operation.clientRequestId && recordMatches(record, payload, payload.overallResult));
