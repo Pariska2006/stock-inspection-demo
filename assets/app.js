@@ -2394,10 +2394,10 @@ function recordMatches(record,payload){
  return (!payload.recordItemId||Number(record.sharePointItemId)===payload.recordItemId)&&record.serial.toUpperCase()===payload.serial&&
   record.product===payload.product&&text(record.model)===payload.model&&values&&
   text(record.location)===payload.location&&text(record.lotNo)===payload.lotNo&&dateValue(record.checkedAt)===payload.inspectionDate&&text(record.note)===payload.remarks&&
-  text(record.ngDetail)===payload.ngDetail&&text(record.legacyPhotoUrl1)===payload.photoUrl1&&Number(record.schemaVersion)===2&&
+  text(record.ngDetail).replace(/\r\n/g,'\n')===text(payload.ngDetail).replace(/\r\n/g,'\n')&&text(record.legacyPhotoUrl1)===payload.photoUrl1&&Number(record.schemaVersion)===2&&
   DOMAIN.inspection(job,record).overallResult===payload.overallResult&&DOMAIN.inspection(job,record).isComplete===payload.isComplete;
 }
-function inspectionSnapshot(job,record){return JSON.stringify([record.version,DOMAIN.criteria(job,record).map(c=>[c.label,DOMAIN.criterionValue(record,c)]),record.product,record.model,record.location,record.lotNo,record.checkedAt,record.note,record.ngDetail,record.photoSlots])}
+function inspectionSnapshot(job,record){return JSON.stringify([record.version,DOMAIN.criteria(job,record).map(c=>[c.label,DOMAIN.criterionValue(record,c)]),record.product,record.model,record.location,record.lotNo,record.checkedAt,record.note,record.ngDetail,record.legacyPhotoUrl1])}
 async function latestActiveJob(job){
  const data=await readJobs();const current=data.jobs.filter(Boolean).map(normalizeJob).find(item=>item.id===job.id);
  if(data.status!=='OK'||data.partial)throw Error('ข้อมูลล่าสุดยังไม่ครบ กรุณาลองใหม่');
@@ -2432,7 +2432,7 @@ async function submitInspection(event){
   const {data,current}=await latestActiveJob(job);if(data.partial)throw Error('ข้อมูลไม่ครบ ยังบันทึกไม่ได้');
   if(JSON.stringify(DOMAIN.criteria(current))!==JSON.stringify(cs))throw Error('เกณฑ์เปลี่ยนแล้ว กรุณาเปิดงานใหม่');
   if(!existing&&liveRecords(current).some(r=>r.serial.toUpperCase()===serial))return validationError('มีเลขตัวรถนี้ในงานแล้ว','insSerial');
-  if(existing){const latest=liveRecords(current).find(r=>Number(r.sharePointItemId)===recordItemId);if(!latest||inspectionSnapshot(current,latest)!==app.inspectionBaseline){applyJobs(data);return showFeedback('รายการนี้มีการเปลี่ยนแปลง กรุณาเปิดผลล่าสุดก่อนบันทึก','error')}}
+  if(existing){const latest=liveRecords(current).find(r=>Number(r.sharePointItemId)===recordItemId);if(!latest||latest.serial.toUpperCase()!==serial||inspectionSnapshot(current,latest)!==app.inspectionBaseline){applyJobs(data);return showFeedback('ผลตรวจเดิมมีการเปลี่ยนแปลง กรุณาเปิดรายการเดิมใหม่ก่อนบันทึก','error')}payload.expectedVersion=latest.version}
   payload.expectedJobVersion=current.version;
   const files=selectedPhotoFiles();
   await trackWrite(jobScope(job),'saveInspection',payload,()=>saved=>saved.id===job.id&&liveRecords(saved).some(r=>recordMatches(r,payload)),async saved=>{
