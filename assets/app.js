@@ -1395,15 +1395,16 @@ function renderDetail() {
   const completed = finished(job);
   const criteria = criteriaSlots(job);
   const counts = { all: records.length, OK: 0, NG: 0, pending: 0 };
+  if (app.recordFilter === 'NA') app.recordFilter = 'pending';
   const filtered = records.filter(record => {
-    const { status } = vehicleInspection(job, record);
-    if (status) counts[status]++;
-    return app.recordFilter === 'all' || status === app.recordFilter;
+    const inspection = vehicleInspection(job, record);
+    const category = inspection.complete ? inspection.status : 'pending';
+    if (Object.hasOwn(counts,category)) counts[category]++;
+    return app.recordFilter === 'all' || category === app.recordFilter;
   }).sort((a, b) =>
     Number(!vehicleInspection(job,b).complete) - Number(!vehicleInspection(job,a).complete) ||
     text(b.checkedAt).localeCompare(text(a.checkedAt)) ||
     (Number(b.sharePointItemId) || 0) - (Number(a.sharePointItemId) || 0));
-  if (app.recordFilter === 'NA') app.recordFilter = 'pending';
   const filters = [['all', 'รถในรายการทั้งหมด'], ['OK', 'OK'], ['NG', 'NG']];
   if (active || counts.pending || app.recordFilter === 'pending') filters.push(['pending', 'กำลังดำเนินการ']);
   const url = reportLink(job);
