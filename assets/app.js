@@ -1160,7 +1160,7 @@ function vehicleBadge(inspection) {
 
 function vehicleProgress(inspection) {
   const { checked, total, complete } = inspection;
-  return complete ? `<span class="record-progress complete">${icon('check')} ตรวจครบ ${checked}/${total} ข้อ</span>` :
+  return complete ? `<span class="record-progress complete">${icon('check')} ${checked===total?`ตรวจครบ ${checked}/${total} ข้อ`:`สรุป NG · ตรวจ ${checked}/${total} ข้อ`}</span>` :
     `<span class="record-progress pending-count">${icon('clock')} ตรวจแล้ว ${checked}/${total} ข้อ · กำลังดำเนินการ</span>`;
 }
 
@@ -1173,7 +1173,7 @@ function recordLine(job, record, editable) {
       <p>${html(meta)}</p>${vehicleProgress(inspection)}</div>
     <div class="record-tail">
       <button class="small-action" type="button" data-view-record="${html(record.id)}">ดูรายละเอียด</button>
-      ${editable ? `<button class="small-action${!inspection.complete ? ' continue-inspection' : ''}" type="button" data-edit-record="${html(record.id)}">${!inspection.complete ? 'ตรวจต่อ' : 'แก้ไข'}</button>
+      ${editable ? `<button class="small-action${!inspection.complete ? ' continue-inspection' : ''}" type="button" data-edit-record="${html(record.id)}">แก้ไข</button>
         ${app.deleteEnabled ? `<button class="small-action danger" type="button" data-delete-record="${html(record.id)}" aria-label="ลบรายการรถ ${html(record.serial)}">ลบ</button>` : ''}` : ''}
     </div></article>`;
 }
@@ -2448,6 +2448,7 @@ async function submitInspection(event){
  const ng=record.criterionResults.filter(c=>c.result==='NG');
  if(ng.some(c=>!text(c.ngDetail)))return showFeedback('กรุณากรอกหมายเหตุสำหรับเกณฑ์ที่เลือก NG ก่อนบันทึก','warning');
  const aggregate=DOMAIN.inspection(job,record),changes=DOMAIN.changes(job,existing,record);
+ if(!aggregate.complete)return showFeedback('กรุณาตรวจครบทุกเกณฑ์ หรือระบุผล NG ที่พบก่อนบันทึก','warning');
  const payload={...jobData(job),schemaVersion:2,recordItemId,serial,product,model,location:val('insLocation'),expectedVersion:existing?.version??null,
   criteria:cs,criterionResults:record.criterionResults,changes,overallResult:aggregate.overallResult,isComplete:aggregate.isComplete,
   lotNo:existing?.lotNo||'',inspectionDate:val('insDate'),remarks:val('insRemarks'),photoUrl1:existing?.legacyPhotoUrl1||'',
