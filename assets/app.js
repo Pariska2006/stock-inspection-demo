@@ -507,6 +507,16 @@ function applyJobs(data) {
   app.modelMaster = Array.isArray(data.modelMaster) ? data.modelMaster.filter(row => row && text(row.product) && text(row.model)).map(row => ({product:text(row.product),model:text(row.model)})) : [];
   app.modelMasterSource = text(data.modelMasterSource);
   const normalized = data.jobs.filter(Boolean).map(normalizeJob);
+  // An explicit deleted state with both identifiers proves archive completion.
+  if(data.status==='OK'&&!data.partial){
+    const resolved=[];
+    for(const [scope,pending] of app.pending){
+      if(pending.descriptor.action==='archiveJob' && normalized.filter(job=>operationIdentity(pending.descriptor,job)).length===1){
+        resolved.push([scope,pending]);app.pending.delete(scope);
+      }
+    }
+    if(resolved.length&&!persistPending())for(const [scope,pending] of resolved)app.pending.set(scope,pending);
+  }
   // Soft-deleted jobs remain in Lists but are hidden from every workspace.
   app.jobs = normalized.filter(job => job.id && job.status !== 'deleted').sort(sortJobs);
   app.membersReady = Array.isArray(data.members);
@@ -1906,11 +1916,18 @@ async function confirmPending(scope, attempts = 7) {
     const deletingJob = pending.descriptor.action === 'deleteJob';
     const correlatedCreates = pending.descriptor.action === 'createJob' ? jobs.filter(job => operationIdentity(pending.descriptor,job)) : [];
     if (correlatedCreates.length > 1) { showFeedback('พบงานที่มีรหัสคำขอซ้ำ กรุณาให้ผู้ดูแลตรวจสอบ','warning'); return false; }
+    const correlatedSaves = pending.descriptor.action==='saveInspection' ? jobs.filter(job=>{
+      const d=pending.descriptor,p=d.payload;
+      return job.id===p.jobKey&&Number(job.sharePointItemId)===Number(p.itemId)&&liveRecords(job).filter(record=>
+        record.clientRequestId===d.clientRequestId&&record.serial.toUpperCase()===text(p.serial).toUpperCase()&&
+        (!p.recordItemId||Number(record.sharePointItemId)===Number(p.recordItemId))&&
+        Number(record.sharePointItemId)>0).length===1;
+    }) : [];
     const match = deletingJob
       ? (pending.descriptor.response?.status === 'WRITE_REQUEST_ACCEPTED' &&
          newest.status === 'OK' &&
          !jobs.some(job => job.id === pending.descriptor.payload.jobKey))
-      : pending.descriptor.action === 'createJob' ? correlatedCreates[0] : jobs.find(job => pending.matches(job, newest));
+      : pending.descriptor.action === 'createJob' ? correlatedCreates[0] : jobs.find(job => pending.matches(job, newest)) || (correlatedSaves.length===1?correlatedSaves[0]:null);
     if (match) {
       app.pending.delete(scope);
       if (!persistPending()) { app.pending.set(scope,pending); showFeedback('ยืนยันข้อมูลแล้ว แต่ยังบันทึกสถานะในเครื่องไม่ได้ กรุณาตรวจสอบอีกครั้ง','warning'); return false; }
@@ -1919,6 +1936,11 @@ async function confirmPending(scope, attempts = 7) {
       if (pending.descriptor.action === 'createJob' && !pending.matches(match,newest)) {
         selectJob(match.id,'jobs');
         showFeedback('พบงานที่สร้างสำเร็จแล้ว กรุณาตรวจสอบรายละเอียดและรูปภาพของงานเดิมก่อนเริ่มตรวจ ไม่ต้องสร้างงานซ้ำ','warning');
+        return true;
+      }
+      if(pending.descriptor.action==='saveInspection'&&!pending.matches(match,newest)){
+        selectJob(match.id,'jobs');
+        showFeedback('พบรายการที่บันทึกด้วยรหัสคำขอนี้แล้ว แต่รายละเอียดบางช่องไม่ตรง กรุณาเปิดรถเดิมตรวจสอบและแก้ไข ไม่ต้องสร้างรถใหม่','warning');
         return true;
       }
       await pending.onSaved(deletingJob ? null : match);
@@ -2192,7 +2214,14 @@ function encodeJobNotes({ notes, claimCategory, startedBy, startedAt, defaultIns
 async function archiveJobFromWeb() {
  const job=findJob();
  if(!job || job.status==='deleted') return;
- if(app.pending.has(jobScope(job)))return showFeedback('งานนี้ยังมีคำขอบันทึกค้าง กรุณาตรวจสอบผลก่อน','warning');
+ if(app.pending.has(jobScope(job))){
+   const pending=app.pending.get(jobScope(job));
+   await withWrite(async()=>{
+     const resolved=await confirmPending(jobScope(job),2);
+     if(resolved&&pending.descriptor.action!=='archiveJob')showFeedback('ตรวจสอบคำขอก่อนหน้าแล้ว กรุณาเปิดงานและกดลบงานอีกครั้ง','success');
+   });
+   return;
+ }
  if(app.dirty)return showFeedback('มีแบบฟอร์มแก้ไขค้างอยู่ กรุณาออกจากแบบฟอร์มก่อน','warning');
  if(!await confirmAction('นำงานออกจากระบบ',
   'ต้องการนำงาน "'+job.title+'" ออกจากหน้ารายการหรือไม่?\n\nระบบจะเก็บผลตรวจรถ รูปภาพ และประวัติทั้งหมดไว้ งานจะถูกซ่อนหลังยืนยันการบันทึกสำเร็จ',
