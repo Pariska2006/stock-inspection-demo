@@ -1111,6 +1111,7 @@ const pendingControls = scope => app.pending.has(scope) ? (() => {
   return `<div class="section-actions">
     <p class="notice warning">มีรายการที่ยังรอตรวจสอบผล กรุณาตรวจสอบก่อนทำรายการใหม่ เพื่อป้องกันข้อมูลซ้ำ</p>
     <button class="btn secondary" type="button" data-action="check-save">${icon('refresh')} ตรวจสอบผลบันทึก</button>
+    ${descriptor.action==='createJob' ? `<button class="btn ghost" type="button" data-action="recover-create">กู้คืนคำขอสร้างงานที่ล้มเหลว (ผู้ดูแลยืนยัน)</button>` : ''}
     ${app.page==='jobdetail' && descriptor.action==='finishJob'
       ? `<button class="btn ghost" type="button" data-action="recover-finish">${icon('shield-check')} ตรวจสอบรายการที่ค้าง</button>`
       : ''}
@@ -1560,7 +1561,7 @@ function renderJobForm() {
         ${photoConnectionHint()}
         ${field('jfTarget', 'จำนวนเป้าหมาย (คัน)', job?.targetUnits ?? '', { type: 'number', max: 7 })}
         ${field('jfLocation', 'จุดตรวจ', job?.inspectionLocation)}
-        ${area('jfMethod', 'Checking Method *', job?.checkingMethod, { required: true, max: 700, rows: 4 })}
+        ${area('jfMethod', 'Checking Method *', job?.checkingMethod, { required: true, max: 255, rows: 4 })}
         ${criteriaEditor(job)}
         ${area('jfNotes', 'หมายเหตุงาน', job?.notes, { max: 700 })}
       </fieldset>
@@ -2061,6 +2062,33 @@ async function recoverPendingFinish() {
   }
 }
 
+async function recoverPendingCreate() {
+  const scope=manualScope, pending=app.pending.get(scope), epoch=sessionEpoch;
+  if (!pending || pending.descriptor.action!=='createJob' || app.busy || app.jobsLoading || !liveWritesAllowed()) return;
+  setBusy(true);
+  try {
+    const data=await readJobs();
+    if(epoch!==sessionEpoch || app.pending.get(scope)!==pending || data.status!=='OK' || data.partial)
+      return showFeedback('ยังอ่านข้อมูลล่าสุดไม่ครบ จึงไม่ปลดคำขอ','warning');
+    const jobs=data.jobs.filter(Boolean).map(normalizeJob);
+    const d=pending.descriptor;
+    const possible=jobs.some(job=>operationIdentity(d,job) || (text(job.title)===text(d.payload.title) && text(job.model)===text(d.payload.model)));
+    if(possible) return showFeedback('พบงานที่อาจตรงกับคำขอเดิม กรุณาติดต่อผู้ดูแลเพื่อตรวจสอบก่อน','warning');
+    if(!await confirmAction('กู้คืนคำขอสร้างงานที่ล้มเหลว',
+      'ให้ผู้ดูแลตรวจสอบ Run History ของคำขอเดิมและยืนยันว่า CreateManualJob ล้มเหลวก่อนสร้างรายการ ไม่มีการทำงานหรือ retry ค้าง และไม่มีรายการใน STK_Jobs เท่านั้น หากไม่แน่ใจให้ยกเลิก\nRequest ID: '+d.clientRequestId,
+      'ยืนยันว่าบันทึกไม่สำเร็จ','danger')) return;
+    if(epoch!==sessionEpoch || app.pending.get(scope)!==pending) return;
+    const key='stock-create-recovery-v1:'+storageIdentity();
+    const old=JSON.parse(localStorage.getItem(key)||'[]');
+    localStorage.setItem(key,JSON.stringify([...(Array.isArray(old)?old:[]),{clientRequestId:d.clientRequestId,recoveredAt:new Date().toISOString()}].slice(-30)));
+    app.pending.delete(scope);
+    if(!persistPending()){app.pending.set(scope,pending);return showFeedback('ไม่สามารถเก็บสถานะใหม่ได้','error')}
+    syncFormControls();
+    showFeedback('ปลดคำขอเดิมแล้ว กรุณาแก้ไขข้อมูลก่อนสร้างงานใหม่','success');
+  } catch(error) { console.warn('Create recovery failed',error);showFeedback('ยังปลดคำขอไม่ได้ กรุณาติดต่อผู้ดูแล','warning'); }
+  finally {releaseWrite();}
+}
+
 async function recheckSave() {
   const scope = currentScope();
   const pending = app.pending.get(scope);
@@ -2234,6 +2262,9 @@ async function submitJob(event) {
   if (!job && !app.products.includes(product)) return validationError('กรุณาเลือก Product', 'jfClaimType');
   if ((!job || model) && !validModel.test(model)) return validationError('กรุณาตรวจรูปแบบรุ่นรถ (สูงสุด 70 ตัวอักษร)', 'jfModel');
   if (!val('jfMethod')) return validationError('กรุณากรอกวิธีตรวจ', 'jfMethod');
+  for (const id of ['jfMethod','jfLocation',...SLOTS.map(slot=>'jfCriteria'+slot)]) {
+    if (val(id).length > 255) return validationError('ข้อความช่องนี้ยาวเกิน 255 ตัวอักษร กรุณาย่อก่อนบันทึก', id);
+  }
   if (!SLOTS.some(slot => val('jfCriteria' + slot))) {
     return validationError('กรุณากรอกเกณฑ์ตรวจอย่างน้อย 1 ข้อ', 'jfCriteria1');
   }
@@ -2655,6 +2686,8 @@ async function handleClick(event) {
     await finishJob();
   } else if (action === 'check-save') {
     await recheckSave();
+  } else if (action === 'recover-create') {
+    await recoverPendingCreate();
   } else if (action === 'recover-finish') {
     await recoverPendingFinish();
   } else if (action === 'refresh-jobs') {
