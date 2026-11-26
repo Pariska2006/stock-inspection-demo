@@ -20,8 +20,9 @@
  }
  function inspection(job,record){
   const cs=criteria(job,record), values=cs.map(c=>result(record,c));
-  const checked=values.filter(decided).length, complete=cs.length>0&&checked===cs.length;
+  const checked=values.filter(decided).length;
   const ng=values.includes('NG')||(!checked&&code(record.overallResult||record.result)==='NG');
+  const complete=cs.length>0&&(values.includes('NG')||checked===cs.length);
   const status=ng?'NG':!complete?'pending':'OK';
   return {status,overallResult:status==='pending'?'Pending':status,isComplete:complete,complete,checked,total:cs.length};
  }
