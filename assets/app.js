@@ -1903,16 +1903,23 @@ async function confirmPending(scope, attempts = 7) {
     }
     const jobs = newest.jobs.filter(Boolean).map(normalizeJob);
     const deletingJob = pending.descriptor.action === 'deleteJob';
+    const correlatedCreates = pending.descriptor.action === 'createJob' ? jobs.filter(job => operationIdentity(pending.descriptor,job)) : [];
+    if (correlatedCreates.length > 1) { showFeedback('พบงานที่มีรหัสคำขอซ้ำ กรุณาให้ผู้ดูแลตรวจสอบ','warning'); return false; }
     const match = deletingJob
       ? (pending.descriptor.response?.status === 'WRITE_REQUEST_ACCEPTED' &&
          newest.status === 'OK' &&
          !jobs.some(job => job.id === pending.descriptor.payload.jobKey))
-      : jobs.find(job => pending.matches(job, newest));
+      : pending.descriptor.action === 'createJob' ? correlatedCreates[0] : jobs.find(job => pending.matches(job, newest));
     if (match) {
       app.pending.delete(scope);
       if (!persistPending()) { app.pending.set(scope,pending); showFeedback('ยืนยันข้อมูลแล้ว แต่ยังบันทึกสถานะในเครื่องไม่ได้ กรุณาตรวจสอบอีกครั้ง','warning'); return false; }
       clearSavedDraft(scope);
       applyJobs(newest);
+      if (pending.descriptor.action === 'createJob' && !pending.matches(match,newest)) {
+        selectJob(match.id,'jobs');
+        showFeedback('พบงานที่สร้างสำเร็จแล้ว กรุณาตรวจสอบรายละเอียดและรูปภาพของงานเดิมก่อนเริ่มตรวจ ไม่ต้องสร้างงานซ้ำ','warning');
+        return true;
+      }
       await pending.onSaved(deletingJob ? null : match);
       return true;
     }
@@ -2897,7 +2904,7 @@ function operationIdentity(operation,job){
     const requestId = text(operation.response?.requestId);
     // STK_06 may generate a separate JobKey; the import key can carry the
     // correlated write request. Never match by title alone (duplicate risk).
-    return !!requestId && [job.id, job.importKey].some(value => text(value).endsWith(requestId));
+    return /^STKW_[0-9]+$/.test(requestId) && Number.isSafeInteger(Number(job.sharePointItemId)) && Number(job.sharePointItemId)>0 && [job.id, job.importKey].some(value => text(value) === 'STK-MAN-'+requestId);
   }
   if (operation.action === 'archiveJob') return job.id===operation.payload.jobKey &&
     Number(job.sharePointItemId)===Number(operation.payload.itemId) && job.status==='deleted';
