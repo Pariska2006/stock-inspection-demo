@@ -1122,7 +1122,7 @@ const pendingControls = scope => app.pending.has(scope) ? (() => {
     <p class="notice warning">มีรายการที่ยังรอตรวจสอบผล กรุณาตรวจสอบก่อนทำรายการใหม่ เพื่อป้องกันข้อมูลซ้ำ</p>
     <button class="btn secondary" type="button" data-action="check-save">${icon('refresh')} ${descriptor.action==='selectJob'?'ตรวจสอบ / ลองเริ่มงานใหม่':'ตรวจสอบผลบันทึก'}</button>
     ${descriptor.action==='createJob' ? `<button class="btn ghost" type="button" data-action="recover-create">กู้คืนคำขอสร้างงานที่ล้มเหลว (ผู้ดูแลยืนยัน)</button>` : ''}
-    ${app.page==='jobdetail' && descriptor.action==='finishJob'
+    ${app.page==='jobdetail' && ['finishJob','saveInspection','updateJob','selectJob'].includes(descriptor.action)
       ? `<button class="btn ghost" type="button" data-action="recover-finish">${icon('shield-check')} ตรวจสอบรายการที่ค้าง</button>`
       : ''}
    </div>`;
@@ -2016,12 +2016,12 @@ async function recoverPendingFinish() {
   if(!job || app.page!=='jobdetail') return;
   const scope=jobScope(job);
   const pending=app.pending.get(scope);
-  if(!pending || pending.descriptor.action!=='finishJob') {
+  if(!pending || !['finishJob','saveInspection','updateJob','selectJob'].includes(pending.descriptor.action)) {
     return showFeedback('ไม่พบคำขอจบงานที่ค้างสำหรับงานนี้','warning');
   }
   if(app.busy || app.jobsLoading) return;
   if(!await confirmAction(
-    'ตรวจสอบคำขอจบงานที่ค้าง',
+    'ตรวจสอบคำขอบันทึกที่ค้าง',
     'ระบบจะตรวจสอบผลการบันทึกล่าสุดก่อน\n\nหากต้องการปลดรายการที่ค้าง ต้องให้ผู้ดูแลตรวจสอบก่อนว่าการส่งครั้งเดิมไม่ได้กำลังทำงานอยู่\n\nขั้นตอนนี้จะยังไม่จบงานหรือส่งคำสั่งใหม่',
     'อ่านสถานะล่าสุด'
   )) return;
@@ -2072,7 +2072,7 @@ async function recoverPendingFinish() {
     try {
       const old=JSON.parse(localStorage.getItem(auditKey)||'[]');
       const entries=Array.isArray(old)?old:[];
-      entries.push({jobKey:job.id,itemId:Number(latest.sharePointItemId),clientRequestId:request,recoveredAt:new Date().toISOString()});
+      entries.push({jobKey:job.id,itemId:Number(latest.sharePointItemId),clientRequestId:request,action:pending.descriptor.action,recoveredAt:new Date().toISOString()});
       localStorage.setItem(auditKey,JSON.stringify(entries.slice(-30)));
     }catch(error){
       return showFeedback('บันทึกประวัติการปลดคำขอไม่ได้ จึงยังไม่ปลดคำขอ','error');
@@ -2252,9 +2252,14 @@ async function finishJob() {
   if(finished(job)){app.reportJob=job.id;navigate('reports',true);return}
   if(job.status!=='progress')return showFeedback('กรุณาเริ่มตรวจงานก่อนจบการตรวจ','warning');
   if(app.pending.has(jobScope(job))){
-    showFeedback('งานนี้มีคำขอรอยืนยันผล กรุณากด “ตรวจสอบผลบันทึก” ก่อน ไม่ต้องส่งจบงานซ้ำ','warning');
-    $('detailMessage')?.scrollIntoView({behavior:'smooth',block:'center'});
-    return;
+    await withWrite(async()=>{await confirmPending(jobScope(job),2);});
+    if(app.pending.has(jobScope(job))) {
+      showFeedback('ยังมีคำขอเดิมค้าง กรุณาใช้ “ตรวจสอบรายการที่ค้าง” หลังผู้ดูแลยืนยันว่า Flow เดิมสิ้นสุดแล้ว','warning');
+      $('detailMessage')?.scrollIntoView({behavior:'smooth',block:'center'});
+      return;
+    }
+    if(app.page!=='jobdetail'||findJob()?.id!==job.id)return;
+    return finishJob();
   }
   const records=liveRecords(job);
   if(!records.length){showFeedback('ยังจบงานไม่ได้ · ยังไม่มีรถที่บันทึกผล กรุณาตรวจอย่างน้อย 1 คัน','warning');return}
