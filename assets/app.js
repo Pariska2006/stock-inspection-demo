@@ -1883,13 +1883,13 @@ async function confirmPending(scope, attempts = 7) {
   const epoch = sessionEpoch;
   if (!pending) return true;
   let newest, lastReadError = '';
-  const deadline = Date.now() + 24000;
+  const deadline = Date.now() + 100000;
   for (let attempt = 0; attempt < attempts; attempt++) {
     if (attempts > 1) await delay(attempt ? 1900 : 650);
     const remaining = deadline - Date.now();
     if (remaining < 500) break;
     try {
-      newest = await readJobs(Math.min(10000, remaining));
+      newest = await readJobs(Math.min(45000, remaining));
     } catch (error) {
       lastReadError = text(error?.message || 'ไม่ทราบสาเหตุ');
       newest = null;
@@ -2109,7 +2109,7 @@ async function recheckSave() {
   if (!pending.descriptor.response) pending.matches = job => operationMatches(pending.descriptor, job);
   setBusy(true);
   try {
-    if (pending.descriptor.action !== 'selectJob') { await confirmPending(scope, 1); return; }
+    if (pending.descriptor.action !== 'selectJob') { await confirmPending(scope, 2); return; }
     const epoch = sessionEpoch;
     const d = pending.descriptor;
     const data = await readJobs();
